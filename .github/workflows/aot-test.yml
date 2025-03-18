@@ -9,7 +9,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-14, windows-2022, ubuntu-24.04]
+        # Only test on Mac and Ubuntu – these are the fastest platforms.
+        # Windows and Linux ARM are built later after the PR is merged.
+        os: [macos-14, ubuntu-24.04]
     steps:
       - uses: actions/checkout@v4
 

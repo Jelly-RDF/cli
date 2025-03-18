@@ -31,7 +31,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jelly-cli-${{ matrix.os }}
-          path: target/graalvm-native-image/jelly-cli
+          path: target/graalvm-native-image/*
+
+  publish:
+    runs-on: ubuntu-latest
+    depends-on: aot-compile
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Debug
+        uses: ls -lR .
+
+
+
 
 # TODO: we just build and upload the artifact.
 # We should also publish it to GitHub releases.
