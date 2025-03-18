@@ -10,5 +10,6 @@ object App extends CommandsEntryPoint:
   override def progName: String = "jelly-cli"
 
   override def commands: Seq[Command[?]] = Seq(
-    FoolAround
+    FoolAround,
+    Version,
   )
