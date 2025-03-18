@@ -28,4 +28,7 @@ lazy val root = (project in file("."))
       libraryDependencies,
     ),
     buildInfoPackage := "eu.neverblink.jelly.cli",
+
+    // GraalVM settings
+    Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
   )
