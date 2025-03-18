@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli
 import caseapp.*
 import eu.neverblink.jelly.cli.JellyCommand.emptyRemainingArgs
 
-import java.io.{ByteArrayOutputStream, PrintStream, PrintWriter}
+import java.io.{ByteArrayOutputStream, PrintStream}
 import scala.compiletime.uninitialized
 
 object JellyCommand:

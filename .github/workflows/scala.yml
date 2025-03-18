@@ -1,0 +1,42 @@
+name: Scala build and test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  # Run scalatest
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            java: 17
+          - os: ubuntu-latest
+            java: 21
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: ${{ matrix.java }}
+
+    - name: Setup SBT
+      uses: sbt/setup-sbt@v1
+
+    - name: Build and test
+      shell: bash
+      run: sbt -v +test
