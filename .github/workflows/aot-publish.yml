@@ -1,0 +1,37 @@
+name: Ahead-of-time compile & publish
+on:
+  push:
+    branches: [ "main" ]
+    tags: ["v*"]
+
+jobs:
+  aot-compile:
+    name: AOT compile on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-14, windows-2022, ubuntu-24.04, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '23'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job-reports: 'true'
+
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+
+      - name: Build native image
+        run: sbt GraalVMNativeImage/packageBin
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: jelly-cli-${{ matrix.os }}
+          path: target/graalvm-native-image/jelly-cli
+
+# TODO: we just build and upload the artifact.
+# We should also publish it to GitHub releases.
