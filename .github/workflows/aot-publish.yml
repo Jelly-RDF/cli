@@ -35,7 +35,7 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    depends-on: aot-compile
+    needs: aot-compile
     steps:
       - uses: actions/download-artifact@v4
 
