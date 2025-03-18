@@ -1,6 +1,7 @@
 package eu.neverblink.jelly.cli.command
 
 import caseapp.*
+import eu.neverblink.jelly.cli.JellyCommand
 
 case class FoolAroundOptions(
   @HelpMessage("What to say")
@@ -10,7 +11,7 @@ case class FoolAroundOptions(
 /**
  * "foo-bar" kind of command.
  */
-object FoolAround extends Command[FoolAroundOptions]:
+object FoolAround extends JellyCommand[FoolAroundOptions]:
   // https://alexarchambault.github.io/case-app/commands/
   override def names: List[List[String]] = List(
     List("fool-around"),

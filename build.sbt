@@ -9,6 +9,7 @@ lazy val jenaV = "5.3.0"
 lazy val jellyV = "2.8.0+14-4181e89a-SNAPSHOT"
 
 lazy val root = (project in file("."))
+  .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "cli",
     libraryDependencies ++= Seq(
@@ -16,5 +17,12 @@ lazy val root = (project in file("."))
       "org.apache.jena" % "jena-arq" % jenaV,
       "eu.ostrzyciel.jelly" %% "jelly-jena" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0-M30",
-    )
+      "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+    ),
+    buildInfoKeys := Seq[BuildInfoKey](
+      version,
+      scalaVersion,
+      libraryDependencies,
+    ),
+    buildInfoPackage := "eu.neverblink.jelly.cli",
   )
