@@ -17,10 +17,9 @@ object Version extends JellyCommand[VersionOptions]:
     val jellyV = BuildInfo.libraryDependencies
       .find(_.startsWith("eu.ostrzyciel.jelly:jelly-jena:")).get.split(":")(2)
     printLine(
-      f"""jelly-cli  ${BuildInfo.version}
+      f"""jelly-cli   ${BuildInfo.version}
          |----------------------------------------------
          |Jelly-JVM   $jellyV
          |Apache Jena $jenaV
          |JVM         ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}
-         |
          |""".stripMargin)

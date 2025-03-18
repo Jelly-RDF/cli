@@ -1,11 +1,12 @@
-name: Ahead-of-time compilation test
+name: Ahead-of-time compile & publish
 on:
-  pull_request:
+  push:
     branches: [ "main" ]
+    tags: ["v*"]
 
 jobs:
-  build:
-    name: AOT test on ${{ matrix.os }}
+  aot-compile:
+    name: AOT compile on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -25,3 +26,12 @@ jobs:
 
       - name: Build native image
         run: sbt GraalVMNativeImage/packageBin
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: jelly-cli-${{ matrix.os }}
+          path: target/graalvm-native-image/jelly-cli
+
+# TODO: we just build and upload the artifact.
+# We should also publish it to GitHub releases.

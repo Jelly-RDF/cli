@@ -14,7 +14,7 @@ lazy val root = (project in file("."))
     GraalVMNativeImagePlugin,
   )
   .settings(
-    name := "cli",
+    name := "jelly-cli",
     libraryDependencies ++= Seq(
       "org.apache.jena" % "jena-core" % jenaV,
       "org.apache.jena" % "jena-arq" % jenaV,
