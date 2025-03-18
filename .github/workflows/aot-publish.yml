@@ -39,11 +39,35 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
 
-      - name: Debug
-        run: ls -lR .
+      - name: Rename binaries
+        run: |
+          mv jelly-cli-macos-14/jelly-cli jelly-cli-mac-arm64
+          mv jelly-cli-ubuntu-24.04/jelly-cli jelly-cli-linux-x86_64
+          mv jelly-cli-ubuntu-24.04-arm/jelly-cli jelly-cli-linux-arm64
+          mv jelly-cli-windows-2022/jelly-cli.exe jelly-cli-windows-x86_64.exe
 
+      - name: Upload binaries (pre-release)
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          allowUpdates: true
+          prerelease: true
+          draft: false
+          omitDraftDuringUpdate: false
+          makeLatest: false
+          tag: dev
+          name: "Development build"
+          artifacts: jelly-cli-*
+          generateReleaseNotes: true
 
-
-
-# TODO: we just build and upload the artifact.
-# We should also publish it to GitHub releases.
+      - name: Upload binaries (tagged release)
+        if: github.ref != 'refs/heads/main'
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          prerelease: false
+          draft: false
+          makeLatest: true
+          tag: "${{ github.ref_name }}"
+          name: "${{ github.ref_name }}"
+          artifacts: jelly-cli-*
+          generateReleaseNotes: true
