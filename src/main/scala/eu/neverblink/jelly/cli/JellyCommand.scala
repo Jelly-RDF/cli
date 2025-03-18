@@ -9,17 +9,17 @@ import scala.compiletime.uninitialized
 object JellyCommand:
   val emptyRemainingArgs: RemainingArgs = RemainingArgs(Seq.empty, Seq.empty)
 
-abstract class JellyCommand[T : {Parser, Help}] extends Command[T]:
+abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
   private var isTest = false
   private var out = System.out
   private var err = System.err
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
 
-  /**
-   * Enable the "test mode" which captures stdout, stderr, exit code, and so on.
-   * @param test true to enable, false to disable
-   */
+  /** Enable the "test mode" which captures stdout, stderr, exit code, and so on.
+    * @param test
+    *   true to enable, false to disable
+    */
   def testMode(test: Boolean): Unit =
     this.isTest = test
     if test then
@@ -47,13 +47,16 @@ abstract class JellyCommand[T : {Parser, Help}] extends Command[T]:
       s
     else throw new IllegalStateException("Not in test mode")
 
-  /**
-   * Run the command in test mode, capturing stdout and stderr.
-   * @param options the command options
-   * @param remainingArgs the remaining arguments
-   * @throws ExitError if the command exits
-   * @return (stdout, stderr)
-   */
+  /** Run the command in test mode, capturing stdout and stderr.
+    * @param options
+    *   the command options
+    * @param remainingArgs
+    *   the remaining arguments
+    * @throws ExitError
+    *   if the command exits
+    * @return
+    *   (stdout, stderr)
+    */
   @throws[ExitError]
   def runTest(options: T, remainingArgs: RemainingArgs = emptyRemainingArgs): (String, String) =
     if !isTest then testMode(true)
