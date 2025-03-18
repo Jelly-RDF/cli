@@ -24,4 +24,6 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: Build native image
+        env:
+          DEV_BUILD: true
         run: sbt GraalVMNativeImage/packageBin

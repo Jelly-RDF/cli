@@ -8,6 +8,9 @@ resolvers +=
 lazy val jenaV = "5.3.0"
 lazy val jellyV = "2.8.0+14-4181e89a-SNAPSHOT"
 
+def isDevBuild: Boolean =
+  sys.env.get("DEV_BUILD").exists(s => s != "0" && s != "false")
+
 lazy val root = (project in file("."))
   .enablePlugins(
     BuildInfoPlugin,
@@ -31,4 +34,6 @@ lazy val root = (project in file("."))
 
     // GraalVM settings
     Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
+    // Do a fast build if it's a dev build
+    graalVMNativeImageOptions := (if (isDevBuild) Seq("-Ob") else Seq())
   )
