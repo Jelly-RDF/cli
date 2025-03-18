@@ -9,7 +9,10 @@ lazy val jenaV = "5.3.0"
 lazy val jellyV = "2.8.0+14-4181e89a-SNAPSHOT"
 
 lazy val root = (project in file("."))
-  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(
+    BuildInfoPlugin,
+    GraalVMNativeImagePlugin,
+  )
   .settings(
     name := "cli",
     libraryDependencies ++= Seq(
