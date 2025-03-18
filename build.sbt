@@ -1,0 +1,20 @@
+ThisBuild / version := "0.1.0-SNAPSHOT"
+
+ThisBuild / scalaVersion := "3.6.4"
+
+resolvers +=
+  "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
+
+lazy val jenaV = "5.3.0"
+lazy val jellyV = "2.8.0+14-4181e89a-SNAPSHOT"
+
+lazy val root = (project in file("."))
+  .settings(
+    name := "cli",
+    libraryDependencies ++= Seq(
+      "org.apache.jena" % "jena-core" % jenaV,
+      "org.apache.jena" % "jena-arq" % jenaV,
+      "eu.ostrzyciel.jelly" %% "jelly-jena" % jellyV,
+      "com.github.alexarchambault" %% "case-app" % "2.1.0-M30",
+    )
+  )
