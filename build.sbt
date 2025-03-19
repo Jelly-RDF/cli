@@ -1,7 +1,7 @@
 import scala.collection.immutable.Seq
 
 ThisBuild / version := "0.1.0-SNAPSHOT"
-
+ThisBuild / semanticdbEnabled := true
 ThisBuild / scalaVersion := "3.6.4"
 
 resolvers +=
