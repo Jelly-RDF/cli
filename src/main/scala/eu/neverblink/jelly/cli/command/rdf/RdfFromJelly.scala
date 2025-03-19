@@ -2,14 +2,14 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.JellyCommand
 
-case class FromJellyRDFOptions()
+case class FromJellyRdfOptions()
 
-object RDFFromJelly extends JellyCommand[FromJellyRDFOptions]:
+object RdfFromJelly extends JellyCommand[FromJellyRdfOptions]:
   override def names: List[List[String]] = List(
-    List("rdf from-jelly"),
+    List("rdf", "from-jelly"),
   )
 
-  override def run(options: FromJellyRDFOptions, remainingArgs: RemainingArgs): Unit =
+  override def run(options: FromJellyRdfOptions, remainingArgs: RemainingArgs): Unit =
     // This is a placeholder for the actual implementation
     println("rdf from-jelly")
     println(options)
