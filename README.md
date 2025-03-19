@@ -28,3 +28,8 @@ $ ./jelly-cli --help
 - The binary will be available at `./target/graalvm-native-image/jelly-cli`.
 
 Alternatively, you can use the utility with your JVM (no ahead-of-time compilation), by running `sbt run`. 
+
+## Developer notes
+
+Run `sbt fixAll` before committing. Your code should be formatted and free of warnings.
+The CI checks will not pass if this is not the case.
