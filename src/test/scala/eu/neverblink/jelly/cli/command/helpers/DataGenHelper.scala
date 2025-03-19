@@ -37,7 +37,6 @@ object DataGenHelper:
   /* This method generates a Jelly file with nTriples
    * @param nTriples number of triples to generate
    * @param fileName name of the file to generate
-   * @return String
    */
   def generateJellyFile(nTriples: Int): Unit =
     val model = generateTripleModel(nTriples)
