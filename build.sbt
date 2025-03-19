@@ -1,5 +1,4 @@
-ThisBuild / version := "0.1.0-SNAPSHOT"
-
+ThisBuild / semanticdbEnabled := true
 ThisBuild / scalaVersion := "3.6.4"
 
 resolvers +=
@@ -7,6 +6,8 @@ resolvers +=
 
 lazy val jenaV = "5.3.0"
 lazy val jellyV = "2.8.0+14-4181e89a-SNAPSHOT"
+
+addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
 def isDevBuild: Boolean =
   sys.env.get("DEV_BUILD").exists(s => s != "0" && s != "false")
@@ -24,6 +25,14 @@ lazy val root = (project in file("."))
       "eu.ostrzyciel.jelly" %% "jelly-jena" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0-M30",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+    ),
+    scalacOptions ++= Seq(
+      "-Wunused:imports",
+      "-Werror",
+      "-feature",
+      "-deprecation",
+      "-unchecked",
+      "-explain",
     ),
     buildInfoKeys := Seq[BuildInfoKey](
       version,
