@@ -22,4 +22,4 @@ object Version extends JellyCommand[VersionOptions]:
          |Jelly-JVM   $jellyV
          |Apache Jena $jenaV
          |JVM         ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}
-         |""".stripMargin)
+         |""".stripMargin.trim)
