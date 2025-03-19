@@ -2,6 +2,7 @@ package eu.neverblink.jelly.cli
 
 import caseapp.*
 import eu.neverblink.jelly.cli.command.*
+import eu.neverblink.jelly.cli.command.rdf.RDFFromJelly
 
 /** Main entrypoint.
   */
@@ -11,4 +12,5 @@ object App extends CommandsEntryPoint:
   override def commands: Seq[Command[?]] = Seq(
     FoolAround,
     Version,
+    RDFFromJelly,
   )
