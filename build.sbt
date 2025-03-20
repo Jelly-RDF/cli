@@ -20,6 +20,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "jelly-cli",
     libraryDependencies ++= Seq(
+      "org.slf4j" % "slf4j-simple" % "2.0.17",
       "org.apache.jena" % "jena-core" % jenaV,
       "org.apache.jena" % "jena-arq" % jenaV,
       "eu.ostrzyciel.jelly" %% "jelly-jena" % jellyV,
