@@ -11,7 +11,7 @@ jobs:
       matrix:
         # Only test on Mac and Ubuntu – these are the fastest platforms.
         # Windows and Linux ARM are built later after the PR is merged.
-        os: [macos-14, ubuntu-24.04]
+        os: [macos-14, ubuntu-22.04]
     steps:
       - uses: actions/checkout@v4
 
