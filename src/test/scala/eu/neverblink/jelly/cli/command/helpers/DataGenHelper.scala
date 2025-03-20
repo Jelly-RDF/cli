@@ -2,10 +2,11 @@ package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
-import org.apache.jena.riot.{RDFDataMgr, RDFLanguages}
+import org.apache.jena.riot.{RDFDataMgr, RDFLanguages, Lang}
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileOutputStream}
 import java.nio.file.{Files, Paths}
+import scala.collection.mutable.ListBuffer
 import scala.util.Using
 
 /*
@@ -15,6 +16,7 @@ object DataGenHelper:
 
   private val testFile = "testInput.jelly"
   private val inputStream = System.in
+  protected val outputFiles = ListBuffer[String]()
 
   /*
    * This method generates a triple model with nTriples
@@ -70,8 +72,18 @@ object DataGenHelper:
     RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
     outputStream.toString
 
-  def cleanUpFile(): Unit =
+  /*
+   * Generates and then cleans the file for test purposes
+   */
+  def generateOutputFile(format: Lang = RDFLanguages.NQUADS): String =
+    val extension = format.getFileExtensions.get(0)
+    val fileName = s"testOutput${outputFiles.size}.${extension}"
+    outputFiles += fileName
+    fileName
+
+  def cleanUpFiles(): Unit =
     Files.deleteIfExists(Paths.get(testFile))
+    for file <- outputFiles do Files.deleteIfExists(Paths.get(file))
 
   def resetInputStream(): Unit =
     System.setIn(inputStream)

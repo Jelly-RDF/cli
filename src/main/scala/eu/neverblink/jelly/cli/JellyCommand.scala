@@ -39,7 +39,7 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       s
     else throw new IllegalStateException("Not in test mode")
 
-  def getOutputStream: OutputStream =
+  protected def getStdOut: OutputStream =
     if isTest then osOut
     else System.out
 

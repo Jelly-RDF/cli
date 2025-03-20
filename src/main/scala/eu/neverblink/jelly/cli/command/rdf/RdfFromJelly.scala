@@ -5,10 +5,11 @@ import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileInputStream, InputStream}
+import java.io.{File, FileInputStream, FileOutputStream, InputStream, OutputStream}
 
 case class RdfFromJellyOptions(
-    @ExtraName("input-file") inputFile: Option[String],
+    @ExtraName("") inputFile: Option[String],
+    @ExtraName("to") outputFile: Option[String],
 )
 
 object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
@@ -24,17 +25,19 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
         FileInputStream(File(fileName))
       case None => System.in
     }
-    rewriteFormats(inputStream)
+    val outputStream = options.outputFile match {
+      case Some(fileName: String) =>
+        FileOutputStream(fileName)
+      case None => getStdOut
+    }
+    doConversion(inputStream, outputStream)
 
   /*
-    This method reads the Jelly file, rewrite it to NQuads and writes it to the output stream
+    This method reads the Jelly file, rewrite it to NQuads and writes it to some output stream
    * @param inputStream InputStream
+   * @param outputStream OutputStream
    */
-  private def rewriteFormats(inputStream: InputStream): Unit =
+  private def doConversion(inputStream: InputStream, outputStream: OutputStream): Unit =
     // TODO: Add error handling; return success/failure in the future
-    val interStream = new ByteArrayOutputStream()
-    val interWriter = StreamRDFWriter.getWriterStream(interStream, RDFLanguages.NQUADS)
-    RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(interWriter)
-    val readerStream = new ByteArrayInputStream(interStream.toByteArray)
-    val nQuadWriter = StreamRDFWriter.getWriterStream(getOutputStream, RDFLanguages.NQUADS)
-    RDFParser.source(readerStream).lang(RDFLanguages.NQUADS).parse(nQuadWriter)
+    val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
+    RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
