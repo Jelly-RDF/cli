@@ -1,13 +1,9 @@
 package eu.neverblink.jelly.cli
 
 import caseapp.*
-import eu.neverblink.jelly.cli.JellyCommand.emptyRemainingArgs
 
 import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
-
-object JellyCommand:
-  val emptyRemainingArgs: RemainingArgs = RemainingArgs(Seq.empty, Seq.empty)
 
 abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
   private var isTest = false
@@ -31,6 +27,17 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       out = System.out
       err = System.err
 
+  /** Runs the command in test mode from the outside app parsing level
+    * @param args
+    *   the command line arguments
+    */
+  def runCommand(args: List[String]): (String, String) =
+    if !isTest then testMode(true)
+    osOut.reset()
+    osErr.reset()
+    App.main(args.toArray)
+    (osOut.toString, osErr.toString)
+
   def getOut: String =
     if isTest then
       out.flush()
@@ -50,24 +57,6 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       osErr.reset()
       s
     else throw new IllegalStateException("Not in test mode")
-
-  /** Run the command in test mode, capturing stdout and stderr.
-    * @param options
-    *   the command options
-    * @param remainingArgs
-    *   the remaining arguments
-    * @throws ExitError
-    *   if the command exits
-    * @return
-    *   (stdout, stderr)
-    */
-  @throws[ExitError]
-  def runTest(options: T, remainingArgs: RemainingArgs = emptyRemainingArgs): (String, String) =
-    if !isTest then testMode(true)
-    osOut.reset()
-    osErr.reset()
-    run(options, remainingArgs)
-    (getOut, getErr)
 
   @throws[ExitError]
   override def exit(code: Int): Nothing =
