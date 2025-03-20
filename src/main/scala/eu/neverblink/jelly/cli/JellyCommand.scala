@@ -5,9 +5,6 @@ import caseapp.*
 import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
 
-object JellyCommand:
-  val emptyRemainingArgs: RemainingArgs = RemainingArgs(Seq.empty, Seq.empty)
-
 abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
   private var isTest = false
   private var out = System.out
@@ -30,6 +27,17 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       out = System.out
       err = System.err
 
+  /** Runs the command in test mode from the outside app parsing level
+    * @param args
+    *   the command line arguments
+    */
+  def runCommand(args: List[String]): (String, String) =
+    if !isTest then testMode(true)
+    osOut.reset()
+    osErr.reset()
+    App.main(args.toArray)
+    (osOut.toString, osErr.toString)
+
   def getOut: String =
     if isTest then
       out.flush()
@@ -49,11 +57,6 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       osErr.reset()
       s
     else throw new IllegalStateException("Not in test mode")
-
-  def setUpTest(): Unit =
-    if !isTest then testMode(true)
-    osOut.reset()
-    osErr.reset()
 
   @throws[ExitError]
   override def exit(code: Int): Nothing =

@@ -16,7 +16,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       val jellyFile = DataGenHelper.generateJellyFile(3)
       val nQuadString = DataGenHelper.generateNQuadString(3)
       val (out, err) =
-        TestAppRunner.runCommand(RdfFromJelly, List("rdf", "from-jelly", jellyFile))
+        RdfFromJelly.runCommand(List("rdf", "from-jelly", jellyFile))
       val sortedOut = out.split("\n").map(_.trim).sorted
       val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
       sortedOut should contain theSameElementsAs sortedQuads
@@ -25,7 +25,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
     "be able to convert a Jelly stream to NTriples output stream" in {
       DataGenHelper.generateJellyInputStream(3)
       val nQuadString = DataGenHelper.generateNQuadString(3)
-      val (out, err) = TestAppRunner.runCommand(RdfFromJelly, List("rdf", "from-jelly"))
+      val (out, err) = RdfFromJelly.runCommand(List("rdf", "from-jelly"))
       val sortedOut = out.split("\n").map(_.trim).sorted
       val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
       sortedOut should contain theSameElementsAs sortedQuads
@@ -35,8 +35,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       val nQuadString = DataGenHelper.generateNQuadString(3)
       val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
       val (out, err) =
-        TestAppRunner.runCommand(
-          RdfFromJelly,
+        RdfFromJelly.runCommand(
           List("rdf", "from-jelly", jellyFile, "--to", outputFile),
         )
       val sortedOut = Using.resource(Source.fromFile(outputFile)) { content =>
@@ -51,7 +50,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
       val nQuadString = DataGenHelper.generateNQuadString(3)
       val (out, err) =
-        TestAppRunner.runCommand(RdfFromJelly, List("rdf", "from-jelly", "--to", outputFile))
+        RdfFromJelly.runCommand(List("rdf", "from-jelly", "--to", outputFile))
       val sortedOut = Using.resource(Source.fromFile(outputFile)) { content =>
         content.getLines().toList.map(_.trim).sorted
       }
