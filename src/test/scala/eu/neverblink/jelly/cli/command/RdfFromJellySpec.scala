@@ -21,8 +21,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       sortedOut should contain theSameElementsAs sortedQuads
     }
     "be able to convert a Jelly stream to NTriples output stream" in {
-      val jellyStream = DataGenHelper.generateJellyInputStream(3)
-      System.setIn(jellyStream)
+      DataGenHelper.generateJellyInputStream(3)
       val nQuadString = DataGenHelper.generateNQuadString(3)
       val options = RdfFromJellyOptions(inputFile = None, outputFile = None)
       val (out, err) = RdfFromJelly.runTest(options)
@@ -44,7 +43,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       out.length should be(0)
     }
     "be able to convert a Jelly stream to NTriples file" in {
-      val jellyStream = DataGenHelper.generateJellyInputStream(3)
+      DataGenHelper.generateJellyInputStream(3)
       val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
       val nQuadString = DataGenHelper.generateNQuadString(3)
       val options = RdfFromJellyOptions(inputFile = None, outputFile = Some(outputFile))

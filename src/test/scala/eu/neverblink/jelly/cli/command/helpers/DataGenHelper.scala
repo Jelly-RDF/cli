@@ -53,13 +53,13 @@ object DataGenHelper:
   /*
    * This method generates a Jelly byte input stream with nTriples
    * @param nTriples number of triples to generate
-   * @return String
    */
-  def generateJellyInputStream(nTriples: Int): ByteArrayInputStream =
+  def generateJellyInputStream(nTriples: Int): Unit =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
-    new ByteArrayInputStream(outputStream.toByteArray)
+    val jellyStream = new ByteArrayInputStream(outputStream.toByteArray)
+    System.setIn(jellyStream)
 
   /*
    * This method generates a NQuad string with nTriples
