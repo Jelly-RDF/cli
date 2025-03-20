@@ -29,3 +29,9 @@ jobs:
         env:
           DEV_BUILD: true
         run: sbt GraalVMNativeImage/packageBin
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: jelly-cli-${{ matrix.os }}
+          path: target/graalvm-native-image/*
