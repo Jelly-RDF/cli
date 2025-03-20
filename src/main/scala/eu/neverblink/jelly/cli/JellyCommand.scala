@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli
 import caseapp.*
 import eu.neverblink.jelly.cli.JellyCommand.emptyRemainingArgs
 
-import java.io.{ByteArrayOutputStream, PrintStream}
+import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
 
 object JellyCommand:
@@ -38,6 +38,10 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       osOut.reset()
       s
     else throw new IllegalStateException("Not in test mode")
+
+  def getOutputStream: OutputStream =
+    if isTest then osOut
+    else System.out
 
   def getErr: String =
     if isTest then
