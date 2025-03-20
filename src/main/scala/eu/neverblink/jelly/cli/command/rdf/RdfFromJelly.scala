@@ -8,8 +8,7 @@ import org.apache.jena.riot.{RDFLanguages, RDFParser}
 import java.io.{File, FileInputStream, FileOutputStream, InputStream, OutputStream}
 
 case class RdfFromJellyOptions(
-    @ExtraName("") inputFile: Option[String],
-    @ExtraName("to") outputFile: Option[String],
+    @ExtraName("to") outputFile: Option[String] = None,
 )
 
 object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
@@ -20,10 +19,10 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   )
 
   override def run(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
-    val inputStream = options.inputFile match {
+    val inputStream = remainingArgs.remaining.headOption match {
       case Some(fileName: String) =>
         FileInputStream(File(fileName))
-      case None => System.in
+      case _ => System.in
     }
     val outputStream = options.outputFile match {
       case Some(fileName: String) =>
@@ -38,6 +37,5 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
    * @param outputStream OutputStream
    */
   private def doConversion(inputStream: InputStream, outputStream: OutputStream): Unit =
-    // TODO: Add error handling; return success/failure in the future
     val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
     RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
