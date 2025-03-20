@@ -1,7 +1,6 @@
 package eu.neverblink.jelly.cli
 
 import caseapp.*
-import eu.neverblink.jelly.cli.JellyCommand.emptyRemainingArgs
 
 import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
@@ -51,23 +50,10 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       s
     else throw new IllegalStateException("Not in test mode")
 
-  /** Run the command in test mode, capturing stdout and stderr.
-    * @param options
-    *   the command options
-    * @param remainingArgs
-    *   the remaining arguments
-    * @throws ExitError
-    *   if the command exits
-    * @return
-    *   (stdout, stderr)
-    */
-  @throws[ExitError]
-  def runTest(options: T, remainingArgs: RemainingArgs = emptyRemainingArgs): (String, String) =
+  def setUpTest(): Unit =
     if !isTest then testMode(true)
     osOut.reset()
     osErr.reset()
-    run(options, remainingArgs)
-    (getOut, getErr)
 
   @throws[ExitError]
   override def exit(code: Int): Nothing =

@@ -11,26 +11,22 @@ import scala.io.Source
 import scala.util.Using
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
+
   "rdf from-jelly command" should {
     "be able to convert a Jelly file to NTriples output stream" in {
       val jellyFile = DataGenHelper.generateJellyFile(3)
       val nQuadString = DataGenHelper.generateNQuadString(3)
-      val options = RdfFromJellyOptions(outputFile = None)
-      val args = RemainingArgs(indexedRemaining = List(Indexed(jellyFile)), Seq.empty)
       val (out, err) =
-        RdfFromJelly.runTest(
-          options,
-          args,
-        )
+        TestAppRunner.runCommand(RdfFromJelly, List("rdf", "from-jelly", jellyFile))
       val sortedOut = out.split("\n").map(_.trim).sorted
       val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
       sortedOut should contain theSameElementsAs sortedQuads
     }
+
     "be able to convert a Jelly stream to NTriples output stream" in {
       DataGenHelper.generateJellyInputStream(3)
       val nQuadString = DataGenHelper.generateNQuadString(3)
-      val options = RdfFromJellyOptions(outputFile = None)
-      val (out, err) = RdfFromJelly.runTest(options)
+      val (out, err) = TestAppRunner.runCommand(RdfFromJelly, List("rdf", "from-jelly"))
       val sortedOut = out.split("\n").map(_.trim).sorted
       val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
       sortedOut should contain theSameElementsAs sortedQuads
@@ -40,8 +36,11 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       val args = RemainingArgs(indexedRemaining = List(Indexed(jellyFile)), Seq.empty)
       val nQuadString = DataGenHelper.generateNQuadString(3)
       val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
-      val options = RdfFromJellyOptions(outputFile = Some(outputFile))
-      val (out, err) = RdfFromJelly.runTest(options, args)
+      val (out, err) =
+        TestAppRunner.runCommand(
+          RdfFromJelly,
+          List("rdf", "from-jelly", jellyFile, "--to", outputFile),
+        )
       val sortedOut = Using.resource(Source.fromFile(outputFile)) { content =>
         content.getLines().toList.map(_.trim).sorted
       }
@@ -53,8 +52,8 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       DataGenHelper.generateJellyInputStream(3)
       val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
       val nQuadString = DataGenHelper.generateNQuadString(3)
-      val options = RdfFromJellyOptions(outputFile = Some(outputFile))
-      val (out, err) = RdfFromJelly.runTest(options)
+      val (out, err) =
+        TestAppRunner.runCommand(RdfFromJelly, List("rdf", "from-jelly", "--to", outputFile))
       val sortedOut = Using.resource(Source.fromFile(outputFile)) { content =>
         content.getLines().toList.map(_.trim).sorted
       }
