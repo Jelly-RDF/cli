@@ -1,6 +1,5 @@
 package eu.neverblink.jelly.cli.command
 
-import caseapp.core.{Indexed, RemainingArgs}
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.*
 import org.apache.jena.riot.RDFLanguages
@@ -33,7 +32,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
     }
     "be able to convert a Jelly file to NTriples file" in {
       val jellyFile = DataGenHelper.generateJellyFile(3)
-      val args = RemainingArgs(indexedRemaining = List(Indexed(jellyFile)), Seq.empty)
       val nQuadString = DataGenHelper.generateNQuadString(3)
       val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
       val (out, err) =
