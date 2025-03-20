@@ -2,6 +2,7 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+testData/**
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
@@ -45,6 +46,7 @@ build/
 
 ### Scala ###
 .bsp/
+*.semanticdb
 
 ### IDEA ###
 /.idea/
