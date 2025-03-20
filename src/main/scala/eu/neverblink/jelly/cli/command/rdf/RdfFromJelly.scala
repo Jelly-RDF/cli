@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.JellyCommand
-import eu.ostrzyciel.jelly.convert.jena.riot.{JellyLanguage, JellySubsystemLifecycle}
+import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
 
@@ -37,7 +37,5 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
    * @param outputStream OutputStream
    */
   private def doConversion(inputStream: InputStream, outputStream: OutputStream): Unit =
-    val mod = JellySubsystemLifecycle()
-    mod.start()
     val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
     RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)

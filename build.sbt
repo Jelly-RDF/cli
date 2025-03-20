@@ -4,7 +4,7 @@ ThisBuild / scalaVersion := "3.6.4"
 resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
-lazy val jenaV = "5.3.0"
+lazy val jenaV = "5.2.0"
 lazy val jellyV = "2.8.0"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
