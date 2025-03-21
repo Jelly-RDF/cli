@@ -1,7 +1,17 @@
 package eu.neverblink.jelly.cli.command
 
+<<<<<<< HEAD
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
+=======
+import eu.neverblink.jelly.cli.{
+  ExitException,
+  InputFileInaccessible,
+  InputFileNotFound,
+  OutputFileCannotBeCreated,
+  OutputFileExists,
+}
+>>>>>>> 0ffb66b (Add error handling tests)
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.*
 import org.apache.jena.riot.RDFLanguages
@@ -67,7 +77,11 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         val nonExist = "non-existing-file"
         val exception =
           intercept[ExitException] {
+<<<<<<< HEAD
             RdfFromJelly.runTestCommand(List("rdf", "from-jelly", nonExist))
+=======
+            RdfFromJelly.runCommand(List("rdf", "from-jelly", nonExist))
+>>>>>>> 0ffb66b (Add error handling tests)
           }
         val msg = InputFileNotFound(nonExist).getMessage
         RdfFromJelly.getErrContent should include(msg)
@@ -82,12 +96,33 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         )
         val exception =
           intercept[ExitException] {
+<<<<<<< HEAD
             RdfFromJelly.runTestCommand(List("rdf", "from-jelly", jellyFile))
+=======
+            RdfFromJelly.runCommand(List("rdf", "from-jelly", jellyFile))
+>>>>>>> 0ffb66b (Add error handling tests)
           }
         val msg = InputFileInaccessible(jellyFile).getMessage
         RdfFromJelly.getErrContent should include(msg)
         exception.code should be(1)
       }
+<<<<<<< HEAD
+=======
+      "output file exists" in {
+        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val quadFile = DataGenHelper.generateOutputFile()
+        Files.createFile(Paths.get(quadFile))
+        val exception =
+          intercept[ExitException] {
+            RdfFromJelly.runCommand(
+              List("rdf", "from-jelly", jellyFile, "--to", quadFile),
+            )
+          }
+        val msg = OutputFileExists(quadFile).getMessage
+        RdfFromJelly.getErrContent should include(msg)
+        exception.code should be(1)
+      }
+>>>>>>> 0ffb66b (Add error handling tests)
       "output file cannot be created" in {
         val jellyFile = DataGenHelper.generateJellyFile(3)
         val unreachableDir = DataGenHelper.makeTestDir()
@@ -95,7 +130,11 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         val quadFile = DataGenHelper.generateOutputFile()
         val exception =
           intercept[ExitException] {
+<<<<<<< HEAD
             RdfFromJelly.runTestCommand(
+=======
+            RdfFromJelly.runCommand(
+>>>>>>> 0ffb66b (Add error handling tests)
               List("rdf", "from-jelly", jellyFile, "--to", quadFile),
             )
           }
@@ -106,11 +145,16 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       "parsing error occurs" in {
         val jellyFile = DataGenHelper.generateJellyFile(3)
         val quadFile = DataGenHelper.generateOutputFile()
+<<<<<<< HEAD
         RdfFromJelly.runTestCommand(
+=======
+        RdfFromJelly.runCommand(
+>>>>>>> 0ffb66b (Add error handling tests)
           List("rdf", "from-jelly", jellyFile, "--to", quadFile),
         )
         val exception =
           intercept[ExitException] {
+<<<<<<< HEAD
             RdfFromJelly.runTestCommand(
               List("rdf", "from-jelly", quadFile),
             )
@@ -137,6 +181,14 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         val errContent = RdfFromJelly.getErrContent
         errContent should include(msg)
         errContent should include("eu.neverblink.jelly.cli.InvalidJellyFile")
+=======
+            RdfFromJelly.runCommand(
+              List("rdf", "from-jelly", quadFile),
+            )
+          }
+        val msg = "Parsing error"
+        RdfFromJelly.getErrContent should include(msg)
+>>>>>>> 0ffb66b (Add error handling tests)
         exception.code should be(1)
       }
     }

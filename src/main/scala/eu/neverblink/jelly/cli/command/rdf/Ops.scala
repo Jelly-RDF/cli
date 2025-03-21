@@ -1,13 +1,38 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import java.io.{File, FileInputStream}
+import eu.neverblink.jelly.cli.{
+  InputFileInaccessible,
+  InputFileNotFound,
+  OutputFileCannotBeCreated,
+  OutputFileExists,
+}
+
+import java.io.{File, FileInputStream, FileOutputStream}
 
 /*
  * Object for small, repeating operations with proper error handling
  */
 object Ops:
 
-  @throws[IllegalArgumentException]
-  def readFile(fileName: String): FileInputStream =
+  /** Read input file and return FileInputStream
+    * @param fileName
+    * @throws InputFileNotFound
+    * @throws InputFileInaccessible
+    * @return
+    */
+  def readInputFile(fileName: String): FileInputStream =
     val file = File(fileName)
+    if !file.exists then throw InputFileNotFound(fileName)
+    if !file.canRead then throw InputFileInaccessible(fileName)
     FileInputStream(file)
+
+  /** Create output stream with extra error handling
+    * @param fileName
+    * @throws OutputFileExists
+    * @return
+    */
+  def createOutputStream(fileName: String): FileOutputStream =
+    val file = File(fileName)
+    if file.exists then throw OutputFileExists(fileName)
+    if !file.getParentFile.canWrite then throw OutputFileCannotBeCreated(fileName)
+    FileOutputStream(file)
