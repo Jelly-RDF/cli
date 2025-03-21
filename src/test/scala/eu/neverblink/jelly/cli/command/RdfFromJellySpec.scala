@@ -1,11 +1,20 @@
 package eu.neverblink.jelly.cli.command
 
+import eu.neverblink.jelly.cli.{
+  ExitException,
+  InputFileInaccessible,
+  InputFileNotFound,
+  OutputFileCannotBeCreated,
+  OutputFileExists,
+}
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.*
 import org.apache.jena.riot.RDFLanguages
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.nio.file.attribute.PosixFilePermissions
+import java.nio.file.{Files, Paths}
 import scala.io.Source
 import scala.util.Using
 
@@ -57,5 +66,77 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
       sortedOut should contain theSameElementsAs sortedQuads
       out.length should be(0)
+    }
+    "throw proper exception" when {
+      "input file is not found" in {
+        val nonExist = "non-existing-file"
+        val exception =
+          intercept[ExitException] {
+            RdfFromJelly.runCommand(List("rdf", "from-jelly", nonExist))
+          }
+        val msg = InputFileNotFound(nonExist).getMessage
+        RdfFromJelly.getErrContent should include(msg)
+        exception.code should be(1)
+      }
+      "input file is not accessible" in {
+        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val permissions = PosixFilePermissions.fromString("---------")
+        Files.setPosixFilePermissions(
+          Paths.get(jellyFile),
+          permissions,
+        )
+        val exception =
+          intercept[ExitException] {
+            RdfFromJelly.runCommand(List("rdf", "from-jelly", jellyFile))
+          }
+        val msg = InputFileInaccessible(jellyFile).getMessage
+        RdfFromJelly.getErrContent should include(msg)
+        exception.code should be(1)
+      }
+      "output file exists" in {
+        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val quadFile = DataGenHelper.generateOutputFile()
+        Files.createFile(Paths.get(quadFile))
+        val exception =
+          intercept[ExitException] {
+            RdfFromJelly.runCommand(
+              List("rdf", "from-jelly", jellyFile, "--to", quadFile),
+            )
+          }
+        val msg = OutputFileExists(quadFile).getMessage
+        RdfFromJelly.getErrContent should include(msg)
+        exception.code should be(1)
+      }
+      "output file cannot be created" in {
+        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val unreachableDir = DataGenHelper.makeTestDir()
+        Paths.get(unreachableDir).toFile.setWritable(false)
+        val quadFile = DataGenHelper.generateOutputFile()
+        val exception =
+          intercept[ExitException] {
+            RdfFromJelly.runCommand(
+              List("rdf", "from-jelly", jellyFile, "--to", quadFile),
+            )
+          }
+        val msg = OutputFileCannotBeCreated(quadFile).getMessage
+        RdfFromJelly.getErrContent should include(msg)
+        exception.code should be(1)
+      }
+      "parsing error occurs" in {
+        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val quadFile = DataGenHelper.generateOutputFile()
+        RdfFromJelly.runCommand(
+          List("rdf", "from-jelly", jellyFile, "--to", quadFile),
+        )
+        val exception =
+          intercept[ExitException] {
+            RdfFromJelly.runCommand(
+              List("rdf", "from-jelly", quadFile),
+            )
+          }
+        val msg = "Parsing error"
+        RdfFromJelly.getErrContent should include(msg)
+        exception.code should be(1)
+      }
     }
   }

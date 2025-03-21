@@ -7,8 +7,8 @@ import scala.compiletime.uninitialized
 
 abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
   private var isTest = false
-  private var out = System.out
-  private var err = System.err
+  protected var out = System.out
+  protected var err = System.err
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
 
@@ -46,7 +46,7 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
     App.main(args.toArray)
     (osOut.toString, osErr.toString)
 
-  def getOut: String =
+  def getOutContent: String =
     if isTest then
       out.flush()
       val s = osOut.toString
@@ -54,11 +54,15 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       s
     else throw new IllegalStateException("Not in test mode")
 
+  def getOutStream: OutputStream =
+    if isTest then osOut
+    else System.out
+
   protected def getStdOut: OutputStream =
     if isTest then osOut
     else System.out
 
-  def getErr: String =
+  def getErrContent: String =
     if isTest then
       err.flush()
       val s = osErr.toString

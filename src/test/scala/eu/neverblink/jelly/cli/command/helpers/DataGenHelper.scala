@@ -13,7 +13,7 @@ import scala.util.Using
  * This class will be used to generate test data
  */
 object DataGenHelper:
-
+  private val testDir = "test"
   private val testFile = "testInput.jelly"
   private val inputStream = System.in
   protected val outputFiles = ListBuffer[String]()
@@ -73,17 +73,26 @@ object DataGenHelper:
     outputStream.toString
 
   /*
+   * Make test dir
+   */
+  def makeTestDir(): String =
+    Files.createDirectories(Paths.get(testDir))
+    testDir
+
+  /*
    * Generates and then cleans the file for test purposes
    */
   def generateOutputFile(format: Lang = RDFLanguages.NQUADS): String =
+    if !Files.exists(Paths.get(testDir)) then makeTestDir()
     val extension = format.getFileExtensions.get(0)
-    val fileName = s"testOutput${outputFiles.size}.${extension}"
+    val fileName = s"${testDir}/testOutput${outputFiles.size}.${extension}"
     outputFiles += fileName
     fileName
 
   def cleanUpFiles(): Unit =
     Files.deleteIfExists(Paths.get(testFile))
     for file <- outputFiles do Files.deleteIfExists(Paths.get(file))
+    Files.deleteIfExists(Paths.get(testDir))
 
   def resetInputStream(): Unit =
     System.setIn(inputStream)
