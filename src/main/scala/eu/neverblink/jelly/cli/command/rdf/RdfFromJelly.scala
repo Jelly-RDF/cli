@@ -1,11 +1,11 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.JellyCommand
-import eu.ostrzyciel.jelly.convert.jena.riot.{JellyLanguage, JellySubsystemLifecycle}
+import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
 
-import java.io.{File, FileInputStream, FileOutputStream, InputStream, OutputStream}
+import java.io.{FileOutputStream, InputStream, OutputStream}
 
 case class RdfFromJellyOptions(
     @ExtraName("to") outputFile: Option[String] = None,
@@ -21,7 +21,7 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   override def run(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val inputStream = remainingArgs.remaining.headOption match {
       case Some(fileName: String) =>
-        FileInputStream(File(fileName))
+        Ops.readFile(fileName)
       case _ => System.in
     }
     val outputStream = options.outputFile match {
@@ -37,7 +37,5 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
    * @param outputStream OutputStream
    */
   private def doConversion(inputStream: InputStream, outputStream: OutputStream): Unit =
-    val mod = JellySubsystemLifecycle()
-    mod.start()
     val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
     RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)

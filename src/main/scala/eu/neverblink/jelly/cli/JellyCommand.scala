@@ -27,6 +27,14 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       out = System.out
       err = System.err
 
+  /** Override to have custom error handling for Jelly commands
+    */
+  override def main(progName: String, args: Array[String]): Unit =
+    try super.main(progName, args)
+    catch
+      case e: Throwable =>
+        ErrorHandler.handle(this, e)
+
   /** Runs the command in test mode from the outside app parsing level
     * @param args
     *   the command line arguments
@@ -58,9 +66,10 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       s
     else throw new IllegalStateException("Not in test mode")
 
-  @throws[ExitError]
+  @throws[ExitException]
   override def exit(code: Int): Nothing =
-    if isTest then throw ExitError(code)
+    // change it to always throw exit exception and just exit properly
+    if isTest then throw ExitException(code)
     else super.exit(code)
 
   override def printLine(line: String, toStderr: Boolean): Unit =
