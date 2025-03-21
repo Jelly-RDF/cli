@@ -11,6 +11,10 @@ object App extends CommandsEntryPoint:
   // Initialize Jena now to avoid race conditions later
   JenaSystem.init()
 
+  override def enableCompletionsCommand: Boolean = true
+
+  override def enableCompleteCommand: Boolean = true
+
   override def progName: String = "jelly-cli"
 
   override def commands: Seq[Command[?]] = Seq(
