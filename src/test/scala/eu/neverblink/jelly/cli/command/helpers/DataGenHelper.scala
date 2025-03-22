@@ -9,20 +9,20 @@ import java.nio.file.{Files, Paths}
 import scala.collection.mutable.ListBuffer
 import scala.util.Using
 
-/*
- * This class will be used to generate test data
- */
+/** This class will be used to generate test data
+  */
 object DataGenHelper:
   private val testDir = "test"
   private val testFile = "testInput.jelly"
   private val inputStream = System.in
   protected val outputFiles = ListBuffer[String]()
 
-  /*
-   * This method generates a triple model with nTriples
-   * @param nTriples number of triples to generate
-   * @return Model
-   */
+  /** This method generates a triple model with nTriples
+    * @param nTriples
+    *   number of triples to generate
+    * @return
+    *   Model
+    */
   def generateTripleModel(nTriples: Int): Model =
     val model = ModelFactory.createDefaultModel()
     val subStr = "http://example.org/subject"
@@ -37,11 +37,14 @@ object DataGenHelper:
     }
     model
 
-  /* This method generates a Jelly file with nTriples
-   * @param nTriples number of triples to generate
-   * @param fileName name of the file to generate
-   * @return String
-   */
+  /** This method generates a Jelly file with nTriples
+    * @param nTriples
+    *   number of triples to generate
+    * @param fileName
+    *   name of the file to generate
+    * @return
+    *   String
+    */
   def generateJellyFile(nTriples: Int): String =
     val model = generateTripleModel(nTriples)
     // TODO: Add configurable generation for different variants of Jelly (small strict etc)
@@ -50,10 +53,10 @@ object DataGenHelper:
     }
     testFile
 
-  /*
-   * This method generates a Jelly byte input stream with nTriples
-   * @param nTriples number of triples to generate
-   */
+  /** This method generates a Jelly byte input stream with nTriples
+    * @param nTriples
+    *   number of triples to generate
+    */
   def generateJellyInputStream(nTriples: Int): Unit =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
@@ -61,27 +64,26 @@ object DataGenHelper:
     val jellyStream = new ByteArrayInputStream(outputStream.toByteArray)
     System.setIn(jellyStream)
 
-  /*
-   * This method generates a NQuad string with nTriples
-   * @param nTriples number of triples to generate
-   * @return String
-   */
+  /** This method generates a NQuad string with nTriples
+    * @param nTriples
+    *   number of triples to generate
+    * @return
+    *   String
+    */
   def generateNQuadString(nTriples: Int): String =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
     outputStream.toString
 
-  /*
-   * Make test dir
-   */
+  /** Make test dir
+    */
   def makeTestDir(): String =
     Files.createDirectories(Paths.get(testDir))
     testDir
 
-  /*
-   * Generates and then cleans the file for test purposes
-   */
+  /** Generates and then cleans the file for test purposes
+    */
   def generateOutputFile(format: Lang = RDFLanguages.NQUADS): String =
     if !Files.exists(Paths.get(testDir)) then makeTestDir()
     val extension = format.getFileExtensions.get(0)

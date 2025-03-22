@@ -5,10 +5,18 @@ import caseapp.*
 import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
 
-abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
+case class JellyOptions(
+    @HelpMessage("Add to run command in debug mode") debug: Boolean = false,
+)
+
+trait HasJellyOptions:
+  @Recurse
+  val common: JellyOptions
+
+abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Command[T]:
   private var isTest = false
-  protected var out = System.out
-  protected var err = System.err
+  protected[cli] var out = System.out
+  protected[cli] var err = System.err
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
 
@@ -26,6 +34,13 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
     else
       out = System.out
       err = System.err
+
+  /** Check and set all the options repeating for every Jelly command
+    * @param options
+    * @param remainingArgs
+    */
+  def setUpGeneralArgs(options: T, remainingArgs: RemainingArgs): Unit =
+    if options.common.debug then App.debugMode = true
 
   /** Override to have custom error handling for Jelly commands
     */
@@ -72,7 +87,6 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
 
   @throws[ExitException]
   override def exit(code: Int): Nothing =
-    // change it to always throw exit exception and just exit properly
     if isTest then throw ExitException(code)
     else super.exit(code)
 

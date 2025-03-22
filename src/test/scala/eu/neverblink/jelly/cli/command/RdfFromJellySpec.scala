@@ -5,7 +5,6 @@ import eu.neverblink.jelly.cli.{
   InputFileInaccessible,
   InputFileNotFound,
   OutputFileCannotBeCreated,
-  OutputFileExists,
 }
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.*
@@ -93,20 +92,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         RdfFromJelly.getErrContent should include(msg)
         exception.code should be(1)
       }
-      "output file exists" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
-        val quadFile = DataGenHelper.generateOutputFile()
-        Files.createFile(Paths.get(quadFile))
-        val exception =
-          intercept[ExitException] {
-            RdfFromJelly.runCommand(
-              List("rdf", "from-jelly", jellyFile, "--to", quadFile),
-            )
-          }
-        val msg = OutputFileExists(quadFile).getMessage
-        RdfFromJelly.getErrContent should include(msg)
-        exception.code should be(1)
-      }
       "output file cannot be created" in {
         val jellyFile = DataGenHelper.generateJellyFile(3)
         val unreachableDir = DataGenHelper.makeTestDir()
@@ -135,7 +120,27 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = "Parsing error"
-        RdfFromJelly.getErrContent should include(msg)
+        val errContent = RdfFromJelly.getErrContent
+        errContent should include(msg)
+        errContent should include("If needed, run with --debug")
+        exception.code should be(1)
+      }
+      "parsing error occurs with debug set" in {
+        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val quadFile = DataGenHelper.generateOutputFile()
+        RdfFromJelly.runCommand(
+          List("rdf", "from-jelly", jellyFile, "--to", quadFile),
+        )
+        val exception =
+          intercept[ExitException] {
+            RdfFromJelly.runCommand(
+              List("rdf", "from-jelly", quadFile, "--debug"),
+            )
+          }
+        val msg = "Parsing error"
+        val errContent = RdfFromJelly.getErrContent
+        errContent should include(msg)
+        errContent should include("eu.neverblink.jelly.cli.ParsingError")
         exception.code should be(1)
       }
     }

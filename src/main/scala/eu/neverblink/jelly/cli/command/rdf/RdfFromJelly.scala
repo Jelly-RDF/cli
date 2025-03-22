@@ -1,15 +1,24 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
-import eu.neverblink.jelly.cli.{ParsingError, JellyCommand}
+import eu.neverblink.jelly.cli.{
+  HasJellyOptions,
+  JellyCommand,
+  JellyDeserializationError,
+  JellyOptions,
+  ParsingError,
+}
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
+import eu.ostrzyciel.jelly.core.RdfProtoDeserializationError
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
 
 import java.io.{InputStream, OutputStream}
 
 case class RdfFromJellyOptions(
+    @Recurse
+    common: JellyOptions = JellyOptions(),
     @ExtraName("to") outputFile: Option[String] = None,
-)
+) extends HasJellyOptions
 
 object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   override def group = "rdf"
@@ -19,6 +28,7 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   )
 
   override def run(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
+    super.setUpGeneralArgs(options, remainingArgs)
     val inputStream = remainingArgs.remaining.headOption match {
       case Some(fileName: String) =>
         Ops.readInputFile(fileName)
@@ -31,17 +41,20 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     }
     doConversion(inputStream, outputStream)
 
-  /*
-    This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
-   * @param inputStream InputStream
-   * @param outputStream OutputStream
-   * @throws InputFileUnparsable
-   * @throws InputOutputTranslationLossy
-   */
+  /** This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
+    * @param inputStream
+    *   InputStream
+    * @param outputStream
+    *   OutputStream
+    * @throws JellyDeserializationError
+    * @throws ParsingError
+    */
   private def doConversion(inputStream: InputStream, outputStream: OutputStream): Unit =
     try {
       val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
       RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
     } catch
-      // TODO: add more specific exceptions from Jelly (currently cannot because of visibility issues)
-      case e: Exception => throw ParsingError(e.getMessage)
+      case e: RdfProtoDeserializationError =>
+        throw JellyDeserializationError(e.getMessage)
+      case e: Exception =>
+        throw ParsingError(e.getMessage)

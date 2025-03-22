@@ -3,7 +3,10 @@ package eu.neverblink.jelly.cli.command
 import caseapp.*
 import eu.neverblink.jelly.cli.*
 
-case class VersionOptions()
+case class VersionOptions(
+    @Recurse
+    common: JellyOptions = JellyOptions(),
+) extends HasJellyOptions
 
 object Version extends JellyCommand[VersionOptions]:
   override def names: List[List[String]] = List(
@@ -12,6 +15,7 @@ object Version extends JellyCommand[VersionOptions]:
   )
 
   override def run(options: VersionOptions, remainingArgs: RemainingArgs): Unit =
+    super.setUpGeneralArgs(options, remainingArgs)
     val jenaV = BuildInfo.libraryDependencies
       .find(_.startsWith("org.apache.jena:jena-core:")).get.split(":")(2)
     val jellyV = BuildInfo.libraryDependencies

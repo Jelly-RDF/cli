@@ -8,9 +8,13 @@ case class OutputFileCannotBeCreated(file: String)
     extends CriticalException(
       s"Not enough permission to create output file $file in this directory.",
     )
-case class OutputFileExists(file: String)
-    extends CriticalException(s"Output file $file already exists.")
-case class ParsingError(message: String) extends CriticalException(s"Parsing error: $message.")
+case class JellyDeserializationError(message: String)
+    extends ParsingError(s"Jelly deserialization error: $message.")
+case class JellySerializationError(message: String)
+    extends ParsingError(s"Jelly serialization error: $message.")
+case class JellyTranscodingError(message: String)
+    extends ParsingError(s"Jelly transcoding error: $message.")
+class ParsingError(message: String) extends CriticalException(s"Parsing error: $message.")
 case class InputOutputTranslationLossy(format: String)
     extends NonCriticalException(
       "Input file cannot be fully translated to output format. The translation will be lossy.",
@@ -29,7 +33,8 @@ object ErrorHandler:
   def handle(command: JellyCommand[?], t: Throwable): Unit =
     t match
       case e: ParsingError =>
-        command.printLine(describeError(e, beginMsg = e.getMessage), toStderr = true)
+        command.printLine(f"${e.getMessage}", toStderr = true)
+        printStackTrace(command, e)
         command.exit(1)
       case e: CriticalException =>
         command.printLine(f"${e.getMessage}", toStderr = true)
@@ -37,12 +42,17 @@ object ErrorHandler:
       case e: NonCriticalException =>
         command.printLine(f"${e.getMessage}", toStderr = true)
       case e: Throwable =>
-        command.printLine(describeError(e), toStderr = true)
+        command.printLine("Unknown error", toStderr = true)
+        printStackTrace(command, e)
         command.exit(1)
 
-  /** Return description of an error with or without stack trace
+  /** Print out stack trace or debugging information
+    * @param command
+    * @param t
     */
-  private def describeError(t: Throwable, beginMsg: String = "Unknown error"): String =
-    f"${beginMsg}: ${
-        if (App.debugMode) t.getStackTrace else "If needed, run with --debug to see the stack trace"
-      }"
+  private def printStackTrace(
+      command: JellyCommand[?],
+      t: Throwable,
+  ): Unit =
+    if App.debugMode then t.printStackTrace(command.err)
+    else command.printLine("If needed, run with --debug to see the stack trace.", toStderr = true)
