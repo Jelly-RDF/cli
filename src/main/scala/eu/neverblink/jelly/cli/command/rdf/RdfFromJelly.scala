@@ -14,6 +14,9 @@ case class RdfFromJellyOptions(
     @Recurse
     common: JellyOptions = JellyOptions(),
     @ExtraName("to") outputFile: Option[String] = None,
+    // TODO: Add enums for different outputs. Maybe try types extending a string?
+    // Eiter that or a general object parsing from this fields (and maybe returning an Enum)
+    @ExtraName("output-format") outputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
 object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
