@@ -1,12 +1,7 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
-import eu.neverblink.jelly.cli.{
-  HasJellyOptions,
-  JellyCommand,
-  JellyDeserializationError,
-  JellyOptions,
-  ParsingError,
-}
+import eu.neverblink.jelly.cli.*
+import eu.neverblink.jelly.cli.util.IoUtil
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.RdfProtoDeserializationError
 import org.apache.jena.riot.system.StreamRDFWriter
@@ -31,12 +26,12 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     super.setUpGeneralArgs(options, remainingArgs)
     val inputStream = remainingArgs.remaining.headOption match {
       case Some(fileName: String) =>
-        Ops.readInputFile(fileName)
+        IoUtil.inputStream(fileName)
       case _ => System.in
     }
     val outputStream = options.outputFile match {
       case Some(fileName: String) =>
-        Ops.createOutputStream(fileName)
+        IoUtil.outputStream(fileName)
       case None => getStdOut
     }
     doConversion(inputStream, outputStream)

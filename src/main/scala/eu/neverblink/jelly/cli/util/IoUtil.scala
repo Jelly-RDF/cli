@@ -1,12 +1,12 @@
-package eu.neverblink.jelly.cli.command.rdf
+package eu.neverblink.jelly.cli.util
 
 import eu.neverblink.jelly.cli.{InputFileInaccessible, InputFileNotFound, OutputFileCannotBeCreated}
 
 import java.io.{File, FileInputStream, FileOutputStream}
 
-/** Object for small, repeating operations with proper error handling
+/** Object for small, repeating I/O operations
   */
-object Ops:
+object IoUtil:
 
   /** Read input file and return FileInputStream
     * @param fileName
@@ -15,7 +15,7 @@ object Ops:
     * @return
     *   FileInputStream
     */
-  def readInputFile(fileName: String): FileInputStream =
+  def inputStream(fileName: String): FileInputStream =
     val file = File(fileName)
     if !file.exists then throw InputFileNotFound(fileName)
     if !file.canRead then throw InputFileInaccessible(fileName)
@@ -27,7 +27,7 @@ object Ops:
     * @return
     *   FileOutputStream
     */
-  def createOutputStream(fileName: String): FileOutputStream =
+  def outputStream(fileName: String): FileOutputStream =
     val file = File(fileName)
     val suppFile = file.getParentFile
     val parentFile = if (suppFile != null) suppFile else File(".")

@@ -6,7 +6,7 @@ case class InputFileInaccessible(file: String)
     extends CriticalException(s"Not enough permissions to read input file $file.")
 case class OutputFileCannotBeCreated(file: String)
     extends CriticalException(
-      s"Not enough permission to create output file $file in this directory.",
+      s"Not enough permissions to create output file $file in this directory.",
     )
 case class JellyDeserializationError(message: String)
     extends ParsingError(s"Jelly deserialization error: $message.")
