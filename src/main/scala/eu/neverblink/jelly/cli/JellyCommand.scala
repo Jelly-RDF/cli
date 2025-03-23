@@ -36,20 +36,21 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
       out = System.out
       err = System.err
 
-  /** Check and set the values of all the general options repeating for every Jelly command
+  /** Check and set the values of all the general options repeating for every JellyCommand
     */
   private def setUpGeneralArgs(options: T, remainingArgs: RemainingArgs): Unit =
     if options.common.debug then this.isDebug = true
 
-  /** Makes sure that the repetitive options needed for every Jelly command are set up before
-    * calling the doRun method, which contains command-specific logic
+  /** Makes sure that the repetitive options needed for every JellyCommand are set up before calling
+    * the doRun method, which contains Command-specific logic
     */
   final override def run(options: T, remainingArgs: RemainingArgs): Unit =
     setUpGeneralArgs(options, remainingArgs)
     doRun(options, remainingArgs)
 
-  /** This abstract method is the main entry point for every Jelly command. It should be overridden
-    * by command-specific implementation.
+  /** This abstract method is the main entry point for every JellyCommand. It should be overridden
+    * by Command-specific implementation, including logic needed for this specific object extendind
+    * JellyCommand.
     */
   def doRun(options: T, remainingArgs: RemainingArgs): Unit
 
