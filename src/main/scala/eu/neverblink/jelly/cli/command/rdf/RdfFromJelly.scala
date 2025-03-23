@@ -1,11 +1,12 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
+import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.util.IoUtil
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.RdfProtoDeserializationError
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{RDFLanguages, RDFParser}
+import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
 
 import java.io.{InputStream, OutputStream}
 
@@ -22,8 +23,7 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     List("rdf", "from-jelly"),
   )
 
-  override def run(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
-    super.setUpGeneralArgs(options, remainingArgs)
+  override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val inputStream = remainingArgs.remaining.headOption match {
       case Some(fileName: String) =>
         IoUtil.inputStream(fileName)
@@ -51,5 +51,7 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     } catch
       case e: RdfProtoDeserializationError =>
         throw JellyDeserializationError(e.getMessage)
-      case e: Exception =>
-        throw ParsingError(e.getMessage)
+      case e: RiotException =>
+        throw JenaRiotException(e)
+      case e: InvalidProtocolBufferException =>
+        throw InvalidJellyFile(e)

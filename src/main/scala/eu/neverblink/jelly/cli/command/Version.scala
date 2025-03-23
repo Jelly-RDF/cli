@@ -14,8 +14,7 @@ object Version extends JellyCommand[VersionOptions]:
     List("v"),
   )
 
-  override def run(options: VersionOptions, remainingArgs: RemainingArgs): Unit =
-    super.setUpGeneralArgs(options, remainingArgs)
+  override def doRun(options: VersionOptions, remainingArgs: RemainingArgs): Unit =
     val jenaV = BuildInfo.libraryDependencies
       .find(_.startsWith("org.apache.jena:jena-core:")).get.split(":")(2)
     val jellyV = BuildInfo.libraryDependencies

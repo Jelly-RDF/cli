@@ -15,6 +15,7 @@ trait HasJellyOptions:
 
 abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Command[T]:
   private var isTest = false
+  private var isDebug = false
   protected[cli] var out = System.out
   protected[cli] var err = System.err
   private var osOut: ByteArrayOutputStream = uninitialized
@@ -35,12 +36,22 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
       out = System.out
       err = System.err
 
-  /** Check and set all the options repeating for every Jelly command
-    * @param options
-    * @param remainingArgs
+  /** Check and set the values of all the general options repeating for every Jelly command
     */
-  def setUpGeneralArgs(options: T, remainingArgs: RemainingArgs): Unit =
-    if options.common.debug then App.debugMode = true
+  private def setUpGeneralArgs(options: T, remainingArgs: RemainingArgs): Unit =
+    if options.common.debug then this.isDebug = true
+
+  /** Makes sure that the repetitive options needed for every Jelly command are set up before
+    * calling the doRun method, which contains command-specific logic
+    */
+  final override def run(options: T, remainingArgs: RemainingArgs): Unit =
+    setUpGeneralArgs(options, remainingArgs)
+    doRun(options, remainingArgs)
+
+  /** This abstract method is the main entry point for every Jelly command. It should be overridden
+    * by command-specific implementation.
+    */
+  def doRun(options: T, remainingArgs: RemainingArgs): Unit
 
   /** Override to have custom error handling for Jelly commands
     */
@@ -50,11 +61,16 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
       case e: Throwable =>
         ErrorHandler.handle(this, e)
 
+  /** Returns information about whether the command is in debug mode (which returns stack traces of
+    * every error) or not
+    */
+  def isDebugMode: Boolean = this.isDebug
+
   /** Runs the command in test mode from the outside app parsing level
     * @param args
     *   the command line arguments
     */
-  def runCommand(args: List[String]): (String, String) =
+  def runTestCommand(args: List[String]): (String, String) =
     if !isTest then testMode(true)
     osOut.reset()
     osErr.reset()
