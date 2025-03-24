@@ -75,6 +75,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             List(
               "rdf",
               "from-jelly",
+              jellyFile,
               "--out-format",
               RdfFormatOptions.JellyText.cliOption,
             ),
