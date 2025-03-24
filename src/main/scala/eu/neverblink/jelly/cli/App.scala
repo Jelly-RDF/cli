@@ -12,8 +12,6 @@ object App extends CommandsEntryPoint:
   // Initialize Jena now to avoid race conditions later
   JenaSystem.init()
 
-  protected[cli] var debugMode = false
-
   override def enableCompletionsCommand: Boolean = true
 
   override def enableCompleteCommand: Boolean = true

@@ -78,7 +78,6 @@ object DataGenHelper:
 
   /** Make test dir
     */
-
   def makeTestDir(): String =
     Files.createDirectories(Paths.get(testDir))
     testDir
