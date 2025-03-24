@@ -70,7 +70,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
     "handle conversion of Jelly binary to text" when {
       "a file to output stream" in {
         val jellyFile = DataGenHelper.generateJellyFile(3)
-        val jellyData = DataGenHelper.generateJellyInputStream(3)
         val (out, err) =
           RdfFromJelly.runTestCommand(
             List(
