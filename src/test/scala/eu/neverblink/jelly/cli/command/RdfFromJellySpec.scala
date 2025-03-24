@@ -31,7 +31,9 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       "input stream to output stream" in {
         DataGenHelper.generateJellyInputStream(3)
         val nQuadString = DataGenHelper.generateNQuadString(3)
-        val (out, err) = RdfFromJelly.runTestCommand(List("rdf", "from-jelly"))
+        val (out, err) = RdfFromJelly.runTestCommand(
+          List("rdf", "from-jelly", "--out-format", RdfFormatOptions.NQuads.cliOption),
+        )
         val sortedOut = out.split("\n").map(_.trim).sorted
         val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
         sortedOut should contain theSameElementsAs sortedQuads
@@ -66,25 +68,35 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       }
     }
     "handle conversion of Jelly binary to text" when {
-      "a file to file" in {
+      "a file to output stream" in {
         val jellyFile = DataGenHelper.generateJellyFile(3)
         val jellyData = DataGenHelper.generateJellyInputStream(3)
-        val outputFile = DataGenHelper.generateOutputFile()
         val (out, err) =
           RdfFromJelly.runTestCommand(
             List(
               "rdf",
               "from-jelly",
-              "--to",
-              outputFile,
               "--out-format",
               RdfFormatOptions.JellyText.cliOption,
             ),
           )
-        val sortedOut = Using.resource(Source.fromFile(outputFile)) { content =>
-          content.getLines().toList.map(_.trim).sorted
-        }
-        out.length should be(0)
+        val outString = """# Frame 0
+                          |rows {
+                          |  options {
+                          |    stream_name: ""
+                          |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
+                          |    generalized_statements: true
+                          |    rdf_star: true
+                          |    max_name_table_size: 128
+                          |    max_prefix_table_size: 16
+                          |    max_datatype_table_size: 16
+                          |    logical_type: LOGICAL_STREAM_TYPE_FLAT_TRIPLES
+                          |    version: 1
+                          |  }
+                          |}""".stripMargin
+        out should include(outString)
+        "rows".r.findAllIn(out).length should be(10)
+        "http://example.org/predicate/".r.findAllIn(out).length should be(1)
       }
     }
     "throw proper exception" when {

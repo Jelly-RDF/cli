@@ -93,7 +93,6 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
 
   /** This method reads the Jelly file, rewrites it to Jelly text and writes it to some output
     * stream
-    *
     * @param inputStream
     *   InputStream
     * @param outputStream
