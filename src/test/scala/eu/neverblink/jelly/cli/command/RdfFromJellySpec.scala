@@ -66,8 +66,26 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       }
     }
     "handle conversion of Jelly binary to text" when {
-      "a file to file" in {}
-
+      "a file to file" in {
+        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val jellyData = DataGenHelper.generateJellyInputStream(3)
+        val outputFile = DataGenHelper.generateOutputFile()
+        val (out, err) =
+          RdfFromJelly.runTestCommand(
+            List(
+              "rdf",
+              "from-jelly",
+              "--to",
+              outputFile,
+              "--out-format",
+              RdfFormatOptions.JellyText.cliOption,
+            ),
+          )
+        val sortedOut = Using.resource(Source.fromFile(outputFile)) { content =>
+          content.getLines().toList.map(_.trim).sorted
+        }
+        out.length should be(0)
+      }
     }
     "throw proper exception" when {
       "input file is not found" in {

@@ -4,7 +4,8 @@ import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.util.IoUtil
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.RdfProtoDeserializationError
+import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
+import eu.ostrzyciel.jelly.core.{IoUtils, RdfProtoDeserializationError}
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
 
@@ -99,7 +100,31 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     *   OutputStream
     */
   private def JellyBinaryToText(inputStream: InputStream, outputStream: OutputStream): Unit =
-    val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
-    RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
+    inline def writeFrameToOutput(f: RdfStreamFrame, frameIndex: Int): Unit =
+      // we want to write a comment to the file after each frame
+      val comment = f"# Frame $frameIndex\n"
+      outputStream.write(comment.getBytes)
+      val frame = f.toProtoString
+      // the protoString is basically the jelly-txt format already
+      outputStream.write(frame.getBytes)
+
+    try {
+      IoUtils.autodetectDelimiting(inputStream) match
+        case (false, newIn) =>
+          // Non-delimited Jelly file
+          // In this case, we can only read one frame
+          val frame = RdfStreamFrame.parseFrom(newIn)
+          writeFrameToOutput(frame, 0)
+        case (true, newIn) =>
+          // Delimited Jelly file
+          // In this case, we can read multiple frames
+          Iterator.continually(RdfStreamFrame.parseDelimitedFrom(newIn))
+            .takeWhile(_.isDefined).zipWithIndex
+            .foreach { case (maybeFrame, frameIndex) =>
+              writeFrameToOutput(maybeFrame.get, frameIndex)
+            }
+    } finally {
+      outputStream.flush()
+    }
 
   def getCorrectOutputFormats: List[String] = correctOutputFormats
