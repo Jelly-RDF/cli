@@ -5,10 +5,19 @@ import caseapp.*
 import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
 
-abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
+case class JellyOptions(
+    @HelpMessage("Add to run command in debug mode") debug: Boolean = false,
+)
+
+trait HasJellyOptions:
+  @Recurse
+  val common: JellyOptions
+
+abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Command[T]:
   private var isTest = false
-  private var out = System.out
-  private var err = System.err
+  private var isDebug = false
+  final protected[cli] var out = System.out
+  final protected[cli] var err = System.err
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
 
@@ -27,18 +36,49 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       out = System.out
       err = System.err
 
+  /** Check and set the values of all the general options repeating for every JellyCommand
+    */
+  private def setUpGeneralArgs(options: T, remainingArgs: RemainingArgs): Unit =
+    if options.common.debug then this.isDebug = true
+
+  /** Makes sure that the repetitive options needed for every JellyCommand are set up before calling
+    * the doRun method, which contains Command-specific logic
+    */
+  final override def run(options: T, remainingArgs: RemainingArgs): Unit =
+    setUpGeneralArgs(options, remainingArgs)
+    doRun(options, remainingArgs)
+
+  /** This abstract method is the main entry point for every JellyCommand. It should be overridden
+    * by Command-specific implementation, including logic needed for this specific object extendind
+    * JellyCommand.
+    */
+  def doRun(options: T, remainingArgs: RemainingArgs): Unit
+
+  /** Override to have custom error handling for Jelly commands
+    */
+  final override def main(progName: String, args: Array[String]): Unit =
+    try super.main(progName, args)
+    catch
+      case e: Throwable =>
+        ErrorHandler.handle(this, e)
+
+  /** Returns information about whether the command is in debug mode (which returns stack traces of
+    * every error) or not
+    */
+  final def isDebugMode: Boolean = this.isDebug
+
   /** Runs the command in test mode from the outside app parsing level
     * @param args
     *   the command line arguments
     */
-  def runCommand(args: List[String]): (String, String) =
+  final def runTestCommand(args: List[String]): (String, String) =
     if !isTest then testMode(true)
     osOut.reset()
     osErr.reset()
     App.main(args.toArray)
     (osOut.toString, osErr.toString)
 
-  def getOut: String =
+  final def getOutContent: String =
     if isTest then
       out.flush()
       val s = osOut.toString
@@ -46,11 +86,15 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       s
     else throw new IllegalStateException("Not in test mode")
 
+  final def getOutStream: OutputStream =
+    if isTest then osOut
+    else System.out
+
   protected def getStdOut: OutputStream =
     if isTest then osOut
     else System.out
 
-  def getErr: String =
+  final def getErrContent: String =
     if isTest then
       err.flush()
       val s = osErr.toString
@@ -58,11 +102,11 @@ abstract class JellyCommand[T: {Parser, Help}] extends Command[T]:
       s
     else throw new IllegalStateException("Not in test mode")
 
-  @throws[ExitError]
-  override def exit(code: Int): Nothing =
-    if isTest then throw ExitError(code)
+  @throws[ExitException]
+  final override def exit(code: Int): Nothing =
+    if isTest then throw ExitException(code)
     else super.exit(code)
 
-  override def printLine(line: String, toStderr: Boolean): Unit =
+  final override def printLine(line: String, toStderr: Boolean): Unit =
     if toStderr then err.println(line)
     else out.println(line)

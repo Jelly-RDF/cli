@@ -8,6 +8,7 @@ import org.apache.jena.sys.JenaSystem
 /** Main entrypoint.
   */
 object App extends CommandsEntryPoint:
+
   // Initialize Jena now to avoid race conditions later
   JenaSystem.init()
 
@@ -18,7 +19,6 @@ object App extends CommandsEntryPoint:
   override def progName: String = "jelly-cli"
 
   override def commands: Seq[Command[?]] = Seq(
-    FoolAround,
     Version,
     RdfFromJelly,
   )
