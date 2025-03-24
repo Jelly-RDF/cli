@@ -32,7 +32,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         DataGenHelper.generateJellyInputStream(3)
         val nQuadString = DataGenHelper.generateNQuadString(3)
         val (out, err) = RdfFromJelly.runTestCommand(
-          List("rdf", "from-jelly", "--out-format", RdfFormatOptions.NQuads.cliOption),
+          List("rdf", "from-jelly", "--out-format", RdfFormatOption.NQuads.cliOptions.head),
         )
         val sortedOut = out.split("\n").map(_.trim).sorted
         val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
@@ -77,7 +77,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
               "from-jelly",
               jellyFile,
               "--out-format",
-              RdfFormatOptions.JellyText.cliOption,
+              RdfFormatOption.JellyText.cliOptions.head,
             ),
           )
         val outString = """# Frame 0
@@ -187,7 +187,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
               List("rdf", "from-jelly", jellyFile, "--to", quadFile, "--out-format", "invalid"),
             )
           }
-        val msg = InvalidFormatSpecified("invalid", RdfFromJelly.getCorrectOutputFormats)
+        val msg = InvalidFormatSpecified("invalid", RdfFromJellyPrint.validFormatsString)
         RdfFromJelly.getErrContent should include(msg.getMessage)
         exception.code should be(1)
       }

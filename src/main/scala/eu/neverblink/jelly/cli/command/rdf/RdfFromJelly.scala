@@ -2,6 +2,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
+import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.{JellyBinary, JellyText, NQuads}
 import eu.neverblink.jelly.cli.util.IoUtil
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
@@ -11,10 +12,21 @@ import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
 
 import java.io.{InputStream, OutputStream}
 
+object RdfFromJellyPrint extends RdfCommandPrintUtil:
+  // We exclude JellyBinary because translating JellyBinary to JellyBinary makes no sense
+  override val validFormats: List[RdfFormatOption] =
+    RdfFormatOption.values.filterNot(_ == JellyBinary).toList
+
+  override val defaultFormat: RdfFormatOption = NQuads
+
 case class RdfFromJellyOptions(
     @Recurse
     common: JellyOptions = JellyOptions(),
     @ExtraName("to") outputFile: Option[String] = None,
+    @ValueDescription("Output format")
+    @HelpMessage(
+      RdfFromJellyPrint.helpMsg,
+    )
     @ExtraName("out-format") outputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
@@ -24,12 +36,6 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   override def names: List[List[String]] = List(
     List("rdf", "from-jelly"),
   )
-
-  // We exclude JellyBinary because translating JellyBinary to JellyBinary makes no sense
-  private val correctOutputFormats =
-    RdfFormatOptions.values.filterNot(_ == RdfFormatOptions.JellyBinary).map(f =>
-      f.cliOption,
-    ).toList
 
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val inputStream = remainingArgs.remaining.headOption match {
@@ -62,16 +68,17 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   ): Unit =
     try {
       format match {
-        case Some(RdfFormatOptions.JellyText.cliOption) =>
-          JellyBinaryToText(inputStream, outputStream)
-        case Some(RdfFormatOptions.NQuads.cliOption) => JellyToNQuad(inputStream, outputStream)
+        case Some(f: String) =>
+          RdfFormatOption.find(f) match
+            case Some(JellyText) => jellyBinaryToText(inputStream, outputStream)
+            case Some(NQuads) => jellyToNQuad(inputStream, outputStream)
+            case _ =>
+              throw InvalidFormatSpecified(
+                f,
+                RdfFromJellyPrint.validFormatsString,
+              ) // if anything else, it's an invalid option
         case None =>
-          JellyToNQuad(inputStream, outputStream) // default option if no parameter supplied
-        case _ =>
-          throw InvalidFormatSpecified(
-            format.get,
-            this.correctOutputFormats,
-          ) // if anything else, it's an invalid option
+          jellyToNQuad(inputStream, outputStream) // default option if no parameter supplied
       }
     } catch
       case e: RdfProtoDeserializationError =>
@@ -87,7 +94,7 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     * @param outputStream
     *   OutputStream
     */
-  private def JellyToNQuad(inputStream: InputStream, outputStream: OutputStream): Unit =
+  private def jellyToNQuad(inputStream: InputStream, outputStream: OutputStream): Unit =
     val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
     RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
 
@@ -98,9 +105,10 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     * @param outputStream
     *   OutputStream
     */
-  private def JellyBinaryToText(inputStream: InputStream, outputStream: OutputStream): Unit =
+  private def jellyBinaryToText(inputStream: InputStream, outputStream: OutputStream): Unit =
+
     inline def writeFrameToOutput(f: RdfStreamFrame, frameIndex: Int): Unit =
-      // we want to write a comment to the file after each frame
+      // we want to write a comment to the file before each frame
       val comment = f"# Frame $frameIndex\n"
       outputStream.write(comment.getBytes)
       val frame = f.toProtoString
@@ -108,22 +116,30 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
       outputStream.write(frame.getBytes)
 
     try {
-      IoUtils.autodetectDelimiting(inputStream) match
-        case (false, newIn) =>
-          // Non-delimited Jelly file
-          // In this case, we can only read one frame
-          val frame = RdfStreamFrame.parseFrom(newIn)
-          writeFrameToOutput(frame, 0)
-        case (true, newIn) =>
-          // Delimited Jelly file
-          // In this case, we can read multiple frames
-          Iterator.continually(RdfStreamFrame.parseDelimitedFrom(newIn))
-            .takeWhile(_.isDefined).zipWithIndex
-            .foreach { case (maybeFrame, frameIndex) =>
-              writeFrameToOutput(maybeFrame.get, frameIndex)
-            }
+      iterateRdfStream(inputStream, outputStream).zipWithIndex.foreach {
+        case (maybeFrame, frameIndex) =>
+          writeFrameToOutput(maybeFrame, frameIndex)
+      }
     } finally {
       outputStream.flush()
     }
 
-  def getCorrectOutputFormats: List[String] = correctOutputFormats
+  /** This method reads the Jelly file and returns an iterator of RdfStreamFrame
+    * @param inputStream
+    * @param outputStream
+    * @return
+    */
+  private def iterateRdfStream(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+  ): Iterator[RdfStreamFrame] =
+    IoUtils.autodetectDelimiting(inputStream) match
+      case (false, newIn) =>
+        // Non-delimited Jelly file
+        // In this case, we can only read one frame
+        Iterator(RdfStreamFrame.parseFrom(newIn))
+      case (true, newIn) =>
+        // Delimited Jelly file
+        // In this case, we can read multiple frames
+        Iterator.continually(RdfStreamFrame.parseDelimitedFrom(newIn))
+          .takeWhile(_.isDefined).map(_.get)
