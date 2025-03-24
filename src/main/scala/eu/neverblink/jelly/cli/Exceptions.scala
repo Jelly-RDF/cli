@@ -24,6 +24,10 @@ case class JenaRiotException(e: RiotException)
     extends CriticalException(s"Jena RDF I/O exception: ${e.getMessage}")
 case class InvalidJellyFile(e: InvalidProtocolBufferException)
     extends CriticalException(s"Invalid Jelly file: ${e.getMessage}")
+case class InvalidFormatSpecified(format: String, validFormats: List[String])
+    extends CriticalException(
+      s"Invalid output format specified: $format, needs to be one of: ${validFormats.mkString(", ")}",
+    )
 case class ExitException(code: Int) extends CriticalException(s"Exiting with code $code.")
 
 class CriticalException(message: String) extends Exception(message)

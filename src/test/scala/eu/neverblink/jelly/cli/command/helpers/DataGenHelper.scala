@@ -76,26 +76,15 @@ object DataGenHelper:
     RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
     outputStream.toString
 
-<<<<<<< HEAD
   /** Make test dir
     */
-=======
-  /*
-   * Make test dir
-   */
->>>>>>> 0ffb66b (Add error handling tests)
+
   def makeTestDir(): String =
     Files.createDirectories(Paths.get(testDir))
     testDir
 
-<<<<<<< HEAD
   /** Generates and then cleans the file for test purposes
     */
-=======
-  /*
-   * Generates and then cleans the file for test purposes
-   */
->>>>>>> 0ffb66b (Add error handling tests)
   def generateOutputFile(format: Lang = RDFLanguages.NQUADS): String =
     if !Files.exists(Paths.get(testDir)) then makeTestDir()
     val extension = format.getFileExtensions.get(0)

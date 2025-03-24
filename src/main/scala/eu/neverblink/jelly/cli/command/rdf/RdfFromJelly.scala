@@ -14,9 +14,7 @@ case class RdfFromJellyOptions(
     @Recurse
     common: JellyOptions = JellyOptions(),
     @ExtraName("to") outputFile: Option[String] = None,
-    // TODO: Add enums for different outputs. Maybe try types extending a string?
-    // Eiter that or a general object parsing from this fields (and maybe returning an Enum)
-    @ExtraName("output-format") outputFormat: Option[String] = None,
+    @ExtraName("out-format") outputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
 object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
@@ -25,6 +23,12 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   override def names: List[List[String]] = List(
     List("rdf", "from-jelly"),
   )
+
+  // We exclude JellyBinary because translating JellyBinary to JellyBinary makes no sense
+  private val correctOutputFormats =
+    RdfFormatOptions.values.filterNot(_ == RdfFormatOptions.JellyBinary).map(f =>
+      f.cliOption,
+    ).toList
 
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val inputStream = remainingArgs.remaining.headOption match {
@@ -37,7 +41,43 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
         IoUtil.outputStream(fileName)
       case None => getStdOut
     }
-    doConversion(inputStream, outputStream)
+    doConversion(inputStream, outputStream, options.outputFormat)
+
+  /** This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
+    *
+    * @param inputStream
+    *   InputStream
+    * @param outputStream
+    *   OutputStream
+    * @throws JellyDeserializationError
+    * @throws ParsingError
+    * @throws InvalidFormatSpecified
+    */
+  private def doConversion(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+      format: Option[String],
+  ): Unit =
+    try {
+      format match {
+        case Some(RdfFormatOptions.JellyText.cliOption) =>
+          JellyBinaryToText(inputStream, outputStream)
+        case Some(RdfFormatOptions.NQuads.cliOption) => JellyToNQuad(inputStream, outputStream)
+        case None =>
+          JellyToNQuad(inputStream, outputStream) // default option if no parameter supplied
+        case _ =>
+          throw InvalidFormatSpecified(
+            format.get,
+            this.correctOutputFormats,
+          ) // if anything else, it's an invalid option
+      }
+    } catch
+      case e: RdfProtoDeserializationError =>
+        throw JellyDeserializationError(e.getMessage)
+      case e: RiotException =>
+        throw JenaRiotException(e)
+      case e: InvalidProtocolBufferException =>
+        throw InvalidJellyFile(e)
 
   /** This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
     * @param inputStream
@@ -47,14 +87,12 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     * @throws JellyDeserializationError
     * @throws ParsingError
     */
-  private def doConversion(inputStream: InputStream, outputStream: OutputStream): Unit =
-    try {
-      val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
-      RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
-    } catch
-      case e: RdfProtoDeserializationError =>
-        throw JellyDeserializationError(e.getMessage)
-      case e: RiotException =>
-        throw JenaRiotException(e)
-      case e: InvalidProtocolBufferException =>
-        throw InvalidJellyFile(e)
+  private def JellyToNQuad(inputStream: InputStream, outputStream: OutputStream): Unit =
+    val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
+    RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
+
+  private def JellyBinaryToText(inputStream: InputStream, outputStream: OutputStream): Unit =
+    val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
+    RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
+
+  def getCorrectOutputFormats: List[String] = correctOutputFormats
