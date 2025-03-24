@@ -43,7 +43,8 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     }
     doConversion(inputStream, outputStream, options.outputFormat)
 
-  /** This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
+  /** This method takes care of proper error handling and matches the desired output format to the
+    * correct conversion
     *
     * @param inputStream
     *   InputStream
@@ -84,13 +85,19 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     *   InputStream
     * @param outputStream
     *   OutputStream
-    * @throws JellyDeserializationError
-    * @throws ParsingError
     */
   private def JellyToNQuad(inputStream: InputStream, outputStream: OutputStream): Unit =
     val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
     RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
 
+  /** This method reads the Jelly file, rewrites it to Jelly text and writes it to some output
+    * stream
+    *
+    * @param inputStream
+    *   InputStream
+    * @param outputStream
+    *   OutputStream
+    */
   private def JellyBinaryToText(inputStream: InputStream, outputStream: OutputStream): Unit =
     val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
     RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
