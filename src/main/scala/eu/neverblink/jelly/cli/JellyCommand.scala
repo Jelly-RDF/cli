@@ -16,8 +16,8 @@ trait HasJellyOptions:
 abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Command[T]:
   private var isTest = false
   private var isDebug = false
-  protected[cli] var out = System.out
-  protected[cli] var err = System.err
+  final protected[cli] var out = System.out
+  final protected[cli] var err = System.err
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
 
@@ -56,7 +56,7 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
 
   /** Override to have custom error handling for Jelly commands
     */
-  override def main(progName: String, args: Array[String]): Unit =
+  final override def main(progName: String, args: Array[String]): Unit =
     try super.main(progName, args)
     catch
       case e: Throwable =>
@@ -65,20 +65,20 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
   /** Returns information about whether the command is in debug mode (which returns stack traces of
     * every error) or not
     */
-  def isDebugMode: Boolean = this.isDebug
+  final def isDebugMode: Boolean = this.isDebug
 
   /** Runs the command in test mode from the outside app parsing level
     * @param args
     *   the command line arguments
     */
-  def runTestCommand(args: List[String]): (String, String) =
+  final def runTestCommand(args: List[String]): (String, String) =
     if !isTest then testMode(true)
     osOut.reset()
     osErr.reset()
     App.main(args.toArray)
     (osOut.toString, osErr.toString)
 
-  def getOutContent: String =
+  final def getOutContent: String =
     if isTest then
       out.flush()
       val s = osOut.toString
@@ -86,7 +86,7 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
       s
     else throw new IllegalStateException("Not in test mode")
 
-  def getOutStream: OutputStream =
+  final def getOutStream: OutputStream =
     if isTest then osOut
     else System.out
 
@@ -94,7 +94,7 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     if isTest then osOut
     else System.out
 
-  def getErrContent: String =
+  final def getErrContent: String =
     if isTest then
       err.flush()
       val s = osErr.toString
@@ -103,10 +103,10 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     else throw new IllegalStateException("Not in test mode")
 
   @throws[ExitException]
-  override def exit(code: Int): Nothing =
+  final override def exit(code: Int): Nothing =
     if isTest then throw ExitException(code)
     else super.exit(code)
 
-  override def printLine(line: String, toStderr: Boolean): Unit =
+  final override def printLine(line: String, toStderr: Boolean): Unit =
     if toStderr then err.println(line)
     else out.println(line)

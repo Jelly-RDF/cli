@@ -1,6 +1,6 @@
 package eu.neverblink.jelly.cli.util
 
-import eu.neverblink.jelly.cli.{InputFileInaccessible, InputFileNotFound, OutputFileCannotBeCreated}
+import eu.neverblink.jelly.cli.*
 
 import java.io.{File, FileInputStream, FileOutputStream}
 
