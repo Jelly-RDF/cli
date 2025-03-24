@@ -9,7 +9,7 @@ object RdfFormatOption:
   /** Returns a string representation of the option for the user.
     */
   def optionString(option: RdfFormatOption): String =
-    f"${option.cliOptions.map(s => f"\"${s}\"").mkString(", ")} for format ${option.fullName}"
+    f"${option.cliOptions.map(s => f"\"${s}\"").mkString(", ")} for ${option.fullName}"
 
   /** Finds the appropriate RdfFormatOption based on supplied option string.
     */

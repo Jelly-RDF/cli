@@ -23,7 +23,7 @@ case class RdfFromJellyOptions(
     @Recurse
     common: JellyOptions = JellyOptions(),
     @ExtraName("to") outputFile: Option[String] = None,
-    @ValueDescription("Output format")
+    @ValueDescription("Output format.")
     @HelpMessage(
       RdfFromJellyPrint.helpMsg,
     )

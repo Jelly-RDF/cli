@@ -4,7 +4,7 @@ trait RdfCommandPrintUtil:
   val validFormats: List[RdfFormatOption]
   val defaultFormat: RdfFormatOption
 
-  /** Formats the available RDF formats to the user.
+  /** Prints the available RDF formats to the user.
     */
   lazy val validFormatsString: String =
     validFormats.map(RdfFormatOption.optionString).mkString(", ")
