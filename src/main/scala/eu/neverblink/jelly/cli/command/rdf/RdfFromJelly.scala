@@ -2,7 +2,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.{JellyBinary, JellyText, NQuads}
+import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.*
 import eu.neverblink.jelly.cli.util.IoUtil
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
