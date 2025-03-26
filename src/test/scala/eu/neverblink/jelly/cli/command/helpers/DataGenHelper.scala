@@ -31,6 +31,14 @@ class DataGenHelper(testDir: String = "test"):
     System.setIn(inputStream.get())
   }
 
+  def setOutputStream(): Unit = {
+    if (outputStream.get() == null) {
+      val outputStream = new ByteArrayOutputStream()
+      System.setOut(new PrintStream(outputStream))
+      this.outputStream.set(outputStream)
+    }
+  }
+
   /** Resets streams after every tests
     */
   def resetStreams(): Unit = {

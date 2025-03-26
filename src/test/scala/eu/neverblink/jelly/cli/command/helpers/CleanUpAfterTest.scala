@@ -10,6 +10,7 @@ trait CleanUpAfterTest extends BeforeAndAfterEach, BeforeAndAfterAll {
 
   override def beforeEach(): Unit = {
     dHelper.setInputStream(Array())
+    dHelper.setOutputStream()
   }
 
   override def afterEach(): Unit = {
