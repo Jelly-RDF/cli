@@ -2,9 +2,15 @@ package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
-import org.apache.jena.riot.{RDFDataMgr, RDFLanguages, Lang}
+import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileOutputStream}
+import java.io.{
+  ByteArrayInputStream,
+  ByteArrayOutputStream,
+  FileOutputStream,
+  InputStream,
+  PrintStream,
+}
 import java.nio.file.{Files, Paths}
 import scala.collection.mutable.ListBuffer
 import scala.util.Using
@@ -12,8 +18,28 @@ import scala.util.Using
 /** This class will be used to generate test data
   */
 class DataGenHelper(testDir: String = "test"):
-  private val inputStream = System.in
   protected val outputFiles = ListBuffer[String]()
+  protected val inputStream = new ThreadLocal[InputStream]()
+  private val outputStream = new ThreadLocal[ByteArrayOutputStream]()
+  private val printStream = new ThreadLocal[PrintStream]()
+
+  /** Sets a thread safe input stream with supplied data
+    * @param data
+    */
+  def setInputStream(data: Array[Byte]): Unit = {
+    inputStream.set(new ByteArrayInputStream(data))
+    System.setIn(inputStream.get())
+  }
+
+  /** Resets streams after every tests
+    */
+  def resetStreams(): Unit = {
+    System.setIn(System.in)
+    System.setOut(System.out)
+    inputStream.remove()
+    outputStream.remove()
+    printStream.remove()
+  }
 
   /** This method generates a triple model with nTriples
     * @param nTriples
@@ -86,7 +112,7 @@ class DataGenHelper(testDir: String = "test"):
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
     val jellyStream = new ByteArrayInputStream(outputStream.toByteArray)
-    System.setIn(jellyStream)
+    this.setInputStream(outputStream.toByteArray)
 
   /** This method generates a NQuad string with nTriples
     * @param nTriples
@@ -112,7 +138,7 @@ class DataGenHelper(testDir: String = "test"):
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
     val nQuadStream = new ByteArrayInputStream(outputStream.toByteArray)
-    System.setIn(nQuadStream)
+    this.setInputStream(outputStream.toByteArray)
 
   /** Make test dir
     */
@@ -132,6 +158,3 @@ class DataGenHelper(testDir: String = "test"):
   def cleanUpFiles(): Unit =
     for file <- outputFiles do Files.deleteIfExists(Paths.get(file))
     Files.deleteIfExists(Paths.get(testDir))
-
-  def resetInputStream(): Unit =
-    System.setIn(inputStream)

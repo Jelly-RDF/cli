@@ -6,18 +6,16 @@ import eu.neverblink.jelly.cli.command.rdf.{RdfFormatOption, RdfToJelly, RdfToJe
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.FixtureAnyWordSpec
+import org.scalatest.wordspec.AnyWordSpec
 import org.apache.jena.riot.RDFParser
 
 import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
 import scala.util.Using
 
-class RdfToJellySpec extends FixtureAnyWordSpec with Matchers with CleanUpAfterTest:
+class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
 
   protected val dHelper: DataGenHelper = DataGenHelper("testRdfToJelly")
 
-  
-  
   def translateJellyBack(inputStream: InputStream): Model =
     Using(inputStream) { content =>
       val newModel = ModelFactory.createDefaultModel()
