@@ -11,9 +11,7 @@ import scala.util.Using
 
 /** This class will be used to generate test data
   */
-object DataGenHelper:
-  private val testDir = "test"
-  private val testFile = "testInput.jelly"
+class DataGenHelper(testDir: String = "test"):
   private val inputStream = System.in
   protected val outputFiles = ListBuffer[String]()
 
@@ -52,18 +50,18 @@ object DataGenHelper:
     }
     newFile
 
-  /** This method generates a Jelly output string
+  /** This method generates a Jelly byte array
     *
     * @param nTriples
     *   number of triples to generate
     * @return
     *   String
     */
-  def generateJellyString(nTriples: Int): String =
+  def generateJellyBytes(nTriples: Int): Array[Byte] =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
-    outputStream.toString
+    outputStream.toByteArray
 
   /** This method generates a NQuad file with nTriples
     * @param nTriples
@@ -132,7 +130,6 @@ object DataGenHelper:
     fileName
 
   def cleanUpFiles(): Unit =
-    Files.deleteIfExists(Paths.get(testFile))
     for file <- outputFiles do Files.deleteIfExists(Paths.get(file))
     Files.deleteIfExists(Paths.get(testDir))
 

@@ -5,10 +5,13 @@ import org.scalatest.wordspec.AnyWordSpec
 
 trait CleanUpAfterTest extends BeforeAndAfterEach, BeforeAndAfterAll {
   this: AnyWordSpec =>
+
+  protected val dHelper: DataGenHelper
+
   override def afterEach(): Unit = {
-    DataGenHelper.resetInputStream()
+    dHelper.resetInputStream()
   }
   override def afterAll(): Unit = {
-    DataGenHelper.cleanUpFiles()
+    dHelper.cleanUpFiles()
   }
 }

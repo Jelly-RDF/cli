@@ -6,14 +6,18 @@ import eu.neverblink.jelly.cli.command.rdf.{RdfFormatOption, RdfToJelly, RdfToJe
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.apache.jena.riot.RDFParser
 
 import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
 import scala.util.Using
 
-class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
+class RdfToJellySpec extends FixtureAnyWordSpec with Matchers with CleanUpAfterTest:
 
+  protected val dHelper: DataGenHelper = DataGenHelper("testRdfToJelly")
+
+  
+  
   def translateJellyBack(inputStream: InputStream): Model =
     Using(inputStream) { content =>
       val newModel = ModelFactory.createDefaultModel()
@@ -27,8 +31,8 @@ class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
   "rdf to-jelly command" should {
     "handle conversion of NTriples to Jelly" when {
       "a file to output stream" in {
-        val nQuadFile = DataGenHelper.generateNQuadFile(3)
-        val tripleModel = DataGenHelper.generateTripleModel(3)
+        val nQuadFile = dHelper.generateNQuadFile(3)
+        val tripleModel = dHelper.generateTripleModel(3)
         val (out, err) =
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", nQuadFile))
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
@@ -37,9 +41,9 @@ class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       }
 
       "a file to file" in {
-        val nQuadFile = DataGenHelper.generateNQuadFile(3)
-        val newFile = DataGenHelper.generateFile(JellyLanguage.JELLY)
-        val tripleModel = DataGenHelper.generateTripleModel(3)
+        val nQuadFile = dHelper.generateNQuadFile(3)
+        val newFile = dHelper.generateFile(JellyLanguage.JELLY)
+        val tripleModel = dHelper.generateTripleModel(3)
         val (out, err) =
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", nQuadFile, "--to", newFile))
         val content = translateJellyBack(new FileInputStream(newFile))
@@ -48,8 +52,8 @@ class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
 
       "input stream to output stream" in {
         val testNumber = 10
-        DataGenHelper.generateNQuadInputStream(testNumber)
-        val tripleModel = DataGenHelper.generateTripleModel(testNumber)
+        dHelper.generateNQuadInputStream(testNumber)
+        val tripleModel = dHelper.generateTripleModel(testNumber)
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format", RdfFormatOption.NQuads.cliOptions.head),
         )
@@ -60,9 +64,9 @@ class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
 
       "an input stream to file" in {
         val testNumber = 23
-        DataGenHelper.generateNQuadInputStream(testNumber)
-        val newFile = DataGenHelper.generateFile(JellyLanguage.JELLY)
-        val tripleModel = DataGenHelper.generateTripleModel(testNumber)
+        dHelper.generateNQuadInputStream(testNumber)
+        val newFile = dHelper.generateFile(JellyLanguage.JELLY)
+        val tripleModel = dHelper.generateTripleModel(testNumber)
         val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", newFile))
         val content = translateJellyBack(new FileInputStream(newFile))
         content.containsAll(tripleModel.listStatements())
@@ -70,7 +74,7 @@ class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
     }
     "throw proper exception" when {
       "invalid format is specified" in {
-        val jellyFile = DataGenHelper.generateNQuadFile(3)
+        val jellyFile = dHelper.generateNQuadFile(3)
         val exception =
           intercept[ExitException] {
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", jellyFile, "--in-format", "invalid"))

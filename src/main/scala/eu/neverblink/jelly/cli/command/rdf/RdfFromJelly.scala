@@ -12,6 +12,7 @@ import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
 import java.io.{InputStream, OutputStream}
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil:
+  override val validFormats: List[RdfFormatOption] = List(JellyText, NQuads)
   override val defaultFormat: RdfFormatOption = NQuads
 
 case class RdfFromJellyOptions(
@@ -34,7 +35,7 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
 
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
-      this.matchIOStreams(remainingArgs.remaining.headOption, options.outputFile)
+      this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     doConversion(inputStream, outputStream, options.outputFormat)
 
   /** This method takes care of proper error handling and matches the desired output format to the

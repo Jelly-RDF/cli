@@ -118,12 +118,13 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     osErr.reset()
     b
 
-  /** This method matches the input and output options to the correct file or standard input/output
+  /** This method matches the CLI input and output options to the correct file or standard
+    * input/output
     * @param inputOption
     * @param outputOption
     * @return
     */
-  final def matchIOStreams(
+  final def getIoStreamsFromOptions(
       inputOption: Option[String],
       outputOption: Option[String],
   ): (InputStream, OutputStream) =
