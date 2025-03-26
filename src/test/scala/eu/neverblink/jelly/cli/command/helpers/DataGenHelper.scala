@@ -40,8 +40,6 @@ object DataGenHelper:
   /** This method generates a Jelly file with nTriples
     * @param nTriples
     *   number of triples to generate
-    * @param fileName
-    *   name of the file to generate
     * @return
     *   String
     */
@@ -50,6 +48,32 @@ object DataGenHelper:
     // TODO: Add configurable generation for different variants of Jelly (small strict etc)
     Using.resource(FileOutputStream(testFile)) { file =>
       RDFDataMgr.write(file, model, JellyLanguage.JELLY)
+    }
+    testFile
+
+  /** This method generates a Jelly output string
+    *
+    * @param nTriples
+    *   number of triples to generate
+    * @return
+    *   String
+    */
+  def generateJellyString(nTriples: Int): String =
+    val model = generateTripleModel(nTriples)
+    val outputStream = new ByteArrayOutputStream()
+    RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
+    outputStream.toString
+
+  /** This method generates a NQuad file with nTriples
+    * @param nTriples
+    *   number of triples to generate
+    * @return
+    *   String
+    */
+  def generateNQuadFile(nTriples: Int): String =
+    val model = generateTripleModel(nTriples)
+    Using.resource(FileOutputStream(testFile)) { file =>
+      RDFDataMgr.write(file, model, RDFLanguages.NQUADS)
     }
     testFile
 
@@ -75,6 +99,20 @@ object DataGenHelper:
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
     outputStream.toString
+
+  /** This method generates an NQuad input stream with nTriples
+    *
+    * @param nTriples
+    *   number of triples to generate
+    * @return
+    *   String
+    */
+  def generateNQuadInputStream(nTriples: Int): Unit =
+    val model = generateTripleModel(nTriples)
+    val outputStream = new ByteArrayOutputStream()
+    RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
+    val nQuadStream = new ByteArrayInputStream(outputStream.toByteArray)
+    System.setIn(nQuadStream)
 
   /** Make test dir
     */

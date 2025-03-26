@@ -3,7 +3,6 @@ import caseapp.*
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.*
-import eu.neverblink.jelly.cli.util.IoUtil
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
 import eu.ostrzyciel.jelly.core.{IoUtils, RdfProtoDeserializationError}
@@ -13,10 +12,6 @@ import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
 import java.io.{InputStream, OutputStream}
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil:
-  // We exclude JellyBinary because translating JellyBinary to JellyBinary makes no sense
-  override val validFormats: List[RdfFormatOption] =
-    RdfFormatOption.values.filterNot(_ == JellyBinary).toList
-
   override val defaultFormat: RdfFormatOption = NQuads
 
 case class RdfFromJellyOptions(
@@ -38,16 +33,8 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   )
 
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
-    val inputStream = remainingArgs.remaining.headOption match {
-      case Some(fileName: String) =>
-        IoUtil.inputStream(fileName)
-      case _ => System.in
-    }
-    val outputStream = options.outputFile match {
-      case Some(fileName: String) =>
-        IoUtil.outputStream(fileName)
-      case None => getStdOut
-    }
+    val (inputStream, outputStream) =
+      this.matchIOStreams(remainingArgs.remaining.headOption, options.outputFile)
     doConversion(inputStream, outputStream, options.outputFormat)
 
   /** This method takes care of proper error handling and matches the desired output format to the
@@ -58,8 +45,8 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     * @param outputStream
     *   OutputStream
     * @throws JellyDeserializationError
-    * @throws ParsingError
-    * @throws InvalidFormatSpecified
+    * @throws JenaRiotException
+    * @throws InvalidJellyFile
     */
   private def doConversion(
       inputStream: InputStream,

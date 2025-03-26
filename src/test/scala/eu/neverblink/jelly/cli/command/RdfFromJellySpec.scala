@@ -107,7 +107,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             RdfFromJelly.runTestCommand(List("rdf", "from-jelly", nonExist))
           }
         val msg = InputFileNotFound(nonExist).getMessage
-        RdfFromJelly.getErrContent should include(msg)
+        RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
       "input file is not accessible" in {
@@ -123,7 +123,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             RdfFromJelly.runTestCommand(List("rdf", "from-jelly", jellyFile))
           }
         val msg = InputFileInaccessible(jellyFile).getMessage
-        RdfFromJelly.getErrContent should include(msg)
+        RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
       "output file cannot be created" in {
@@ -139,7 +139,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = OutputFileCannotBeCreated(quadFile).getMessage
-        RdfFromJelly.getErrContent should include(msg)
+        RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
       "parsing error occurs" in {
@@ -155,7 +155,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = InvalidJellyFile(new InvalidProtocolBufferException("")).getMessage
-        val errContent = RdfFromJelly.getErrContent
+        val errContent = RdfFromJelly.getErrString
         errContent should include(msg)
         errContent should include("Run with --debug to see the complete stack trace.")
         exception.code should be(1)
@@ -173,7 +173,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = InvalidJellyFile(new InvalidProtocolBufferException("")).getMessage
-        val errContent = RdfFromJelly.getErrContent
+        val errContent = RdfFromJelly.getErrString
         errContent should include(msg)
         errContent should include("eu.neverblink.jelly.cli.InvalidJellyFile")
         exception.code should be(1)
@@ -188,7 +188,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = InvalidFormatSpecified("invalid", RdfFromJellyPrint.validFormatsString)
-        RdfFromJelly.getErrContent should include(msg.getMessage)
+        RdfFromJelly.getErrString should include(msg.getMessage)
         exception.code should be(1)
       }
     }

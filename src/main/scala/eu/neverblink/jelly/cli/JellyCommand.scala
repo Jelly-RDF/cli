@@ -1,8 +1,9 @@
 package eu.neverblink.jelly.cli
 
 import caseapp.*
+import eu.neverblink.jelly.cli.util.IoUtil
 
-import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
+import java.io.{ByteArrayOutputStream, InputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
 
 case class JellyOptions(
@@ -76,15 +77,24 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     osOut.reset()
     osErr.reset()
     App.main(args.toArray)
-    (osOut.toString, osErr.toString)
+    (osOut.toString("UTF-8"), osErr.toString("UTF-8"))
 
-  final def getOutContent: String =
-    if isTest then
-      out.flush()
-      val s = osOut.toString
-      osOut.reset()
-      s
-    else throw new IllegalStateException("Not in test mode")
+  private def validateTestMode(): Unit =
+    if !isTest then throw new IllegalStateException("Not in test mode")
+
+  final def getOutString: String =
+    validateTestMode()
+    out.flush()
+    val s = osOut.toString
+    osOut.reset()
+    s
+
+  final def getOutBytes: Array[Byte] =
+    validateTestMode()
+    out.flush()
+    val b = osOut.toByteArray
+    osOut.reset()
+    b
 
   final def getOutStream: OutputStream =
     if isTest then osOut
@@ -94,13 +104,40 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     if isTest then osOut
     else System.out
 
-  final def getErrContent: String =
-    if isTest then
-      err.flush()
-      val s = osErr.toString
-      osErr.reset()
-      s
-    else throw new IllegalStateException("Not in test mode")
+  final def getErrString: String =
+    validateTestMode()
+    err.flush()
+    val s = osErr.toString
+    osErr.reset()
+    s
+
+  final def getErrBytes: Array[Byte] =
+    validateTestMode()
+    err.flush()
+    val b = osErr.toByteArray
+    osErr.reset()
+    b
+
+  /** This method matches the input and output options to the correct file or standard input/output
+    * @param inputOption
+    * @param outputOption
+    * @return
+    */
+  final def matchIOStreams(
+      inputOption: Option[String],
+      outputOption: Option[String],
+  ): (InputStream, OutputStream) =
+    val inputStream = inputOption match {
+      case Some(fileName: String) =>
+        IoUtil.inputStream(fileName)
+      case _ => System.in
+    }
+    val outputStream = outputOption match {
+      case Some(fileName: String) =>
+        IoUtil.outputStream(fileName)
+      case None => getStdOut
+    }
+    (inputStream, outputStream)
 
   @throws[ExitException]
   final override def exit(code: Int): Nothing =

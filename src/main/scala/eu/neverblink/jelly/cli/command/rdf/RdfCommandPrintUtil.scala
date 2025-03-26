@@ -1,7 +1,10 @@
 package eu.neverblink.jelly.cli.command.rdf
 
+import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.JellyBinary
+
 trait RdfCommandPrintUtil:
-  val validFormats: List[RdfFormatOption]
+  val validFormats: List[RdfFormatOption] =
+    RdfFormatOption.values.filterNot(_ == JellyBinary).toList
   val defaultFormat: RdfFormatOption
 
   /** Prints the available RDF formats to the user.
