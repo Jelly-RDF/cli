@@ -45,11 +45,12 @@ object DataGenHelper:
     */
   def generateJellyFile(nTriples: Int): String =
     val model = generateTripleModel(nTriples)
+    val newFile = generateFile(JellyLanguage.JELLY)
     // TODO: Add configurable generation for different variants of Jelly (small strict etc)
-    Using.resource(FileOutputStream(testFile)) { file =>
+    Using.resource(FileOutputStream(newFile)) { file =>
       RDFDataMgr.write(file, model, JellyLanguage.JELLY)
     }
-    testFile
+    newFile
 
   /** This method generates a Jelly output string
     *
@@ -72,10 +73,11 @@ object DataGenHelper:
     */
   def generateNQuadFile(nTriples: Int): String =
     val model = generateTripleModel(nTriples)
-    Using.resource(FileOutputStream(testFile)) { file =>
+    val newFile = generateFile(RDFLanguages.NQUADS)
+    Using.resource(FileOutputStream(newFile)) { file =>
       RDFDataMgr.write(file, model, RDFLanguages.NQUADS)
     }
-    testFile
+    newFile
 
   /** This method generates a Jelly byte input stream with nTriples
     * @param nTriples
@@ -120,9 +122,9 @@ object DataGenHelper:
     Files.createDirectories(Paths.get(testDir))
     testDir
 
-  /** Generates and then cleans the file for test purposes
+  /** Generates the file for test purposes
     */
-  def generateOutputFile(format: Lang = RDFLanguages.NQUADS): String =
+  def generateFile(format: Lang = RDFLanguages.NQUADS): String =
     if !Files.exists(Paths.get(testDir)) then makeTestDir()
     val extension = format.getFileExtensions.get(0)
     val fileName = s"${testDir}/testOutput${outputFiles.size}.${extension}"
