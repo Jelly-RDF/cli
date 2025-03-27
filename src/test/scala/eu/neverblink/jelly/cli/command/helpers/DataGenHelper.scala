@@ -23,6 +23,7 @@ class DataGenHelper(testDir: String = "test"):
   private val outputStream = new ThreadLocal[ByteArrayOutputStream]()
   private val printStream = new ThreadLocal[PrintStream]()
 
+  // add here the javaobject thing working
   /** Sets a thread safe input stream with supplied data
     * @param data
     */
@@ -32,11 +33,9 @@ class DataGenHelper(testDir: String = "test"):
   }
 
   def setOutputStream(): Unit = {
-    if (outputStream.get() == null) {
-      val outputStream = new ByteArrayOutputStream()
-      System.setOut(new PrintStream(outputStream))
-      this.outputStream.set(outputStream)
-    }
+    val outputStream = new ByteArrayOutputStream()
+    System.setOut(new PrintStream(outputStream))
+    this.outputStream.set(outputStream)
   }
 
   /** Resets streams after every tests
@@ -115,12 +114,12 @@ class DataGenHelper(testDir: String = "test"):
     * @param nTriples
     *   number of triples to generate
     */
-  def generateJellyInputStream(nTriples: Int): Unit =
+  def generateJellyInputStream(nTriples: Int): ByteArrayInputStream =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
     val jellyStream = new ByteArrayInputStream(outputStream.toByteArray)
-    this.setInputStream(outputStream.toByteArray)
+    jellyStream
 
   /** This method generates a NQuad string with nTriples
     * @param nTriples
@@ -141,12 +140,12 @@ class DataGenHelper(testDir: String = "test"):
     * @return
     *   String
     */
-  def generateNQuadInputStream(nTriples: Int): Unit =
+  def generateNQuadInputStream(nTriples: Int): ByteArrayInputStream =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
     val nQuadStream = new ByteArrayInputStream(outputStream.toByteArray)
-    this.setInputStream(outputStream.toByteArray)
+    nQuadStream
 
   /** Make test dir
     */

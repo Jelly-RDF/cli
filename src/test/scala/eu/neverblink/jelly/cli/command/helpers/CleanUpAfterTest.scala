@@ -9,12 +9,12 @@ trait CleanUpAfterTest extends BeforeAndAfterEach, BeforeAndAfterAll {
   protected val dHelper: DataGenHelper
 
   override def beforeEach(): Unit = {
-    dHelper.setInputStream(Array())
-    dHelper.setOutputStream()
+    // dHelper.setInputStream(Array())
+    // dHelper.setOutputStream()
   }
 
   override def afterEach(): Unit = {
-    dHelper.resetStreams()
+    // dHelper.resetStreams()
   }
   override def afterAll(): Unit = {
     dHelper.cleanUpFiles()

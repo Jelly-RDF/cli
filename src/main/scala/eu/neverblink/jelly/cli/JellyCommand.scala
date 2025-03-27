@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli
 import caseapp.*
 import eu.neverblink.jelly.cli.util.IoUtil
 
-import java.io.{ByteArrayOutputStream, InputStream, OutputStream, PrintStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream, PrintStream}
 import scala.compiletime.uninitialized
 
 case class JellyOptions(
@@ -19,8 +19,11 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
   private var isDebug = false
   final protected[cli] var out = System.out
   final protected[cli] var err = System.err
+  final protected[cli] var in = System.in
+
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
+  private var osIn: ByteArrayInputStream = uninitialized
 
   /** Enable the "test mode" which captures stdout, stderr, exit code, and so on.
     * @param test
@@ -29,11 +32,14 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
   def testMode(test: Boolean): Unit =
     this.isTest = test
     if test then
+      osIn = ByteArrayInputStream(Array())
+      in = osIn
       osOut = ByteArrayOutputStream()
       out = PrintStream(osOut)
       osErr = ByteArrayOutputStream()
       err = PrintStream(osErr)
     else
+      in = System.in
       out = System.out
       err = System.err
 
@@ -96,6 +102,17 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     osOut.reset()
     b
 
+  // Do the same as for the output stream but for input stream
+  // and accept input stream as a Jelly parameter to mock it more easily in tests
+  final def getStdIn: InputStream =
+    if isTest then in
+    else System.in
+
+  final def setStdIN(data: ByteArrayInputStream): Unit =
+    validateTestMode()
+    osIn.reset()
+    in = data
+
   final def getOutStream: OutputStream =
     if isTest then osOut
     else System.out
@@ -131,7 +148,7 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     val inputStream = inputOption match {
       case Some(fileName: String) =>
         IoUtil.inputStream(fileName)
-      case _ => System.in
+      case _ => getStdIn
     }
     val outputStream = outputOption match {
       case Some(fileName: String) =>
