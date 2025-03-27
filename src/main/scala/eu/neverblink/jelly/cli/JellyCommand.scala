@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli
 import caseapp.*
 import eu.neverblink.jelly.cli.util.IoUtil
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream, PrintStream}
+import java.io.*
 import scala.compiletime.uninitialized
 
 case class JellyOptions(
@@ -23,17 +23,15 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
 
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
-  private var osIn: ByteArrayInputStream = uninitialized
 
   /** Enable the "test mode" which captures stdout, stderr, exit code, and so on.
     * @param test
     *   true to enable, false to disable
     */
-  def testMode(test: Boolean): Unit =
+  private def testMode(test: Boolean): Unit =
     this.isTest = test
     if test then
-      osIn = ByteArrayInputStream(Array())
-      in = osIn
+      in = ByteArrayInputStream(Array())
       osOut = ByteArrayOutputStream()
       out = PrintStream(osOut)
       osErr = ByteArrayOutputStream()
@@ -104,20 +102,20 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
 
   // Do the same as for the output stream but for input stream
   // and accept input stream as a Jelly parameter to mock it more easily in tests
-  final def getStdIn: InputStream =
+  private final def getStdIn: InputStream =
     if isTest then in
     else System.in
 
   final def setStdIN(data: ByteArrayInputStream): Unit =
     validateTestMode()
-    osIn.reset()
+    in.reset()
     in = data
 
   final def getOutStream: OutputStream =
     if isTest then osOut
     else System.out
 
-  protected def getStdOut: OutputStream =
+  private def getStdOut: OutputStream =
     if isTest then osOut
     else System.out
 

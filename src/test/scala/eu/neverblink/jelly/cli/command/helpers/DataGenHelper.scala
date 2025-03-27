@@ -4,13 +4,7 @@ import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
 
-import java.io.{
-  ByteArrayInputStream,
-  ByteArrayOutputStream,
-  FileOutputStream,
-  InputStream,
-  PrintStream,
-}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileOutputStream}
 import java.nio.file.{Files, Paths}
 import scala.collection.mutable.ListBuffer
 import scala.util.Using
@@ -18,35 +12,7 @@ import scala.util.Using
 /** This class will be used to generate test data
   */
 class DataGenHelper(testDir: String = "test"):
-  protected val outputFiles = ListBuffer[String]()
-  protected val inputStream = new ThreadLocal[InputStream]()
-  private val outputStream = new ThreadLocal[ByteArrayOutputStream]()
-  private val printStream = new ThreadLocal[PrintStream]()
-
-  // add here the javaobject thing working
-  /** Sets a thread safe input stream with supplied data
-    * @param data
-    */
-  def setInputStream(data: Array[Byte]): Unit = {
-    inputStream.set(new ByteArrayInputStream(data))
-    System.setIn(inputStream.get())
-  }
-
-  def setOutputStream(): Unit = {
-    val outputStream = new ByteArrayOutputStream()
-    System.setOut(new PrintStream(outputStream))
-    this.outputStream.set(outputStream)
-  }
-
-  /** Resets streams after every tests
-    */
-  def resetStreams(): Unit = {
-    System.setIn(System.in)
-    System.setOut(System.out)
-    inputStream.remove()
-    outputStream.remove()
-    printStream.remove()
-  }
+  private val outputFiles: ListBuffer[String] = ListBuffer[String]()
 
   /** This method generates a triple model with nTriples
     * @param nTriples
