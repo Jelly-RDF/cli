@@ -1,12 +1,14 @@
 package eu.neverblink.jelly.cli.command.helpers
 
-import org.scalatest.BeforeAndAfterEach
+import org.scalatest.{BeforeAndAfterEach, BeforeAndAfterAll}
 import org.scalatest.wordspec.AnyWordSpec
 
-trait CleanUpAfterTest extends BeforeAndAfterEach {
+trait CleanUpAfterTest extends BeforeAndAfterEach, BeforeAndAfterAll {
   this: AnyWordSpec =>
-  override def afterEach(): Unit = {
-    DataGenHelper.cleanUpFiles()
-    DataGenHelper.resetInputStream()
+
+  protected val dHelper: DataGenHelper
+
+  override def afterAll(): Unit = {
+    dHelper.cleanUpFiles()
   }
 }

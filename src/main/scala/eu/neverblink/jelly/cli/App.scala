@@ -21,4 +21,5 @@ object App extends CommandsEntryPoint:
   override def commands: Seq[Command[?]] = Seq(
     Version,
     RdfFromJelly,
+    RdfToJelly,
   )

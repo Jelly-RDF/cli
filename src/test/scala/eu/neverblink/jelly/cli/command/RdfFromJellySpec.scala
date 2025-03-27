@@ -16,11 +16,13 @@ import scala.util.Using
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
 
+  protected val dHelper: DataGenHelper = DataGenHelper("testRdfFromJelly")
+
   "rdf from-jelly command" should {
     "handle conversion of Jelly to NTriples" when {
       "a file to output stream" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
-        val nQuadString = DataGenHelper.generateNQuadString(3)
+        val jellyFile = dHelper.generateJellyFile(3)
+        val nQuadString = dHelper.generateNQuadString(3)
         val (out, err) =
           RdfFromJelly.runTestCommand(List("rdf", "from-jelly", jellyFile))
         val sortedOut = out.split("\n").map(_.trim).sorted
@@ -29,8 +31,9 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       }
 
       "input stream to output stream" in {
-        DataGenHelper.generateJellyInputStream(3)
-        val nQuadString = DataGenHelper.generateNQuadString(3)
+        val input = dHelper.generateJellyInputStream(3)
+        RdfFromJelly.setStdIn(input)
+        val nQuadString = dHelper.generateNQuadString(3)
         val (out, err) = RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", "--out-format", RdfFormatOption.NQuads.cliOptions.head),
         )
@@ -39,9 +42,9 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         sortedOut should contain theSameElementsAs sortedQuads
       }
       "a file to file" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
-        val nQuadString = DataGenHelper.generateNQuadString(3)
-        val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
+        val jellyFile = dHelper.generateJellyFile(3)
+        val nQuadString = dHelper.generateNQuadString(3)
+        val outputFile = dHelper.generateFile(RDFLanguages.NQUADS)
         val (out, err) =
           RdfFromJelly.runTestCommand(
             List("rdf", "from-jelly", jellyFile, "--to", outputFile),
@@ -54,9 +57,10 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
         out.length should be(0)
       }
       "an input stream to file" in {
-        DataGenHelper.generateJellyInputStream(3)
-        val outputFile = DataGenHelper.generateOutputFile(RDFLanguages.NQUADS)
-        val nQuadString = DataGenHelper.generateNQuadString(3)
+        val input = dHelper.generateJellyInputStream(3)
+        RdfFromJelly.setStdIn(input)
+        val outputFile = dHelper.generateFile(RDFLanguages.NQUADS)
+        val nQuadString = dHelper.generateNQuadString(3)
         val (out, err) =
           RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--to", outputFile))
         val sortedOut = Using.resource(Source.fromFile(outputFile)) { content =>
@@ -69,7 +73,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
     }
     "handle conversion of Jelly binary to text" when {
       "a file to output stream" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val jellyFile = dHelper.generateJellyFile(3)
         val (out, err) =
           RdfFromJelly.runTestCommand(
             List(
@@ -107,11 +111,11 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             RdfFromJelly.runTestCommand(List("rdf", "from-jelly", nonExist))
           }
         val msg = InputFileNotFound(nonExist).getMessage
-        RdfFromJelly.getErrContent should include(msg)
+        RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
       "input file is not accessible" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
+        val jellyFile = dHelper.generateJellyFile(3)
         val permissions = PosixFilePermissions.fromString("---------")
         Files.setPosixFilePermissions(
           Paths.get(jellyFile),
@@ -123,14 +127,14 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             RdfFromJelly.runTestCommand(List("rdf", "from-jelly", jellyFile))
           }
         val msg = InputFileInaccessible(jellyFile).getMessage
-        RdfFromJelly.getErrContent should include(msg)
+        RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
       "output file cannot be created" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
-        val unreachableDir = DataGenHelper.makeTestDir()
+        val jellyFile = dHelper.generateJellyFile(3)
+        val unreachableDir = dHelper.makeTestDir()
         Paths.get(unreachableDir).toFile.setWritable(false)
-        val quadFile = DataGenHelper.generateOutputFile()
+        val quadFile = dHelper.generateFile()
         val exception =
           intercept[ExitException] {
 
@@ -139,12 +143,13 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = OutputFileCannotBeCreated(quadFile).getMessage
-        RdfFromJelly.getErrContent should include(msg)
+        Paths.get(unreachableDir).toFile.setWritable(true)
+        RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
-      "parsing error occurs" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
-        val quadFile = DataGenHelper.generateOutputFile()
+      "deserializing error occurs" in {
+        val jellyFile = dHelper.generateJellyFile(3)
+        val quadFile = dHelper.generateFile()
         RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", jellyFile, "--to", quadFile),
         )
@@ -155,14 +160,14 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = InvalidJellyFile(new InvalidProtocolBufferException("")).getMessage
-        val errContent = RdfFromJelly.getErrContent
+        val errContent = RdfFromJelly.getErrString
         errContent should include(msg)
         errContent should include("Run with --debug to see the complete stack trace.")
         exception.code should be(1)
       }
       "parsing error occurs with debug set" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
-        val quadFile = DataGenHelper.generateOutputFile()
+        val jellyFile = dHelper.generateJellyFile(3)
+        val quadFile = dHelper.generateFile()
         RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", jellyFile, "--to", quadFile),
         )
@@ -173,14 +178,14 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = InvalidJellyFile(new InvalidProtocolBufferException("")).getMessage
-        val errContent = RdfFromJelly.getErrContent
+        val errContent = RdfFromJelly.getErrString
         errContent should include(msg)
         errContent should include("eu.neverblink.jelly.cli.InvalidJellyFile")
         exception.code should be(1)
       }
       "invalid output format supplied" in {
-        val jellyFile = DataGenHelper.generateJellyFile(3)
-        val quadFile = DataGenHelper.generateOutputFile()
+        val jellyFile = dHelper.generateJellyFile(3)
+        val quadFile = dHelper.generateFile()
         val exception =
           intercept[ExitException] {
             RdfFromJelly.runTestCommand(
@@ -188,7 +193,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
             )
           }
         val msg = InvalidFormatSpecified("invalid", RdfFromJellyPrint.validFormatsString)
-        RdfFromJelly.getErrContent should include(msg.getMessage)
+        RdfFromJelly.getErrString should include(msg.getMessage)
         exception.code should be(1)
       }
     }
