@@ -100,13 +100,11 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
     osOut.reset()
     b
 
-  // Do the same as for the output stream but for input stream
-  // and accept input stream as a Jelly parameter to mock it more easily in tests
   private final def getStdIn: InputStream =
     if isTest then in
     else System.in
 
-  final def setStdIN(data: ByteArrayInputStream): Unit =
+  final def setStdIn(data: ByteArrayInputStream): Unit =
     validateTestMode()
     in.reset()
     in = data

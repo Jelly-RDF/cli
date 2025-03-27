@@ -51,7 +51,7 @@ class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       "input stream to output stream" in {
         val testNumber = 10
         val input = dHelper.generateNQuadInputStream(testNumber)
-        RdfToJelly.setStdIN(input)
+        RdfToJelly.setStdIn(input)
         val tripleModel = dHelper.generateTripleModel(testNumber)
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format", RdfFormatOption.NQuads.cliOptions.head),
@@ -64,7 +64,7 @@ class RdfToJellySpec extends AnyWordSpec with Matchers with CleanUpAfterTest:
       "an input stream to file" in {
         val testNumber = 23
         val input = dHelper.generateNQuadInputStream(testNumber)
-        RdfToJelly.setStdIN(input)
+        RdfToJelly.setStdIn(input)
         val newFile = dHelper.generateFile(JellyLanguage.JELLY)
         val tripleModel = dHelper.generateTripleModel(testNumber)
         val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", newFile))
