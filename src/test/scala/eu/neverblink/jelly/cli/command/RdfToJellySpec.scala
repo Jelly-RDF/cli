@@ -10,11 +10,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.apache.jena.riot.RDFParser
 
 import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
+import java.nio.file.Paths
 import scala.util.Using
 
 class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
 
-  protected val dHelper: DataGenHelper = DataGenHelper("testRdfToJelly")
+  protected val tmpDir = Paths.get("./tmpRdfTo")
   protected val testCardinality: Integer = 33
 
   def translateJellyBack(inputStream: InputStream): Model =
@@ -34,7 +35,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val content = translateJellyBack(newIn)
-        content.containsAll(dHelper.generateTripleModel(testCardinality).listStatements())
+        content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
       }
 
       "a file to file" in withFullQuadFile { f =>
@@ -42,13 +43,13 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val (out, err) =
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--to", j))
           val content = translateJellyBack(new FileInputStream(j))
-          content.containsAll(dHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
         }
       }
       "input stream to output stream" in {
-        val input = dHelper.generateNQuadInputStream(testCardinality)
+        val input = DataGenHelper.generateNQuadInputStream(testCardinality)
         RdfToJelly.setStdIn(input)
-        val tripleModel = dHelper.generateTripleModel(testCardinality)
+        val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format", RdfFormatOption.NQuads.cliOptions.head),
         )
@@ -57,9 +58,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         content.containsAll(tripleModel.listStatements())
       }
       "an input stream to file" in withEmptyJellyFile { j =>
-        val input = dHelper.generateNQuadInputStream(testCardinality)
+        val input = DataGenHelper.generateNQuadInputStream(testCardinality)
         RdfToJelly.setStdIn(input)
-        val tripleModel = dHelper.generateTripleModel(testCardinality)
+        val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
         val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j))
         val content = translateJellyBack(new FileInputStream(j))
         content.containsAll(tripleModel.listStatements())

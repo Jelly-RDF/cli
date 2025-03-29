@@ -2,17 +2,13 @@ package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
-import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
+import org.apache.jena.riot.{RDFDataMgr, RDFLanguages}
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileOutputStream}
-import java.nio.file.{Files, Paths}
-import scala.collection.mutable.ListBuffer
-import scala.util.Using
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
 /** This class will be used to generate test data
   */
-class DataGenHelper(testDir: String = "test"):
-  private val outputFiles: ListBuffer[String] = ListBuffer[String]()
+object DataGenHelper:
 
   /** This method generates a triple model with nTriples
     * @param nTriples
@@ -34,21 +30,6 @@ class DataGenHelper(testDir: String = "test"):
     }
     model
 
-  /** This method generates a Jelly file with nTriples
-    * @param nTriples
-    *   number of triples to generate
-    * @return
-    *   String
-    */
-  def generateJellyFile(nTriples: Int): String =
-    val model = generateTripleModel(nTriples)
-    val newFile = generateFile(JellyLanguage.JELLY)
-    // TODO: Add configurable generation for different variants of Jelly (small strict etc)
-    Using.resource(FileOutputStream(newFile)) { file =>
-      RDFDataMgr.write(file, model, JellyLanguage.JELLY)
-    }
-    newFile
-
   /** This method generates a Jelly byte array
     *
     * @param nTriples
@@ -61,20 +42,6 @@ class DataGenHelper(testDir: String = "test"):
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
     outputStream.toByteArray
-
-  /** This method generates a NQuad file with nTriples
-    * @param nTriples
-    *   number of triples to generate
-    * @return
-    *   String
-    */
-  def generateNQuadFile(nTriples: Int): String =
-    val model = generateTripleModel(nTriples)
-    val newFile = generateFile(RDFLanguages.NQUADS)
-    Using.resource(FileOutputStream(newFile)) { file =>
-      RDFDataMgr.write(file, model, RDFLanguages.NQUADS)
-    }
-    newFile
 
   /** This method generates a Jelly byte input stream with nTriples
     * @param nTriples
@@ -112,22 +79,3 @@ class DataGenHelper(testDir: String = "test"):
     RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
     val nQuadStream = new ByteArrayInputStream(outputStream.toByteArray)
     nQuadStream
-
-  /** Make test dir
-    */
-  def makeTestDir(): String =
-    Files.createDirectories(Paths.get(testDir))
-    testDir
-
-  /** Generates the file for test purposes
-    */
-  def generateFile(format: Lang = RDFLanguages.NQUADS): String =
-    if !Files.exists(Paths.get(testDir)) then makeTestDir()
-    val extension = format.getFileExtensions.get(0)
-    val fileName = s"${testDir}/testOutput${outputFiles.size}.${extension}"
-    outputFiles += fileName
-    fileName
-
-  def cleanUpFiles(): Unit =
-    for file <- outputFiles do Files.deleteIfExists(Paths.get(file))
-    Files.deleteIfExists(Paths.get(testDir))

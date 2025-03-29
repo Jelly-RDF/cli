@@ -2,24 +2,25 @@ package eu.neverblink.jelly.cli.command
 
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
-
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.*
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.nio.file.{Files, Paths}
+import java.nio.file.attribute.PosixFilePermissions
 import scala.io.Source
 import scala.util.Using
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
-  protected val dHelper: DataGenHelper = DataGenHelper("testRdfFromJelly")
+  protected val tmpDir = Paths.get("./tmpRdfFrom")
   protected val testCardinality: Integer = 33
 
   "rdf from-jelly command" should {
     "handle conversion of Jelly to NTriples" when {
       "a file to output stream" in withFullJellyFile { j =>
-        val nQuadString = dHelper.generateNQuadString(testCardinality)
+        val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
         val (out, err) =
           RdfFromJelly.runTestCommand(List("rdf", "from-jelly", j))
         val sortedOut = out.split("\n").map(_.trim).sorted
@@ -28,9 +29,9 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
 
       "input stream to output stream" in {
-        val input = dHelper.generateJellyInputStream(testCardinality)
+        val input = DataGenHelper.generateJellyInputStream(testCardinality)
         RdfFromJelly.setStdIn(input)
-        val nQuadString = dHelper.generateNQuadString(testCardinality)
+        val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
         val (out, err) = RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", "--out-format", RdfFormatOption.NQuads.cliOptions.head),
         )
@@ -40,7 +41,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
       "a file to file" in withFullJellyFile { j =>
         withEmptyQuadFile { q =>
-          val nQuadString = dHelper.generateNQuadString(testCardinality)
+          val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
           val (out, err) =
             RdfFromJelly.runTestCommand(
               List("rdf", "from-jelly", j, "--to", q),
@@ -54,9 +55,9 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         }
       }
       "an input stream to file" in withEmptyQuadFile { q =>
-        val input = dHelper.generateJellyInputStream(testCardinality)
+        val input = DataGenHelper.generateJellyInputStream(testCardinality)
         RdfFromJelly.setStdIn(input)
-        val nQuadString = dHelper.generateNQuadString(testCardinality)
+        val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
         val (out, err) =
           RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--to", q))
         val sortedOut = Using.resource(Source.fromFile(q)) { content =>
@@ -110,7 +111,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         exception.code should be(1)
       }
       "input file is not accessible" in withFullJellyFile { j =>
-        /*
         val permissions = PosixFilePermissions.fromString("---------")
         Files.setPosixFilePermissions(
           Paths.get(j),
@@ -124,11 +124,8 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         val msg = InputFileInaccessible(j).getMessage
         RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
-
-         */
       }
       "output file cannot be created" in withFullJellyFile { j =>
-        /*
         withEmptyQuadFile { q =>
           Paths.get(q).toFile.setWritable(false)
           val exception =
@@ -144,7 +141,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           exception.code should be(1)
 
         }
-         */
 
       }
       "deserializing error occurs" in withFullJellyFile { j =>

@@ -6,14 +6,12 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.FileOutputStream
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path}
 
 trait TestFixtureHelper extends BeforeAndAfterAll:
   this: AnyWordSpec =>
 
-  protected val dHelper: DataGenHelper
-
-  private val tmpDir = Paths.get("./tmp")
+  protected val tmpDir: Path
 
   protected val testCardinality: Integer
 
@@ -23,7 +21,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
   def withFullQuadFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(RDFLanguages.NQUADS)
     val tempFile = Files.createTempFile(tmpDir, "test", extension)
-    val model = dHelper.generateTripleModel(testCardinality)
+    val model = DataGenHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, RDFLanguages.NQUADS)
     try {
       testCode(tempFile.toString)
@@ -41,7 +39,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
   def withFullJellyFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(JellyLanguage.JELLY)
     val tempFile = Files.createTempFile(tmpDir, "test", extension)
-    val model = dHelper.generateTripleModel(testCardinality)
+    val model = DataGenHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, JellyLanguage.JELLY)
     try {
       testCode(tempFile.toString)
