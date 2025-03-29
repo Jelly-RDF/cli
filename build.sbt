@@ -1,5 +1,6 @@
 ThisBuild / semanticdbEnabled := true
-ThisBuild / scalaVersion := "3.6.4"
+lazy val scalaV = "3.6.4"
+ThisBuild / scalaVersion := scalaV
 
 resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
@@ -11,6 +12,14 @@ addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
 def isDevBuild: Boolean =
   sys.env.get("DEV_BUILD").exists(s => s != "0" && s != "false")
+
+lazy val baseGraalOptions = Seq(
+  // If running on Scala <3.8 and JDK >=24, we need to allow unsafe memory access.
+  // Otherwise, we get annoying warnings on startup.
+  // https://github.com/scala/scala3/issues/9013
+  // Remove this after moving to Scala 3.8
+  if (scalaV.split('.')(1).toInt < 8) Some("-J--sun-misc-unsafe-memory-access=allow") else None,
+).flatten
 
 lazy val root = (project in file("."))
   .enablePlugins(
@@ -45,5 +54,8 @@ lazy val root = (project in file("."))
     // GraalVM settings
     Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
     // Do a fast build if it's a dev build
-    graalVMNativeImageOptions := (if (isDevBuild) Seq("-Ob") else Seq("--emit build-report")),
+    graalVMNativeImageOptions := (
+      if (isDevBuild) Seq("-Ob")
+      else Seq("--emit build-report")
+    ) ++ baseGraalOptions,
   )
