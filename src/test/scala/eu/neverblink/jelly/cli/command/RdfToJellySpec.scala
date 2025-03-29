@@ -10,12 +10,10 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.apache.jena.riot.RDFParser
 
 import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
-import java.nio.file.Paths
 import scala.util.Using
 
 class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
 
-  protected val tmpDir = Paths.get("./tmpRdfTo")
   protected val testCardinality: Integer = 33
 
   def translateJellyBack(inputStream: InputStream): Model =

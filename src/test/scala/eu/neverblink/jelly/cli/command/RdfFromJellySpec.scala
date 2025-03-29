@@ -14,7 +14,6 @@ import scala.util.Using
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
-  protected val tmpDir = Paths.get("./tmpRdfFrom")
   protected val testCardinality: Integer = 33
 
   "rdf from-jelly command" should {
