@@ -15,6 +15,7 @@ import scala.util.Using
 class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
 
   protected val dHelper: DataGenHelper = DataGenHelper("testRdfToJelly")
+  protected val testCardinality: Integer = 33
 
   def translateJellyBack(inputStream: InputStream): Model =
     Using(inputStream) { content =>
@@ -58,10 +59,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       "an input stream to file" in withEmptyJellyFile { j =>
         val input = dHelper.generateNQuadInputStream(testCardinality)
         RdfToJelly.setStdIn(input)
-        val newFile = dHelper.generateFile(JellyLanguage.JELLY)
         val tripleModel = dHelper.generateTripleModel(testCardinality)
-        val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", newFile))
-        val content = translateJellyBack(new FileInputStream(newFile))
+        val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j))
+        val content = translateJellyBack(new FileInputStream(j))
         content.containsAll(tripleModel.listStatements())
       }
     }

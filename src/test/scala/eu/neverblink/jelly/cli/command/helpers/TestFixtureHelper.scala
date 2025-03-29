@@ -2,22 +2,27 @@ package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.FileOutputStream
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
-trait TestFixtureHelper:
+trait TestFixtureHelper extends BeforeAndAfterAll:
+  this: AnyWordSpec =>
 
   protected val dHelper: DataGenHelper
 
-  val testCardinality: Integer = 33
+  private val tmpDir = Paths.get("./tmp")
+
+  protected val testCardinality: Integer
 
   private def getFileExtension(format: Lang = RDFLanguages.NQUADS): String =
     format.getFileExtensions.get(0)
 
   def withFullQuadFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(RDFLanguages.NQUADS)
-    val tempFile = Files.createTempFile("test", extension)
+    val tempFile = Files.createTempFile(tmpDir, "test", extension)
     val model = dHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, RDFLanguages.NQUADS)
     try {
@@ -27,8 +32,34 @@ trait TestFixtureHelper:
 
   def withEmptyJellyFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(JellyLanguage.JELLY)
-    val tempFile = Files.createTempFile("test", extension)
+    val tempFile = Files.createTempFile(tmpDir, "test", extension)
     try {
       testCode(tempFile.toString)
     } finally Files.deleteIfExists(tempFile)
+  }
+
+  def withFullJellyFile(testCode: (String) => Any): Unit = {
+    val extension = getFileExtension(JellyLanguage.JELLY)
+    val tempFile = Files.createTempFile(tmpDir, "test", extension)
+    val model = dHelper.generateTripleModel(testCardinality)
+    RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, JellyLanguage.JELLY)
+    try {
+      testCode(tempFile.toString)
+    } finally Files.deleteIfExists(tempFile)
+  }
+
+  def withEmptyQuadFile(testCode: (String) => Any): Unit = {
+    val extension = getFileExtension(RDFLanguages.NQUADS)
+    val tempFile = Files.createTempFile(tmpDir, "test", extension)
+    try {
+      testCode(tempFile.toString)
+    } finally Files.deleteIfExists(tempFile)
+  }
+
+  override def beforeAll(): Unit = {
+    if !Files.exists(tmpDir) then Files.createDirectory(tmpDir)
+  }
+
+  override def afterAll(): Unit = {
+    Files.deleteIfExists(tmpDir)
   }
