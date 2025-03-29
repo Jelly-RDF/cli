@@ -7,6 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.FileOutputStream
 import java.nio.file.{Files, Path}
+import java.util.UUID.randomUUID
 
 trait TestFixtureHelper extends BeforeAndAfterAll:
   this: AnyWordSpec =>
@@ -20,7 +21,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withFullQuadFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(RDFLanguages.NQUADS)
-    val tempFile = Files.createTempFile(tmpDir, "test", extension)
+    val tempFile = Files.createFile(tmpDir.resolve(f"${randomUUID}.${extension}"))
     val model = DataGenHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, RDFLanguages.NQUADS)
     try {
@@ -30,7 +31,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withEmptyJellyFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(JellyLanguage.JELLY)
-    val tempFile = Files.createTempFile(tmpDir, "test", extension)
+    val tempFile = Files.createFile(tmpDir.resolve(f"${randomUUID}.${extension}"))
     try {
       testCode(tempFile.toString)
     } finally Files.deleteIfExists(tempFile)
@@ -38,7 +39,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withFullJellyFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(JellyLanguage.JELLY)
-    val tempFile = Files.createTempFile(tmpDir, "test", extension)
+    val tempFile = Files.createFile(tmpDir.resolve(f"${randomUUID}.${extension}"))
     val model = DataGenHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, JellyLanguage.JELLY)
     try {
@@ -48,7 +49,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withEmptyQuadFile(testCode: (String) => Any): Unit = {
     val extension = getFileExtension(RDFLanguages.NQUADS)
-    val tempFile = Files.createTempFile(tmpDir, "test", extension)
+    val tempFile = Files.createFile(tmpDir.resolve(f"${randomUUID}.${extension}"))
     try {
       testCode(tempFile.toString)
     } finally Files.deleteIfExists(tempFile)
