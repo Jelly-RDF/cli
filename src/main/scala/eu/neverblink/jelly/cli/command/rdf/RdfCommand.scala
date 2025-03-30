@@ -12,7 +12,7 @@ import java.io.{InputStream, OutputStream}
   */
 abstract class RdfCommand[T <: HasJellyOptions: {Parser, Help}] extends JellyCommand[T]:
 
-  override def group = "rdf"
+  override final def group = "rdf"
 
   /** What is the default action if no formats specified */
   def defaultAction: (InputStream, OutputStream) => Unit
@@ -21,7 +21,7 @@ abstract class RdfCommand[T <: HasJellyOptions: {Parser, Help}] extends JellyCom
   lazy val printUtil: RdfCommandPrintUtil
 
   /** The method responsible for matching the format to a given action */
-  def matchToAction(option: RdfFormatOption): Option[(InputStream, OutputStream) => Unit]
+  def matchToAction(option: RdfFormat): Option[(InputStream, OutputStream) => Unit]
 
   /** This method takes care of proper error handling and takes care of the parameter priorities in
     * matching the input to a given format conversion
@@ -44,17 +44,20 @@ abstract class RdfCommand[T <: HasJellyOptions: {Parser, Help}] extends JellyCom
       format: Option[String],
       fileName: Option[String],
   ): Unit =
+    type ValidFormat = RdfFormat.Jena.Writeable | RdfFormat.JellyText.type
+    RdfFormat.all.collect { case x: ValidFormat => x }
+
     try {
-      val explicitFormat = if (format.isDefined) RdfFormatOption.find(format.get) else None
+      val explicitFormat = if (format.isDefined) RdfFormat.find(format.get) else None
       val implicitFormat =
-        if (fileName.isDefined) RdfFormatOption.inferFormat(fileName.get) else None
+        if (fileName.isDefined) RdfFormat.inferFormat(fileName.get) else None
       (explicitFormat, implicitFormat) match {
-        case (Some(f: RdfFormatOption), _) if matchToAction(f).isDefined =>
+        case (Some(f: RdfFormat), _) if matchToAction(f).isDefined =>
           matchToAction(f).get(inputStream, outputStream)
         // If format explicitely defined but does not match any available actions or formats, we throw an error
         case (_, _) if format.isDefined =>
           throw InvalidFormatSpecified(format.get, printUtil.validFormatsString)
-        case (_, Some(f: RdfFormatOption)) if matchToAction(f).isDefined =>
+        case (_, Some(f: RdfFormat)) if matchToAction(f).isDefined =>
           matchToAction(f).get(inputStream, outputStream)
         // If format not explicitely defined but implicitely not understandable we default to this
         case (_, _) => defaultAction(inputStream, outputStream)

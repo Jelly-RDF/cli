@@ -32,7 +32,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         RdfFromJelly.setStdIn(input)
         val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
         val (out, err) = RdfFromJelly.runTestCommand(
-          List("rdf", "from-jelly", "--out-format", RdfFormatOption.NQuads.cliOptions.head),
+          List("rdf", "from-jelly", "--out-format", RdfFormat.NQuads.cliOptions.head),
         )
         val sortedOut = out.split("\n").map(_.trim).sorted
         val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
@@ -91,7 +91,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
               "from-jelly",
               j,
               "--out-format",
-              RdfFormatOption.JellyText.cliOptions.head,
+              RdfFormat.JellyText.cliOptions.head,
             ),
           )
         val outString = """# Frame 0
@@ -254,12 +254,12 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
                   "--to",
                   q,
                   "--out-format",
-                  RdfFormatOption.JellyBinary.cliOptions.head,
+                  RdfFormat.JellyBinary.cliOptions.head,
                 ),
               )
             }
           val msg = InvalidFormatSpecified(
-            RdfFormatOption.JellyBinary.cliOptions.head,
+            RdfFormat.JellyBinary.cliOptions.head,
             RdfFromJellyPrint.validFormatsString,
           )
           RdfFromJelly.getErrString should include(msg.getMessage)

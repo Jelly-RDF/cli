@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.*
+import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
 import eu.ostrzyciel.jelly.core.IoUtils
@@ -11,8 +11,8 @@ import org.apache.jena.riot.{RDFLanguages, RDFParser}
 import java.io.{InputStream, OutputStream}
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil:
-  override val validFormats: List[RdfFormatOption] = List(JellyText, NQuads)
-  override val defaultFormat: RdfFormatOption = NQuads
+  override val validFormats: List[RdfFormat] = List(RdfFormat.JellyText, RdfFormat.NQuads)
+  override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfFromJellyOptions(
     @Recurse
@@ -41,7 +41,7 @@ object RdfFromJelly extends RdfCommand[RdfFromJellyOptions]:
     parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
 
   override def matchToAction(
-      option: RdfFormatOption,
+      option: RdfFormat,
   ): Option[(InputStream, OutputStream) => Unit] =
     option match
       case JellyText => Some(jellyBinaryToText)

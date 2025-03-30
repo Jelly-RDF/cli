@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.*
+import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
@@ -9,8 +9,10 @@ import org.apache.jena.riot.{RDFLanguages, RDFParser}
 import java.io.{InputStream, OutputStream}
 
 object RdfToJellyPrint extends RdfCommandPrintUtil:
-  override val validFormats: List[RdfFormatOption] = List(NQuads)
-  override val defaultFormat: RdfFormatOption = NQuads
+  // maybe add some better format parsing here? like having the valid formats supplied and the rest
+  // taken from the RdfFormatOption which should always be instantiated first
+  override val validFormats: List[RdfFormat] = List(RdfFormat.NQuads)
+  override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfToJellyOptions(
     @Recurse
@@ -44,7 +46,7 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions]:
     )
 
   override def matchToAction(
-      option: RdfFormatOption,
+      option: RdfFormat,
   ): Option[(InputStream, OutputStream) => Unit] =
     option match
       case NQuads => Some(nQuadToJelly)
