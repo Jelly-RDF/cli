@@ -1,13 +1,12 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
-import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
-import eu.ostrzyciel.jelly.core.{IoUtils, RdfProtoDeserializationError}
+import eu.ostrzyciel.jelly.core.IoUtils
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
+import org.apache.jena.riot.{RDFLanguages, RDFParser}
 
 import java.io.{InputStream, OutputStream}
 
@@ -26,70 +25,28 @@ case class RdfFromJellyOptions(
     @ExtraName("out-format") outputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
-object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
-  override def group = "rdf"
+object RdfFromJelly extends RdfCommand[RdfFromJellyOptions]:
 
   override def names: List[List[String]] = List(
     List("rdf", "from-jelly"),
   )
 
+  lazy val printUtil: RdfCommandPrintUtil = RdfFromJellyPrint
+
+  def defaultAction: (InputStream, OutputStream) => Unit = jellyToNQuad
+
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    doConversion(inputStream, outputStream, options.outputFormat, options.outputFile)
+    parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
 
-  /** This method takes care of proper error handling and matches the desired output format to the
-    * correct conversion
-    *
-    * @param inputStream
-    *   InputStream
-    * @param outputStream
-    *   OutputStream
-    * @param format
-    *   Option[String]
-    * @param fileName
-    *   Option[String]
-    * @throws JellyDeserializationError
-    * @throws JenaRiotException
-    * @throws InvalidJellyFile
-    */
-  private def doConversion(
-      inputStream: InputStream,
-      outputStream: OutputStream,
-      format: Option[String],
-      fileName: Option[String],
-  ): Unit =
-    try {
-      val explicitFormat = if (format.isDefined) RdfFormatOption.find(format.get) else None
-      val implicitFormat =
-        if (fileName.isDefined) RdfFormatOption.inferFormat(fileName.get) else None
-      (explicitFormat, implicitFormat) match {
-        case (Some(f: RdfFormatOption), _) if matchToAction(Some(f)).isDefined =>
-          matchToAction(Some(f)).get(inputStream, outputStream)
-        // If format explicitely defined but does not match any available format, we throw an error
-        case (None, _) if format.isDefined =>
-          throw InvalidFormatSpecified(format.get, RdfFromJellyPrint.validFormatsString)
-        case (_, Some(f: RdfFormatOption)) if matchToAction(Some(f)).isDefined =>
-          matchToAction(Some(f)).get(inputStream, outputStream)
-        // If format not explicitely defined but implicitely not understandable we default to this
-        case (_, _) => jellyToNQuad(inputStream, outputStream)
-      }
-    } catch
-      case e: RdfProtoDeserializationError =>
-        throw JellyDeserializationError(e.getMessage)
-      case e: RiotException =>
-        throw JenaRiotException(e)
-      case e: InvalidProtocolBufferException =>
-        throw InvalidJellyFile(e)
-
-  private def matchToAction(
-      option: Option[RdfFormatOption],
+  override def matchToAction(
+      option: RdfFormatOption,
   ): Option[(InputStream, OutputStream) => Unit] =
     option match
-      case Some(JellyText) => Some(jellyBinaryToText)
-      case Some(NQuads) => Some(jellyToNQuad)
+      case JellyText => Some(jellyBinaryToText)
+      case NQuads => Some(jellyToNQuad)
       case _ => None
-  // throw InvalidFormatSpecified(ogParameter, RdfFromJellyPrint.validFormatsString)
 
   /** This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
     * @param inputStream

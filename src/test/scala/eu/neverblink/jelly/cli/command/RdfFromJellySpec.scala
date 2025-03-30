@@ -242,5 +242,29 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           exception.code should be(1)
         }
       }
+      "invalid but known output format supplied" in withFullJellyFile { j =>
+        withEmptyJellyFile { q =>
+          val exception =
+            intercept[ExitException] {
+              RdfFromJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "from-jelly",
+                  j,
+                  "--to",
+                  q,
+                  "--out-format",
+                  RdfFormatOption.JellyBinary.cliOptions.head,
+                ),
+              )
+            }
+          val msg = InvalidFormatSpecified(
+            RdfFormatOption.JellyBinary.cliOptions.head,
+            RdfFromJellyPrint.validFormatsString,
+          )
+          RdfFromJelly.getErrString should include(msg.getMessage)
+          exception.code should be(1)
+        }
+      }
     }
   }
