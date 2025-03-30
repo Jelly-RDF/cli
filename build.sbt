@@ -55,5 +55,6 @@ lazy val root = (project in file("."))
     Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
     // Do a fast build if it's a dev build
     // For the release build, optimize for size and make a build report
-    graalVMNativeImageOptions := (if (isDevBuild) Seq("-Ob") else Seq("-Os", "--emit build-report")),
+    graalVMNativeImageOptions := (if (isDevBuild) Seq("-Ob")
+                                  else Seq("-Os", "--emit build-report")) ++ baseGraalOptions,
   )
