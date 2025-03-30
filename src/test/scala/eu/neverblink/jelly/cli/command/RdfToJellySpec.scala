@@ -63,9 +63,6 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val content = translateJellyBack(new FileInputStream(j))
         content.containsAll(tripleModel.listStatements())
       }
-      "flexibly inferring types" in withFullJellyFile { j =>
-        ()
-      }
     }
     "throw proper exception" when {
       "invalid format is specified" in withFullQuadFile { f =>
@@ -74,6 +71,15 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "invalid"))
           }
         val msg = InvalidFormatSpecified("invalid", RdfToJellyPrint.validFormatsString)
+        RdfToJelly.getErrString should include(msg.getMessage)
+        exception.code should be(1)
+      }
+      "invalid format out of existing is specified" in withFullQuadFile { f =>
+        val exception =
+          intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "jelly-text"))
+          }
+        val msg = InvalidFormatSpecified("jelly-text", RdfToJellyPrint.validFormatsString)
         RdfToJelly.getErrString should include(msg.getMessage)
         exception.code should be(1)
       }
