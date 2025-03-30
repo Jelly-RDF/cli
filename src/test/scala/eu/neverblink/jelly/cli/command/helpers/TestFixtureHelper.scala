@@ -30,7 +30,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withFullQuadFile(testCode: (String) => Any): Unit =
     val extension = getFileExtension(RDFLanguages.NQUADS)
-    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, extension)
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     val model = DataGenHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, RDFLanguages.NQUADS)
     try {
@@ -39,14 +39,26 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withEmptyJellyFile(testCode: (String) => Any): Unit =
     val extension = getFileExtension(JellyLanguage.JELLY)
-    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, extension)
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
+    try {
+      testCode(tempFile.toString)
+    } finally { tempFile.toFile.delete() }
+
+  def withEmptyJellyTextFile(testCode: (String) => Any): Unit =
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, ".jelly.txt")
+    try {
+      testCode(tempFile.toString)
+    } finally { tempFile.toFile.delete() }
+
+  def withEmptyRandomFile(testCode: (String) => Any): Unit =
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, ".random")
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
 
   def withFullJellyFile(testCode: (String) => Any): Unit =
     val extension = getFileExtension(JellyLanguage.JELLY)
-    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, extension)
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     val model = DataGenHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, JellyLanguage.JELLY)
     try {
@@ -55,7 +67,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withEmptyQuadFile(testCode: (String) => Any): Unit =
     val extension = getFileExtension(RDFLanguages.NQUADS)
-    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, extension)
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }

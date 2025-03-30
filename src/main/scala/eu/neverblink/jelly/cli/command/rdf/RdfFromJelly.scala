@@ -36,7 +36,7 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    doConversion(inputStream, outputStream, options.outputFormat)
+    doConversion(inputStream, outputStream, options.outputFormat, options.outputFile)
 
   /** This method takes care of proper error handling and matches the desired output format to the
     * correct conversion
@@ -45,6 +45,10 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
     *   InputStream
     * @param outputStream
     *   OutputStream
+    * @param format
+    *   Option[String]
+    * @param fileName
+    *   Option[String]
     * @throws JellyDeserializationError
     * @throws JenaRiotException
     * @throws InvalidJellyFile
@@ -53,20 +57,22 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
       inputStream: InputStream,
       outputStream: OutputStream,
       format: Option[String],
+      fileName: Option[String],
   ): Unit =
     try {
-      format match {
-        case Some(f: String) =>
-          RdfFormatOption.find(f) match
-            case Some(JellyText) => jellyBinaryToText(inputStream, outputStream)
-            case Some(NQuads) => jellyToNQuad(inputStream, outputStream)
-            case _ =>
-              throw InvalidFormatSpecified(
-                f,
-                RdfFromJellyPrint.validFormatsString,
-              ) // if anything else, it's an invalid option
-        case None =>
-          jellyToNQuad(inputStream, outputStream) // default option if no parameter supplied
+      val explicitFormat = if (format.isDefined) RdfFormatOption.find(format.get) else None
+      val implicitFormat =
+        if (fileName.isDefined) RdfFormatOption.inferFormat(fileName.get) else None
+      (explicitFormat, implicitFormat) match {
+        case (Some(f: RdfFormatOption), _) if matchToAction(Some(f)).isDefined =>
+          matchToAction(Some(f)).get(inputStream, outputStream)
+        // If format explicitely defined but does not match any available format, we throw an error
+        case (None, _) if format.isDefined =>
+          throw InvalidFormatSpecified(format.get, RdfFromJellyPrint.validFormatsString)
+        case (_, Some(f: RdfFormatOption)) if matchToAction(Some(f)).isDefined =>
+          matchToAction(Some(f)).get(inputStream, outputStream)
+        // If format not explicitely defined but implicitely not understandable we default to this
+        case (_, _) => jellyToNQuad(inputStream, outputStream)
       }
     } catch
       case e: RdfProtoDeserializationError =>
@@ -75,6 +81,15 @@ object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
         throw JenaRiotException(e)
       case e: InvalidProtocolBufferException =>
         throw InvalidJellyFile(e)
+
+  private def matchToAction(
+      option: Option[RdfFormatOption],
+  ): Option[(InputStream, OutputStream) => Unit] =
+    option match
+      case Some(JellyText) => Some(jellyBinaryToText)
+      case Some(NQuads) => Some(jellyToNQuad)
+      case _ => None
+  // throw InvalidFormatSpecified(ogParameter, RdfFromJellyPrint.validFormatsString)
 
   /** This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
     * @param inputStream
