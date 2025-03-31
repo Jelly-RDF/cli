@@ -1,8 +1,11 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-trait RdfCommandPrintUtil:
-  val validFormats: List[RdfFormat]
+import scala.reflect.TypeTest
+
+trait RdfCommandPrintUtil[F <: RdfFormat](using tt: TypeTest[RdfFormat, F]):
   val defaultFormat: RdfFormat
+
+  lazy val validFormats: List[RdfFormat] = RdfFormat.all.collect { case x: F => x }
 
   /** Prints the available RDF formats to the user.
     */

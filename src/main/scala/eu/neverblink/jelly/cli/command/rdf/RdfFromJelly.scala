@@ -7,12 +7,22 @@ import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
 import eu.ostrzyciel.jelly.core.IoUtils
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{Lang, RDFLanguages, RDFParser}
+import org.apache.jena.riot.{Lang, RDFParser}
 
 import java.io.{InputStream, OutputStream}
+import scala.reflect.TypeTest
 
-object RdfFromJellyPrint extends RdfCommandPrintUtil:
-  override val validFormats: List[RdfFormat] = List(RdfFormat.JellyText, RdfFormat.NQuads)
+type AllWriteable = RdfFormat.Jena.Writeable | RdfFormat.JellyText.type
+
+given TypeTest[Any, AllWriteable] with
+  def unapply(x: Any): Option[x.type & AllWriteable] = x match
+    case j: RdfFormat.Jena.Writeable =>
+      Some(x.asInstanceOf[x.type & (RdfFormat.Jena.Writeable | RdfFormat.JellyText.type)])
+    case RdfFormat.JellyText =>
+      Some(x.asInstanceOf[x.type & (RdfFormat.Jena.Writeable | RdfFormat.JellyText.type)])
+    case _ => None
+
+object RdfFromJellyPrint extends RdfCommandPrintUtil[AllWriteable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfFromJellyOptions(
@@ -26,13 +36,13 @@ case class RdfFromJellyOptions(
     @ExtraName("out-format") outputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
-object RdfFromJelly extends RdfCommand[RdfFromJellyOptions]:
+object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, AllWriteable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "from-jelly"),
   )
 
-  lazy val printUtil: RdfCommandPrintUtil = RdfFromJellyPrint
+  lazy val printUtil: RdfCommandPrintUtil[AllWriteable] = RdfFromJellyPrint
 
   val defaultAction: (InputStream, OutputStream) => Unit =
     jellyToLang(RdfFormat.NQuads.jenaLang, _, _)
@@ -43,15 +53,16 @@ object RdfFromJelly extends RdfCommand[RdfFromJellyOptions]:
     parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
 
   override def matchToAction(
-      option: RdfFormat.Jena.Writeable | RdfFormat.JellyText.type,
+      option: AllWriteable,
   ): Option[(InputStream, OutputStream) => Unit] =
     option match
-      case RdfFormat.Jena.Writeable(jenaLang) => Some(jellyToLang(option.jenaLang, _, _))
-      case JellyText => Some(jellyBinaryToText)
-      case _ => None
+      case j: RdfFormat.Jena.Writeable => Some(jellyToLang(j.jenaLang, _, _))
+      case RdfFormat.JellyText => Some(jellyBinaryToText)
 
   /** This method reads the Jelly file, rewrites it to specified format and writes it to some output
     * stream
+    * @param jenaLang
+    *   Language that jelly should be converted to
     * @param inputStream
     *   InputStream
     * @param outputStream

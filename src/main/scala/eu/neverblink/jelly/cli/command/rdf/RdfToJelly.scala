@@ -4,14 +4,17 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{RDFLanguages, RDFParser}
+import org.apache.jena.riot.{Lang, RDFParser}
 
 import java.io.{InputStream, OutputStream}
+import scala.reflect.TypeTest
 
-object RdfToJellyPrint extends RdfCommandPrintUtil:
-  // maybe add some better format parsing here? like having the valid formats supplied and the rest
-  // taken from the RdfFormatOption which should always be instantiated first
-  override val validFormats: List[RdfFormat] = List(RdfFormat.NQuads)
+given TypeTest[Any, RdfFormat.Jena.Readable] with
+  def unapply(x: Any): Option[x.type & RdfFormat.Jena.Readable] = x match
+    case j: RdfFormat.Jena.Readable => Some(x.asInstanceOf[x.type & RdfFormat.Jena.Readable])
+    case _ => None
+
+object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Jena.Readable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfToJellyOptions(
@@ -25,15 +28,16 @@ case class RdfToJellyOptions(
     @ExtraName("in-format") inputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
-object RdfToJelly extends RdfCommand[RdfToJellyOptions]:
+object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "to-jelly"),
   )
 
-  lazy val printUtil: RdfCommandPrintUtil = RdfToJellyPrint
+  lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Jena.Readable] = RdfToJellyPrint
 
-  val defaultAction: (InputStream, OutputStream) => Unit = nQuadToJelly
+  val defaultAction: (InputStream, OutputStream) => Unit =
+    langToJelly(RdfFormat.NQuads.jenaLang, _, _)
 
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
@@ -46,18 +50,22 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions]:
     )
 
   override def matchToAction(
-      option: RdfFormat,
+      option: RdfFormat.Jena.Readable,
   ): Option[(InputStream, OutputStream) => Unit] =
-    option match
-      case NQuads => Some(nQuadToJelly)
-      case _ => None
+    Some(langToJelly(option.jenaLang, _, _))
 
-  /** This method reads the NQuad file, rewrites it to Jelly and writes it to some output stream
+  /** This method reads the file, rewrites it to Jelly and writes it to some output stream
+    * @param jenaLang
+    *   Language that should be converted to Jelly
     * @param inputStream
     *   InputStream
     * @param outputStream
     *   OutputStream
     */
-  private def nQuadToJelly(inputStream: InputStream, outputStream: OutputStream): Unit =
+  private def langToJelly(
+      jenaLang: Lang,
+      inputStream: InputStream,
+      outputStream: OutputStream,
+  ): Unit =
     val jellyWriter = StreamRDFWriter.getWriterStream(outputStream, JellyLanguage.JELLY)
-    RDFParser.source(inputStream).lang(RDFLanguages.NQUADS).parse(jellyWriter)
+    RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)

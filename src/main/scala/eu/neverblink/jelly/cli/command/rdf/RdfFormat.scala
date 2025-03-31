@@ -4,7 +4,6 @@ import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.{Lang, RDFLanguages}
 
 sealed trait RdfFormat:
-  RdfFormat.registerFormat(this)
   val fullName: String
   val cliOptions: List[String]
 
@@ -17,11 +16,6 @@ object RdfFormat:
     sealed trait Writeable extends Jena
     sealed trait Readable extends Jena
 
-  private var rdfFormats: List[RdfFormat] = Nil
-  private def registerFormat(format: RdfFormat): Unit = {
-    rdfFormats = rdfFormats :+ format
-  }
-
   case object NQuads extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
     override val fullName: String = "N-Quads"
     override val cliOptions: List[String] = List("nq", "nquads")
@@ -32,7 +26,9 @@ object RdfFormat:
     override val cliOptions: List[String] = List("nt", "ntriples")
     override val jenaLang: Lang = RDFLanguages.NTRIPLES
 
-  case object JellyBinary extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+  // We do not ever want to write or read from Jelly to Jelly
+  // So better not have it as Writeable or Readable, just mark that it's integrated into Jena
+  case object JellyBinary extends RdfFormat.Jena:
     override val fullName: String = "Jelly binary format"
     override val cliOptions: List[String] = List("jelly")
     override val jenaLang: Lang = JellyLanguage.JELLY
@@ -41,6 +37,8 @@ object RdfFormat:
     override val fullName: String = "Jelly text format"
     override val cliOptions: List[String] = List("jelly-text")
     val extension = ".jelly.txt"
+
+  private val rdfFormats: List[RdfFormat] = List(NQuads, NTriples, JellyBinary, JellyText)
 
   def all: List[RdfFormat] = rdfFormats
 
