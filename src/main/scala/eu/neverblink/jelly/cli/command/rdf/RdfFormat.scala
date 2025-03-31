@@ -28,6 +28,36 @@ object RdfFormat:
     override val cliOptions: List[String] = List("nt", "ntriples")
     override val jenaLang: Lang = RDFLanguages.NTRIPLES
 
+  case object Turtle extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+    override val fullName: String = "Turtle"
+    override val cliOptions: List[String] = List("ttl", "turtle")
+    override val jenaLang: Lang = RDFLanguages.TURTLE
+
+  case object TriG extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+    override val fullName: String = "TriG"
+    override val cliOptions: List[String] = List("trig")
+    override val jenaLang: Lang = RDFLanguages.TRIG
+
+  case object RdfProto extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+    override val fullName: String = "RDF Protobuf"
+    override val cliOptions: List[String] = List("rdfp", "rdfproto", "rdf-proto")
+    override val jenaLang: Lang = RDFLanguages.RDFPROTO
+
+  case object Thrift extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+    override val fullName: String = "RDF Thrift"
+    override val cliOptions: List[String] = List("rdfthrift", "thrift")
+    override val jenaLang: Lang = RDFLanguages.RDFTHRIFT
+
+  case object RdfXML extends RdfFormat.Jena.Readable:
+    override val fullName: String = "RDF/XML"
+    override val cliOptions: List[String] = List("rdfxml", "rdf-xml")
+    override val jenaLang: Lang = RDFLanguages.RDFXML
+
+  case object JsonLD extends RdfFormat.Jena.Readable:
+    override val fullName: String = "JSON-LD"
+    override val cliOptions: List[String] = List("jsonld", "json-ld")
+    override val jenaLang: Lang = RDFLanguages.JSONLD
+
   // We do not ever want to write or read from Jelly to Jelly
   // So better not have it as Writeable or Readable, just mark that it's integrated into Jena
   case object JellyBinary extends RdfFormat.Jena:
