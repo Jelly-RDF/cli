@@ -31,5 +31,6 @@ object IoUtil:
     val file = File(fileName)
     val suppFile = file.getParentFile
     val parentFile = if (suppFile != null) suppFile else File(".")
-    if !parentFile.canWrite || !file.canWrite then throw OutputFileCannotBeCreated(fileName)
+    if !parentFile.canWrite || (file.exists() && !file.canWrite) then
+      throw OutputFileCannotBeCreated(fileName)
     FileOutputStream(file, true)

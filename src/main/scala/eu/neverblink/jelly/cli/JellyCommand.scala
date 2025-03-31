@@ -15,6 +15,7 @@ trait HasJellyOptions:
   val common: JellyOptions
 
 abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Command[T]:
+
   private var isTest = false
   private var isDebug = false
   final protected[cli] var out = System.out

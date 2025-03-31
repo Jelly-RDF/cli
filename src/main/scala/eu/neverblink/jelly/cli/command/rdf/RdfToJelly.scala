@@ -1,18 +1,15 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
-import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.*
+import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.RdfProtoSerializationError
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
+import org.apache.jena.riot.{Lang, RDFParser}
 
 import java.io.{InputStream, OutputStream}
 
-object RdfToJellyPrint extends RdfCommandPrintUtil:
-  override val validFormats: List[RdfFormatOption] = List(NQuads)
-  override val defaultFormat: RdfFormatOption = NQuads
+object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Jena.Readable]:
+  override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfToJellyOptions(
     @Recurse
@@ -25,61 +22,44 @@ case class RdfToJellyOptions(
     @ExtraName("in-format") inputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
-object RdfToJelly extends JellyCommand[RdfToJellyOptions]:
-  override def group = "rdf"
+object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "to-jelly"),
   )
 
+  lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Jena.Readable] = RdfToJellyPrint
+
+  val defaultAction: (InputStream, OutputStream) => Unit =
+    langToJelly(RdfFormat.NQuads.jenaLang, _, _)
+
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
       getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    doConversion(inputStream, outputStream, options.inputFormat)
+    parseFormatArgs(
+      inputStream,
+      outputStream,
+      options.inputFormat,
+      remainingArgs.remaining.headOption,
+    )
 
-  /** This method takes care of proper error handling and matches the desired output format to the
-    * correct conversion
-    *
+  override def matchToAction(
+      option: RdfFormat.Jena.Readable,
+  ): Option[(InputStream, OutputStream) => Unit] =
+    Some(langToJelly(option.jenaLang, _, _))
+
+  /** This method reads the file, rewrites it to Jelly and writes it to some output stream
+    * @param jenaLang
+    *   Language that should be converted to Jelly
     * @param inputStream
     *   InputStream
     * @param outputStream
     *   OutputStream
-    * @throws JellySerializationError
-    * @throws JenaRiotException
-    * @throws InvalidJellyFile
     */
-  private def doConversion(
+  private def langToJelly(
+      jenaLang: Lang,
       inputStream: InputStream,
       outputStream: OutputStream,
-      format: Option[String],
   ): Unit =
-    try {
-      format match {
-        case Some(f: String) =>
-          RdfFormatOption.find(f) match
-            case Some(NQuads) => nQuadToJelly(inputStream, outputStream)
-            case _ =>
-              throw InvalidFormatSpecified(
-                f,
-                RdfToJellyPrint.validFormatsString,
-              ) // if anything else, it's an invalid option
-        case None =>
-          nQuadToJelly(inputStream, outputStream) // default option if no parameter supplied
-      }
-    } catch
-      case e: RdfProtoSerializationError =>
-        throw JellySerializationError(e.getMessage)
-      case e: RiotException =>
-        throw JenaRiotException(e)
-      case e: InvalidProtocolBufferException =>
-        throw InvalidJellyFile(e)
-
-  /** This method reads the NQuad file, rewrites it to Jelly and writes it to some output stream
-    * @param inputStream
-    *   InputStream
-    * @param outputStream
-    *   OutputStream
-    */
-  private def nQuadToJelly(inputStream: InputStream, outputStream: OutputStream): Unit =
     val jellyWriter = StreamRDFWriter.getWriterStream(outputStream, JellyLanguage.JELLY)
-    RDFParser.source(inputStream).lang(RDFLanguages.NQUADS).parse(jellyWriter)
+    RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)

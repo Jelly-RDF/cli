@@ -32,7 +32,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         RdfFromJelly.setStdIn(input)
         val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
         val (out, err) = RdfFromJelly.runTestCommand(
-          List("rdf", "from-jelly", "--out-format", RdfFormatOption.NQuads.cliOptions.head),
+          List("rdf", "from-jelly", "--out-format", RdfFormat.NQuads.cliOptions.head),
         )
         val sortedOut = out.split("\n").map(_.trim).sorted
         val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
@@ -40,6 +40,21 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
       "a file to file" in withFullJellyFile { j =>
         withEmptyQuadFile { q =>
+          val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
+          val (out, err) =
+            RdfFromJelly.runTestCommand(
+              List("rdf", "from-jelly", j, "--to", q),
+            )
+          val sortedOut = Using.resource(Source.fromFile(q)) { content =>
+            content.getLines().toList.map(_.trim).sorted
+          }
+          val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
+          sortedOut should contain theSameElementsAs sortedQuads
+          out.length should be(0)
+        }
+      }
+      "a file to file when defaulting to nQuads" in withFullJellyFile { j =>
+        withEmptyRandomFile { q =>
           val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
           val (out, err) =
             RdfFromJelly.runTestCommand(
@@ -76,7 +91,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
               "from-jelly",
               j,
               "--out-format",
-              RdfFormatOption.JellyText.cliOptions.head,
+              RdfFormat.JellyText.cliOptions.head,
             ),
           )
         val outString = """# Frame 0
@@ -96,6 +111,42 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         out should include(outString)
         "rows".r.findAllIn(out).length should be(70)
         "http://example.org/predicate/".r.findAllIn(out).length should be(1)
+      }
+      "a file to file when inferred type" in withFullJellyFile { j =>
+        withEmptyJellyTextFile { t =>
+          val (out, err) =
+            RdfFromJelly.runTestCommand(
+              List(
+                "rdf",
+                "from-jelly",
+                j,
+                "--to",
+                t,
+              ),
+            )
+          val inTxt = Using.resource(Source.fromFile(t)) { content =>
+            content.getLines().mkString("\n")
+          }
+          val outString =
+            """# Frame 0
+              |rows {
+              |  options {
+              |    stream_name: ""
+              |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
+              |    generalized_statements: true
+              |    rdf_star: true
+              |    max_name_table_size: 128
+              |    max_prefix_table_size: 16
+              |    max_datatype_table_size: 16
+              |    logical_type: LOGICAL_STREAM_TYPE_FLAT_TRIPLES
+              |    version: 1
+              |  }
+              |}""".stripMargin
+          inTxt should include(outString)
+          "rows".r.findAllIn(inTxt).length should be(70)
+          "http://example.org/predicate/".r.findAllIn(inTxt).length should be(1)
+        }
+
       }
     }
     "throw proper exception" when {
@@ -187,6 +238,30 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
               )
             }
           val msg = InvalidFormatSpecified("invalid", RdfFromJellyPrint.validFormatsString)
+          RdfFromJelly.getErrString should include(msg.getMessage)
+          exception.code should be(1)
+        }
+      }
+      "invalid but known output format supplied" in withFullJellyFile { j =>
+        withEmptyJellyFile { q =>
+          val exception =
+            intercept[ExitException] {
+              RdfFromJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "from-jelly",
+                  j,
+                  "--to",
+                  q,
+                  "--out-format",
+                  RdfFormat.JellyBinary.cliOptions.head,
+                ),
+              )
+            }
+          val msg = InvalidFormatSpecified(
+            RdfFormat.JellyBinary.cliOptions.head,
+            RdfFromJellyPrint.validFormatsString,
+          )
           RdfFromJelly.getErrString should include(msg.getMessage)
           exception.code should be(1)
         }

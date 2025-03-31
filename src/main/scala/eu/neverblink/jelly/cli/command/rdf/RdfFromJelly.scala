@@ -1,19 +1,18 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
-import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.RdfFormatOption.*
+import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
+import eu.neverblink.jelly.cli.command.rdf.RdfFormat.Jena.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
-import eu.ostrzyciel.jelly.core.{IoUtils, RdfProtoDeserializationError}
+import eu.ostrzyciel.jelly.core.IoUtils
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{RDFLanguages, RDFParser, RiotException}
+import org.apache.jena.riot.{Lang, RDFParser}
 
 import java.io.{InputStream, OutputStream}
 
-object RdfFromJellyPrint extends RdfCommandPrintUtil:
-  override val validFormats: List[RdfFormatOption] = List(JellyText, NQuads)
-  override val defaultFormat: RdfFormatOption = NQuads
+object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
+  override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfFromJellyOptions(
     @Recurse
@@ -26,64 +25,44 @@ case class RdfFromJellyOptions(
     @ExtraName("out-format") outputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
-object RdfFromJelly extends JellyCommand[RdfFromJellyOptions]:
-  override def group = "rdf"
+object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "from-jelly"),
   )
 
+  lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Writeable] = RdfFromJellyPrint
+
+  val defaultAction: (InputStream, OutputStream) => Unit =
+    jellyToLang(RdfFormat.NQuads.jenaLang, _, _)
+
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    doConversion(inputStream, outputStream, options.outputFormat)
+    parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
 
-  /** This method takes care of proper error handling and matches the desired output format to the
-    * correct conversion
-    *
+  override def matchToAction(
+      option: RdfFormat.Writeable,
+  ): Option[(InputStream, OutputStream) => Unit] =
+    option match
+      case j: RdfFormat.Jena.Writeable => Some(jellyToLang(j.jenaLang, _, _))
+      case RdfFormat.JellyText => Some(jellyBinaryToText)
+
+  /** This method reads the Jelly file, rewrites it to specified format and writes it to some output
+    * stream
+    * @param jenaLang
+    *   Language that jelly should be converted to
     * @param inputStream
     *   InputStream
     * @param outputStream
     *   OutputStream
-    * @throws JellyDeserializationError
-    * @throws JenaRiotException
-    * @throws InvalidJellyFile
     */
-  private def doConversion(
+  private def jellyToLang(
+      jenaLang: Lang,
       inputStream: InputStream,
       outputStream: OutputStream,
-      format: Option[String],
   ): Unit =
-    try {
-      format match {
-        case Some(f: String) =>
-          RdfFormatOption.find(f) match
-            case Some(JellyText) => jellyBinaryToText(inputStream, outputStream)
-            case Some(NQuads) => jellyToNQuad(inputStream, outputStream)
-            case _ =>
-              throw InvalidFormatSpecified(
-                f,
-                RdfFromJellyPrint.validFormatsString,
-              ) // if anything else, it's an invalid option
-        case None =>
-          jellyToNQuad(inputStream, outputStream) // default option if no parameter supplied
-      }
-    } catch
-      case e: RdfProtoDeserializationError =>
-        throw JellyDeserializationError(e.getMessage)
-      case e: RiotException =>
-        throw JenaRiotException(e)
-      case e: InvalidProtocolBufferException =>
-        throw InvalidJellyFile(e)
-
-  /** This method reads the Jelly file, rewrites it to NQuads and writes it to some output stream
-    * @param inputStream
-    *   InputStream
-    * @param outputStream
-    *   OutputStream
-    */
-  private def jellyToNQuad(inputStream: InputStream, outputStream: OutputStream): Unit =
-    val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, RDFLanguages.NQUADS)
+    val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, jenaLang)
     RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
 
   /** This method reads the Jelly file, rewrites it to Jelly text and writes it to some output

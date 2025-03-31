@@ -2,7 +2,7 @@ package eu.neverblink.jelly.cli.command
 
 import eu.neverblink.jelly.cli.{ExitException, InvalidFormatSpecified}
 import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
-import eu.neverblink.jelly.cli.command.rdf.{RdfFormatOption, RdfToJelly, RdfToJellyPrint}
+import eu.neverblink.jelly.cli.command.rdf.{RdfFormat, RdfToJelly, RdfToJellyPrint}
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.scalatest.matchers.should.Matchers
@@ -49,7 +49,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         RdfToJelly.setStdIn(input)
         val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
         val (out, err) = RdfToJelly.runTestCommand(
-          List("rdf", "to-jelly", "--in-format", RdfFormatOption.NQuads.cliOptions.head),
+          List("rdf", "to-jelly", "--in-format", RdfFormat.NQuads.cliOptions.head),
         )
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val content = translateJellyBack(newIn)
@@ -64,16 +64,25 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         content.containsAll(tripleModel.listStatements())
       }
     }
-  }
-  "throw proper exception" when {
-    "invalid format is specified" in withFullQuadFile { f =>
-      val exception =
-        intercept[ExitException] {
-          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "invalid"))
-        }
-      val msg = InvalidFormatSpecified("invalid", RdfToJellyPrint.validFormatsString)
-      RdfToJelly.getErrString should include(msg.getMessage)
-      exception.code should be(1)
-    }
+    "throw proper exception" when {
+      "invalid format is specified" in withFullQuadFile { f =>
+        val exception =
+          intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "invalid"))
+          }
+        val msg = InvalidFormatSpecified("invalid", RdfToJellyPrint.validFormatsString)
+        RdfToJelly.getErrString should include(msg.getMessage)
+        exception.code should be(1)
+      }
+      "invalid format out of existing is specified" in withFullQuadFile { f =>
+        val exception =
+          intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "jelly-text"))
+          }
+        val msg = InvalidFormatSpecified("jelly-text", RdfToJellyPrint.validFormatsString)
+        RdfToJelly.getErrString should include(msg.getMessage)
+        exception.code should be(1)
+      }
 
+    }
   }
