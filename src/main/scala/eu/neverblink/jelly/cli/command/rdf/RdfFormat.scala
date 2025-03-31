@@ -9,11 +9,13 @@ sealed trait RdfFormat:
 
 object RdfFormat:
 
+  sealed trait Writeable extends RdfFormat
+
   sealed trait Jena extends RdfFormat:
     val jenaLang: Lang
 
   object Jena:
-    sealed trait Writeable extends Jena
+    sealed trait Writeable extends Jena, RdfFormat.Writeable
     sealed trait Readable extends Jena
 
   case object NQuads extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
@@ -33,7 +35,7 @@ object RdfFormat:
     override val cliOptions: List[String] = List("jelly")
     override val jenaLang: Lang = JellyLanguage.JELLY
 
-  case object JellyText extends RdfFormat:
+  case object JellyText extends RdfFormat, RdfFormat.Writeable:
     override val fullName: String = "Jelly text format"
     override val cliOptions: List[String] = List("jelly-text")
     val extension = ".jelly.txt"

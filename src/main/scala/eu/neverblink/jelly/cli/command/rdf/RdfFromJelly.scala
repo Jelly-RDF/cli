@@ -10,19 +10,8 @@ import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser}
 
 import java.io.{InputStream, OutputStream}
-import scala.reflect.TypeTest
 
-type AllWriteable = RdfFormat.Jena.Writeable | RdfFormat.JellyText.type
-
-given TypeTest[Any, AllWriteable] with
-  def unapply(x: Any): Option[x.type & AllWriteable] = x match
-    case j: RdfFormat.Jena.Writeable =>
-      Some(x.asInstanceOf[x.type & (RdfFormat.Jena.Writeable | RdfFormat.JellyText.type)])
-    case RdfFormat.JellyText =>
-      Some(x.asInstanceOf[x.type & (RdfFormat.Jena.Writeable | RdfFormat.JellyText.type)])
-    case _ => None
-
-object RdfFromJellyPrint extends RdfCommandPrintUtil[AllWriteable]:
+object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfFromJellyOptions(
@@ -36,13 +25,13 @@ case class RdfFromJellyOptions(
     @ExtraName("out-format") outputFormat: Option[String] = None,
 ) extends HasJellyOptions
 
-object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, AllWriteable]:
+object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "from-jelly"),
   )
 
-  lazy val printUtil: RdfCommandPrintUtil[AllWriteable] = RdfFromJellyPrint
+  lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Writeable] = RdfFromJellyPrint
 
   val defaultAction: (InputStream, OutputStream) => Unit =
     jellyToLang(RdfFormat.NQuads.jenaLang, _, _)
@@ -53,7 +42,7 @@ object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, AllWriteable]:
     parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
 
   override def matchToAction(
-      option: AllWriteable,
+      option: RdfFormat.Writeable,
   ): Option[(InputStream, OutputStream) => Unit] =
     option match
       case j: RdfFormat.Jena.Writeable => Some(jellyToLang(j.jenaLang, _, _))

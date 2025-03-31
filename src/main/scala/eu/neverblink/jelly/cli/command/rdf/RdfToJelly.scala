@@ -7,12 +7,6 @@ import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser}
 
 import java.io.{InputStream, OutputStream}
-import scala.reflect.TypeTest
-
-given TypeTest[Any, RdfFormat.Jena.Readable] with
-  def unapply(x: Any): Option[x.type & RdfFormat.Jena.Readable] = x match
-    case j: RdfFormat.Jena.Readable => Some(x.asInstanceOf[x.type & RdfFormat.Jena.Readable])
-    case _ => None
 
 object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Jena.Readable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
