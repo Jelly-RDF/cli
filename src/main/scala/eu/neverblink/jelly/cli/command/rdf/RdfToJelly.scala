@@ -33,7 +33,7 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions]:
 
   lazy val printUtil: RdfCommandPrintUtil = RdfToJellyPrint
 
-  def defaultAction: (InputStream, OutputStream) => Unit = nQuadToJelly
+  val defaultAction: (InputStream, OutputStream) => Unit = nQuadToJelly
 
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =

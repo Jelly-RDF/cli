@@ -15,13 +15,13 @@ abstract class RdfCommand[T <: HasJellyOptions: {Parser, Help}] extends JellyCom
   override final def group = "rdf"
 
   /** What is the default action if no formats specified */
-  def defaultAction: (InputStream, OutputStream) => Unit
+  val defaultAction: (InputStream, OutputStream) => Unit
 
   /** The print util responsible for handling the specific formats etc the command requires */
   lazy val printUtil: RdfCommandPrintUtil
 
   /** The method responsible for matching the format to a given action */
-  def matchToAction(option: RdfFormat): Option[(InputStream, OutputStream) => Unit]
+  def matchToAction[R <: RdfFormat](option: R): Option[(InputStream, OutputStream) => Unit]
 
   /** This method takes care of proper error handling and takes care of the parameter priorities in
     * matching the input to a given format conversion
