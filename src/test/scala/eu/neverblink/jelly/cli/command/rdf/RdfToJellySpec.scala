@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
 import eu.neverblink.jelly.cli.{ExitException, InvalidArgument, InvalidFormatSpecified}
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.JellyOptions
+import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
 import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
@@ -43,8 +43,10 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       "a file to output stream" in withFullJenaFile { f =>
         val (out, err) =
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-        val content = translateJellyBack(newIn)
+        val bytes = RdfToJelly.getOutBytes
+        // Make sure it's written in the delimited format
+        IoUtils.autodetectDelimiting(new ByteArrayInputStream(bytes))._1 should be(true)
+        val content = translateJellyBack(ByteArrayInputStream(bytes))
         content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
       }
 
@@ -185,6 +187,26 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val frames = readJellyFile(new FileInputStream(j))
           val opts = frames.head.rows.head.row.options
           opts.version should be(2)
+        }
+      }
+
+      "a file to file, non-delimited output" in withFullJenaFile { f =>
+        withEmptyJellyFile { j =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                f,
+                "--delimited=false",
+                "--to",
+                j,
+              ),
+            )
+          val (delimited, is) = IoUtils.autodetectDelimiting(new FileInputStream(j))
+          delimited should be(false)
+          val frame = RdfStreamFrame.parseFrom(is)
+          frame.rows.size should be > 0
         }
       }
     }

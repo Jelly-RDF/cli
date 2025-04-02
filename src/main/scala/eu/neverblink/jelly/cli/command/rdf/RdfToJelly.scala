@@ -31,6 +31,11 @@ case class RdfToJellyOptions(
         "Default: false",
     )
     enableNamespaceDeclarations: Boolean = false,
+    @HelpMessage(
+      "Whether the output should be delimited. Setting it to false will force the output to be a single " +
+        "frame – make sure you know what you are doing. Default: true",
+    )
+    delimited: Boolean = true,
 ) extends HasJellyCommandOptions
 
 object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]:
@@ -85,6 +90,7 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]
         JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
         getOptions.enableNamespaceDeclarations,
       )
+      .set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
     val jellyWriter = StreamRDFWriter.getWriterStream(
       outputStream,
       JellyLanguage.JELLY,
