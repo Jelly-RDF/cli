@@ -5,8 +5,8 @@ import eu.neverblink.jelly.cli.*
 
 case class VersionOptions(
     @Recurse
-    common: JellyOptions = JellyOptions(),
-) extends HasJellyOptions
+    common: JellyCommandOptions = JellyCommandOptions(),
+) extends HasJellyCommandOptions
 
 object Version extends JellyCommand[VersionOptions]:
   override def names: List[List[String]] = List(

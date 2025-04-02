@@ -1,14 +1,13 @@
-package eu.neverblink.jelly.cli.command
+package eu.neverblink.jelly.cli.command.rdf
 
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
-import eu.neverblink.jelly.cli.command.rdf.*
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.nio.file.{Files, Paths}
 import java.nio.file.attribute.PosixFilePermissions
+import java.nio.file.{Files, Paths}
 import scala.io.Source
 import scala.util.Using
 

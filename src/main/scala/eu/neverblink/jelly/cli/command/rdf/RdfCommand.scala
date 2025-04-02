@@ -12,7 +12,7 @@ import java.io.{InputStream, OutputStream}
 
 /** This abstract class is responsible for the common logic in both RDF parsing commands
   */
-abstract class RdfCommand[T <: HasJellyOptions: {Parser, Help}, F <: RdfFormat](using
+abstract class RdfCommand[T <: HasJellyCommandOptions: {Parser, Help}, F <: RdfFormat](using
     tt: TypeTest[RdfFormat, F],
 ) extends JellyCommand[T]:
 
@@ -25,7 +25,7 @@ abstract class RdfCommand[T <: HasJellyOptions: {Parser, Help}, F <: RdfFormat](
   lazy val printUtil: RdfCommandPrintUtil[F]
 
   /** The method responsible for matching the format to a given action */
-  def matchToAction(option: F): Option[(InputStream, OutputStream) => Unit]
+  def matchFormatToAction(option: F): Option[(InputStream, OutputStream) => Unit]
 
   /** This method takes care of proper error handling and takes care of the parameter priorities in
     * matching the input to a given format conversion
@@ -54,13 +54,13 @@ abstract class RdfCommand[T <: HasJellyOptions: {Parser, Help}, F <: RdfFormat](
         if (fileName.isDefined) RdfFormat.inferFormat(fileName.get) else None
       (explicitFormat, implicitFormat) match {
         case (Some(f: F), _) =>
-          matchToAction(f).get(inputStream, outputStream)
-        // If format explicitely defined but does not match any available actions or formats, we throw an error
+          matchFormatToAction(f).get(inputStream, outputStream)
+        // If format explicitly defined but does not match any available actions or formats, we throw an error
         case (_, _) if format.isDefined =>
           throw InvalidFormatSpecified(format.get, printUtil.validFormatsString)
         case (_, Some(f: F)) =>
-          matchToAction(f).get(inputStream, outputStream)
-        // If format not explicitely defined but implicitely not understandable we default to this
+          matchFormatToAction(f).get(inputStream, outputStream)
+        // If format not explicitly defined but implicitly not understandable we default to this
         case (_, _) => defaultAction(inputStream, outputStream)
       }
     } catch

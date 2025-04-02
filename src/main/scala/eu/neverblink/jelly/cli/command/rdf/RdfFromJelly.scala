@@ -16,14 +16,14 @@ object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
 
 case class RdfFromJellyOptions(
     @Recurse
-    common: JellyOptions = JellyOptions(),
+    common: JellyCommandOptions = JellyCommandOptions(),
     @ExtraName("to") outputFile: Option[String] = None,
     @ValueDescription("Output format.")
     @HelpMessage(
       RdfFromJellyPrint.helpMsg,
     )
     @ExtraName("out-format") outputFormat: Option[String] = None,
-) extends HasJellyOptions
+) extends HasJellyCommandOptions
 
 object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
 
@@ -41,7 +41,7 @@ object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, RdfFormat.Writeable]
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
 
-  override def matchToAction(
+  override def matchFormatToAction(
       option: RdfFormat.Writeable,
   ): Option[(InputStream, OutputStream) => Unit] =
     option match
