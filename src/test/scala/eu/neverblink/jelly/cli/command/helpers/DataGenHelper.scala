@@ -1,6 +1,7 @@
 package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
+import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
 
@@ -42,6 +43,17 @@ object DataGenHelper:
     val outputStream = new ByteArrayOutputStream()
     RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
     outputStream.toByteArray
+
+  /** Generate a Jelly frame in the Text Format.
+    * @param nTriples
+    *   number of triples to generate
+    * @return
+    *   String
+    */
+  def generateJellyText(nTriples: Int): String =
+    val bytes = generateJellyBytes(nTriples)
+    val frame = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(bytes))
+    frame.get.toProtoString
 
   /** This method generates a Jelly byte input stream with nTriples
     * @param nTriples
