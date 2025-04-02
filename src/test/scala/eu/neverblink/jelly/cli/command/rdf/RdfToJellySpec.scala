@@ -193,7 +193,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.NTRIPLES)
         RdfToJelly.setStdIn(input)
         val (out, err) =
-          RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--in-format", "nt"))
+          RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", "--in-format", RdfFormat.NTriples.cliOptions.head),
+          )
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val content = translateJellyBack(newIn)
         content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
@@ -202,7 +204,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.TURTLE)
         RdfToJelly.setStdIn(input)
         val (out, err) =
-          RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--in-format", "ttl"))
+          RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", "--in-format", RdfFormat.Turtle.cliOptions.head),
+          )
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val content = translateJellyBack(newIn)
         content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
@@ -220,7 +224,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       "RDF Protobuf" in withFullJenaFile(
         testCode = { f =>
           val (out, err) =
-            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "rdfp"))
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--in-format", RdfFormat.RdfProto.cliOptions.head),
+            )
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
           content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
@@ -240,7 +246,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       "RDF/XML" in withFullJenaFile(
         testCode = { f =>
           val (out, err) =
-            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "rdfxml"))
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--in-format", RdfFormat.RdfXml.cliOptions.head),
+            )
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
           content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
@@ -250,7 +258,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       "JSON-LD" in withFullJenaFile(
         testCode = { f =>
           val (out, err) =
-            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "json-ld"))
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--in-format", RdfFormat.JsonLd.cliOptions.head),
+            )
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
           content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())

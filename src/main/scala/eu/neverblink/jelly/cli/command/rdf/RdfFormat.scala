@@ -40,20 +40,20 @@ object RdfFormat:
 
   case object RdfProto extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
     override val fullName: String = "RDF Protobuf"
-    override val cliOptions: List[String] = List("rdfp", "rdfproto", "rdf-proto")
+    override val cliOptions: List[String] = List("jenaproto", "jena-proto")
     override val jenaLang: Lang = RDFLanguages.RDFPROTO
 
   case object Thrift extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
     override val fullName: String = "RDF Thrift"
-    override val cliOptions: List[String] = List("rdfthrift", "thrift")
+    override val cliOptions: List[String] = List("jenathrift", "jena-thrift")
     override val jenaLang: Lang = RDFLanguages.RDFTHRIFT
 
-  case object RdfXML extends RdfFormat.Jena.Readable:
+  case object RdfXml extends RdfFormat.Jena.Readable:
     override val fullName: String = "RDF/XML"
     override val cliOptions: List[String] = List("rdfxml", "rdf-xml")
     override val jenaLang: Lang = RDFLanguages.RDFXML
 
-  case object JsonLD extends RdfFormat.Jena.Readable:
+  case object JsonLd extends RdfFormat.Jena.Readable:
     override val fullName: String = "JSON-LD"
     override val cliOptions: List[String] = List("jsonld", "json-ld")
     override val jenaLang: Lang = RDFLanguages.JSONLD
@@ -71,7 +71,7 @@ object RdfFormat:
     val extension = ".jelly.txt"
 
   private val rdfFormats: List[RdfFormat] =
-    List(NQuads, NTriples, JellyBinary, JellyText, Turtle, TriG, RdfProto, Thrift, RdfXML, JsonLD)
+    List(NQuads, NTriples, JellyBinary, JellyText, Turtle, TriG, RdfProto, Thrift, RdfXml, JsonLd)
 
   def all: List[RdfFormat] = rdfFormats
 

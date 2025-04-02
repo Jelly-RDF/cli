@@ -279,12 +279,12 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
                     "--to",
                     q,
                     "--out-format",
-                    RdfFormat.RdfXML.cliOptions.head,
+                    RdfFormat.RdfXml.cliOptions.head,
                   ),
                 )
               }
             val msg = InvalidFormatSpecified(
-              RdfFormat.RdfXML.cliOptions.head,
+              RdfFormat.RdfXml.cliOptions.head,
               RdfFromJellyPrint.validFormatsString,
             )
             RdfFromJelly.getErrString should include(msg.getMessage)
