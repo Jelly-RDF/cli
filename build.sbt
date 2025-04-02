@@ -13,12 +13,15 @@ addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 def isDevBuild: Boolean =
   sys.env.get("DEV_BUILD").exists(s => s != "0" && s != "false")
 
-lazy val baseGraalOptions = Seq(
+lazy val graalOptions = Seq(
   // If running on Scala <3.8 and JDK >=24, we need to allow unsafe memory access.
   // Otherwise, we get annoying warnings on startup.
   // https://github.com/scala/scala3/issues/9013
   // Remove this after moving to Scala 3.8
-  if (scalaV.split('.')(1).toInt < 8) Some("-J--sun-misc-unsafe-memory-access=allow") else None,
+  if (scalaV.split('.')(1).toInt < 8) Seq("-J--sun-misc-unsafe-memory-access=allow") else Nil,
+  // Do a fast build if it's a dev build
+  // For the release build, optimize for size and make a build report
+  if (isDevBuild) Seq("-Ob") else Seq("-Os", "--emit build-report"),
 ).flatten
 
 lazy val root = (project in file("."))
@@ -55,6 +58,5 @@ lazy val root = (project in file("."))
     Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
     // Do a fast build if it's a dev build
     // For the release build, optimize for size and make a build report
-    graalVMNativeImageOptions := (if (isDevBuild) Seq("-Ob")
-                                  else Seq("-Os", "--emit build-report")) ++ baseGraalOptions,
+    graalVMNativeImageOptions := graalOptions,
   )
