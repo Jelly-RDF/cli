@@ -4,7 +4,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{Lang, RDFParser}
+import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
 import java.io.{InputStream, OutputStream}
 
@@ -13,14 +13,25 @@ object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Jena.Readable]:
 
 case class RdfToJellyOptions(
     @Recurse
-    common: JellyOptions = JellyOptions(),
+    common: JellyCommandOptions = JellyCommandOptions(),
     @ExtraName("to") outputFile: Option[String] = None,
     @ValueDescription("Input format.")
     @HelpMessage(
       RdfToJellyPrint.helpMsg,
     )
     @ExtraName("in-format") inputFormat: Option[String] = None,
-) extends HasJellyOptions
+    @Recurse
+    jellySerializationOptions: RdfJellySerializationOptions = RdfJellySerializationOptions(),
+    @HelpMessage(
+      "Target number of rows per frame – the writer may slightly exceed that. Default: 256",
+    )
+    rowsPerFrame: Int = 256,
+    @HelpMessage(
+      "Whether to preserve explicit namespace declarations in the output (PREFIX: in Turtle). " +
+        "Default: false",
+    )
+    enableNamespaceDeclarations: Boolean = false,
+) extends HasJellyCommandOptions
 
 object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]:
 
@@ -34,6 +45,8 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]
     langToJelly(RdfFormat.NQuads.jenaLang, _, _)
 
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
+    // Touch the options to make sure they are valid
+    options.jellySerializationOptions.asRdfStreamOptions
     val (inputStream, outputStream) =
       getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     parseFormatArgs(
@@ -43,10 +56,10 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]
       remainingArgs.remaining.headOption,
     )
 
-  override def matchToAction(
-      option: RdfFormat.Jena.Readable,
+  override def matchFormatToAction(
+      format: RdfFormat.Jena.Readable,
   ): Option[(InputStream, OutputStream) => Unit] =
-    Some(langToJelly(option.jenaLang, _, _))
+    Some(langToJelly(format.jenaLang, _, _))
 
   /** This method reads the file, rewrites it to Jelly and writes it to some output stream
     * @param jenaLang
@@ -61,5 +74,20 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]
       inputStream: InputStream,
       outputStream: OutputStream,
   ): Unit =
-    val jellyWriter = StreamRDFWriter.getWriterStream(outputStream, JellyLanguage.JELLY)
+    // Configure the writer
+    val writerContext = RIOT.getContext.copy()
+      .set(
+        JellyLanguage.SYMBOL_STREAM_OPTIONS,
+        getOptions.jellySerializationOptions.asRdfStreamOptions,
+      )
+      .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
+      .set(
+        JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
+        getOptions.enableNamespaceDeclarations,
+      )
+    val jellyWriter = StreamRDFWriter.getWriterStream(
+      outputStream,
+      JellyLanguage.JELLY,
+      writerContext,
+    )
     RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)

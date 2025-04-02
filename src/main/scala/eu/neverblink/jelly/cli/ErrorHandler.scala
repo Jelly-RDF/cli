@@ -12,7 +12,7 @@ object ErrorHandler:
       case e: Throwable =>
         command.printLine("Unknown error", toStderr = true)
     printStackTrace(command, t)
-    command.exit(1)
+    command.exit(1, t)
 
   /** Print out stack trace or debugging information
     * @param command

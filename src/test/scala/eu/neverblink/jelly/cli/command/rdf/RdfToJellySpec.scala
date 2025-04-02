@@ -1,0 +1,227 @@
+package eu.neverblink.jelly.cli.command.rdf
+
+import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
+import eu.neverblink.jelly.cli.{ExitException, InvalidArgument, InvalidFormatSpecified}
+import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
+import eu.ostrzyciel.jelly.core.JellyOptions
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
+import org.apache.jena.rdf.model.{Model, ModelFactory}
+import org.apache.jena.riot.RDFParser
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
+import scala.util.Using
+
+class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
+
+  protected val testCardinality: Integer = 33
+
+  def translateJellyBack(inputStream: InputStream): Model =
+    Using(inputStream) { content =>
+      val newModel = ModelFactory.createDefaultModel()
+      RDFParser.source(content).lang(JellyLanguage.JELLY).parse(newModel)
+      newModel
+    } match {
+      case scala.util.Success(value) => value
+      case scala.util.Failure(exception) => throw exception
+    }
+
+  def readJellyFile(inputStream: InputStream): Seq[RdfStreamFrame] =
+    Using(inputStream) { content =>
+      Iterator.continually(RdfStreamFrame.parseDelimitedFrom(content))
+        .takeWhile(_.nonEmpty)
+        .map(_.get)
+        .toSeq
+    } match {
+      case scala.util.Success(value) => value
+      case scala.util.Failure(exception) => throw exception
+    }
+
+  "rdf to-jelly command" should {
+    "handle conversion of NTriples to Jelly" when {
+      "a file to output stream" in withFullQuadFile { f =>
+        val (out, err) =
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val content = translateJellyBack(newIn)
+        content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+      }
+
+      "a file to file" in withFullQuadFile { f =>
+        withEmptyJellyFile { j =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j, f))
+          val content = translateJellyBack(new FileInputStream(j))
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        }
+      }
+
+      "input stream to output stream" in {
+        val input = DataGenHelper.generateNQuadInputStream(testCardinality)
+        RdfToJelly.setStdIn(input)
+        val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
+        val (out, err) = RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format", RdfFormat.NQuads.cliOptions.head),
+        )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val content = translateJellyBack(newIn)
+        content.containsAll(tripleModel.listStatements())
+      }
+
+      "an input stream to file" in withEmptyJellyFile { j =>
+        val input = DataGenHelper.generateNQuadInputStream(testCardinality)
+        RdfToJelly.setStdIn(input)
+        val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
+        val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j))
+        val content = translateJellyBack(new FileInputStream(j))
+        content.containsAll(tripleModel.listStatements())
+      }
+
+      "a file to file, modified stream options" in withFullQuadFile { f =>
+        withEmptyJellyFile { j =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                f,
+                "--opt.stream-name=testName",
+                "--opt.generalized-statements=false",
+                "--opt.rdf-star=false",
+                "--opt.max-name-table-size=100",
+                "--opt.max-prefix-table-size=100",
+                "--opt.max-datatype-table-size=100",
+                "--opt.logical-type=FLAT_QUADS",
+                "--to",
+                j,
+              ),
+            )
+          val content = translateJellyBack(new FileInputStream(j))
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          val frames = readJellyFile(new FileInputStream(j))
+          val opts = frames.head.rows.head.row.options
+          opts.streamName should be("testName")
+          opts.generalizedStatements should be(false)
+          opts.rdfStar should be(false)
+          opts.maxNameTableSize should be(100)
+          opts.maxPrefixTableSize should be(100)
+          opts.maxDatatypeTableSize should be(100)
+          opts.logicalType should be(LogicalStreamType.FLAT_QUADS)
+          opts.version should be(1)
+        }
+      }
+
+      "a file to file, modified logical type with full IRI" in withFullQuadFile { f =>
+        withEmptyJellyFile { j =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                f,
+                "--opt.logical-type=https://w3id.org/stax/ontology#flatQuadStream",
+                "--to",
+                j,
+              ),
+            )
+          val content = translateJellyBack(new FileInputStream(j))
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          val frames = readJellyFile(new FileInputStream(j))
+          val opts = frames.head.rows.head.row.options
+          opts.streamName should be("")
+          opts.generalizedStatements should be(true)
+          opts.rdfStar should be(true)
+          opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
+          opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
+          opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
+          opts.logicalType should be(LogicalStreamType.FLAT_QUADS)
+          opts.version should be(1)
+        }
+      }
+
+      "a file to file, lowered number of rows per frame" in withFullQuadFile { f =>
+        withEmptyJellyFile { j =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                f,
+                "--rows-per-frame=10",
+                "--to",
+                j,
+              ),
+            )
+          val content = translateJellyBack(new FileInputStream(j))
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          val frames = readJellyFile(new FileInputStream(j))
+          frames.size should be > 3
+          for frame <- frames do
+            // The encoder may slightly overshoot the target if it needs to pack the lookup entries
+            // together with the triple.
+            frame.rows.size should be <= 15
+        }
+      }
+
+      "a file to file, enabled namespace declarations" in withFullQuadFile { f =>
+        withEmptyJellyFile { j =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                f,
+                "--enable-namespace-declarations",
+                "--to",
+                j,
+              ),
+            )
+          val content = translateJellyBack(new FileInputStream(j))
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          // Note: no actual namespace declarations are present in the test data, because it's
+          // N-Quads.
+          // TODO: test if the namespace declarations are preserved with Turtle or RDF/XML input.
+          val frames = readJellyFile(new FileInputStream(j))
+          val opts = frames.head.rows.head.row.options
+          opts.version should be(2)
+        }
+      }
+    }
+
+    "throw proper exception" when {
+      "invalid format is specified" in withFullQuadFile { f =>
+        val e =
+          intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "invalid"))
+          }
+        e.code should be(1)
+        e.cause.get shouldBe a[InvalidFormatSpecified]
+        val cause = e.cause.get.asInstanceOf[InvalidFormatSpecified]
+        cause.validFormats should be(RdfToJellyPrint.validFormatsString)
+        cause.format should be("invalid")
+      }
+      "invalid format out of existing is specified" in withFullQuadFile { f =>
+        val e =
+          intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "jelly-text"))
+          }
+        e.code should be(1)
+        e.cause.get shouldBe a[InvalidFormatSpecified]
+        val cause = e.cause.get.asInstanceOf[InvalidFormatSpecified]
+        cause.validFormats should be(RdfToJellyPrint.validFormatsString)
+        cause.format should be("jelly-text")
+      }
+      "invalid logical stream type is specified" in withFullQuadFile { f =>
+        val e =
+          intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.logical-type", "test"))
+          }
+        e.cause.get shouldBe a[InvalidArgument]
+        val cause = e.cause.get.asInstanceOf[InvalidArgument]
+        cause.argument should be("--opt.logical-type")
+        cause.argumentValue should be("test")
+        e.code should be(1)
+      }
+    }
+  }

@@ -28,6 +28,15 @@ case class InvalidFormatSpecified(format: String, validFormats: String)
     extends CriticalException(
       s"Invalid format option: \"$format\", needs to be one of ${validFormats}.",
     )
-case class ExitException(code: Int) extends CriticalException(s"Exiting with code $code.")
+case class InvalidArgument(argument: String, argumentValue: String, message: Option[String] = None)
+    extends CriticalException(
+      s"Invalid value for argument $argument: \"$argumentValue\". " + message.getOrElse(""),
+    )
+case class ExitException(
+    code: Int,
+    cause: Option[Throwable] = None,
+) extends CriticalException(
+      s"Exiting with code $code." + cause.map(e => s" Cause: ${e.getMessage}").getOrElse(""),
+    )
 
 class CriticalException(message: String) extends Exception(message)

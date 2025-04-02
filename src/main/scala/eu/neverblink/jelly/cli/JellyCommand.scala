@@ -6,18 +6,18 @@ import eu.neverblink.jelly.cli.util.IoUtil
 import java.io.*
 import scala.compiletime.uninitialized
 
-case class JellyOptions(
+case class JellyCommandOptions(
     @HelpMessage("Add to run command in debug mode") debug: Boolean = false,
 )
 
-trait HasJellyOptions:
+trait HasJellyCommandOptions:
   @Recurse
-  val common: JellyOptions
+  val common: JellyCommandOptions
 
-abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Command[T]:
+abstract class JellyCommand[T <: HasJellyCommandOptions: {Parser, Help}] extends Command[T]:
 
   private var isTest = false
-  private var isDebug = false
+  private var options: Option[T] = None
   final protected[cli] var out = System.out
   final protected[cli] var err = System.err
   final protected[cli] var in = System.in
@@ -44,21 +44,29 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
 
   /** Check and set the values of all the general options repeating for every JellyCommand
     */
-  private def setUpGeneralArgs(options: T, remainingArgs: RemainingArgs): Unit =
-    if options.common.debug then this.isDebug = true
+  private def setUpGeneralArgs(options: T): Unit =
+    this.options = Some(options)
+
+  /** Returns the options set up for this command
+    */
+  protected final def getOptions: T = options match {
+    case Some(value) => value
+    case None =>
+      throw new CriticalException("Command tried to access options before they were set up")
+  }
 
   /** Makes sure that the repetitive options needed for every JellyCommand are set up before calling
     * the doRun method, which contains Command-specific logic
     */
   final override def run(options: T, remainingArgs: RemainingArgs): Unit =
-    setUpGeneralArgs(options, remainingArgs)
+    setUpGeneralArgs(options)
     doRun(options, remainingArgs)
 
   /** This abstract method is the main entry point for every JellyCommand. It should be overridden
     * by Command-specific implementation, including logic needed for this specific object extendind
     * JellyCommand.
     */
-  def doRun(options: T, remainingArgs: RemainingArgs): Unit
+  protected def doRun(options: T, remainingArgs: RemainingArgs): Unit
 
   /** Override to have custom error handling for Jelly commands
     */
@@ -71,7 +79,7 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
   /** Returns information about whether the command is in debug mode (which returns stack traces of
     * every error) or not
     */
-  final def isDebugMode: Boolean = this.isDebug
+  final def isDebugMode: Boolean = this.getOptions.common.debug
 
   /** Runs the command in test mode from the outside app parsing level
     * @param args
@@ -153,6 +161,11 @@ abstract class JellyCommand[T <: HasJellyOptions: {Parser, Help}] extends Comman
       case None => getStdOut
     }
     (inputStream, outputStream)
+
+  @throws[ExitException]
+  final def exit(code: Int, cause: Throwable): Nothing =
+    if isTest then throw ExitException(code, Some(cause))
+    else exit(code)
 
   @throws[ExitException]
   final override def exit(code: Int): Nothing =
