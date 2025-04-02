@@ -30,6 +30,13 @@ jobs:
           DEV_BUILD: true
         run: sbt GraalVMNativeImage/packageBin
 
+      - name: Test the binary
+        run: |
+          target/graalvm-native-image/jelly-cli version && \
+          echo '_:b <http://t.org/> _:b .' | target/graalvm-native-image/jelly-cli \
+            rdf to-jelly --in-format=nt > out.jelly && \
+            [ -s out.jelly ]
+
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
