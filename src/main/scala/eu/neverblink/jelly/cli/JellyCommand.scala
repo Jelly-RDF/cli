@@ -8,6 +8,7 @@ import scala.compiletime.uninitialized
 
 case class JellyCommandOptions(
     @HelpMessage("Add to run command in debug mode") debug: Boolean = false,
+    @HelpMessage("Add to silence any warnings") quiet: Boolean = false,
 )
 
 trait HasJellyCommandOptions:
@@ -80,6 +81,11 @@ abstract class JellyCommand[T <: HasJellyCommandOptions: {Parser, Help}] extends
     * every error) or not
     */
   final def isDebugMode: Boolean = this.getOptions.common.debug
+
+  /** Returns information about whether the command is in quiet mode (which suppresses all warnings)
+    * or not
+    */
+  final def isQuietMode: Boolean = this.getOptions.common.quiet
 
   /** Runs the command in test mode from the outside app parsing level
     * @param args

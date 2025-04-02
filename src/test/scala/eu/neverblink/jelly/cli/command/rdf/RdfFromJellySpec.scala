@@ -14,7 +14,7 @@ import scala.util.Using
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
-  protected val testCardinality: Integer = 33
+  protected val testCardinality: Int = 33
 
   "rdf from-jelly command" should {
     "handle conversion of Jelly to NTriples" when {

@@ -3,12 +3,14 @@ import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
+import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
-import java.io.{InputStream, OutputStream}
+import java.io.{BufferedReader, InputStream, InputStreamReader, OutputStream}
+import scala.util.Using
 
-object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Jena.Readable]:
+object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 case class RdfToJellyOptions(
@@ -38,13 +40,13 @@ case class RdfToJellyOptions(
     delimited: Boolean = true,
 ) extends HasJellyCommandOptions
 
-object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]:
+object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Readable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "to-jelly"),
   )
 
-  lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Jena.Readable] = RdfToJellyPrint
+  lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Readable] = RdfToJellyPrint
 
   val defaultAction: (InputStream, OutputStream) => Unit =
     langToJelly(RdfFormat.NQuads.jenaLang, _, _)
@@ -62,9 +64,11 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]
     )
 
   override def matchFormatToAction(
-      format: RdfFormat.Jena.Readable,
-  ): Option[(InputStream, OutputStream) => Unit] =
-    Some(langToJelly(format.jenaLang, _, _))
+      format: RdfFormat.Readable,
+  ): Option[(InputStream, OutputStream) => Unit] = format match {
+    case f: RdfFormat.Jena.Readable => Some(langToJelly(f.jenaLang, _, _))
+    case f: RdfFormat.JellyText.type => Some(jellyTextToJelly)
+  }
 
   /** This method reads the file, rewrites it to Jelly and writes it to some output stream
     * @param jenaLang
@@ -97,3 +101,54 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Jena.Readable]
       writerContext,
     )
     RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)
+
+  /** Convert Jelly text to Jelly binary.
+    * @param inputStream
+    *   Jelly text input stream
+    * @param outputStream
+    *   Jelly binary output stream
+    */
+  private def jellyTextToJelly(inputStream: InputStream, outputStream: OutputStream): Unit =
+    if !isQuietMode then
+      printLine(
+        "WARNING: The Jelly text format is not stable and may change in incompatible " +
+          "ways in the future.\nIt's only intended for testing and development.\n" +
+          "NEVER use it in production.\nUse --quiet to silence this warning.",
+        true,
+      )
+    Using.resource(InputStreamReader(inputStream)) { r1 =>
+      Using.resource(BufferedReader(r1)) { reader =>
+        val buffer = new StringBuilder()
+        val rows = Iterator.continually(()).map { _ =>
+          reader.readLine() match {
+            case null =>
+              val s = buffer.toString()
+              buffer.clear()
+              (Some(s), false)
+            case line if line.startsWith("}") =>
+              buffer.append(line)
+              buffer.append("\n")
+              val s = buffer.toString()
+              buffer.clear()
+              (Some(s), true)
+            case line =>
+              buffer.append(line)
+              buffer.append("\n")
+              (None, true)
+          }
+        }.takeWhile(_._2).collect({ case (Some(row), _) => row })
+
+        // The only options we can respect in this mode are the frame size and the delimited flag
+        // The others are ignored, because we are doing a 1:1 conversion
+        val framesTxt =
+          if getOptions.delimited then rows.grouped(getOptions.rowsPerFrame).map(_.mkString("\n"))
+          else Iterator(rows.mkString("\n"))
+
+        framesTxt
+          .map(txt => RdfStreamFrame.fromAscii(txt))
+          .foreach(frame => {
+            if getOptions.delimited then frame.writeDelimitedTo(outputStream)
+            else frame.writeTo(outputStream)
+          })
+      }
+    }

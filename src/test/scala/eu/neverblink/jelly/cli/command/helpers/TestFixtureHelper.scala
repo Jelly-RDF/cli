@@ -24,7 +24,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   /** The number of triples to generate for the tests
     */
-  protected val testCardinality: Integer
+  protected val testCardinality: Int
 
   private def getFileExtension(format: Lang = RDFLanguages.NQUADS): String =
     format.getFileExtensions.get(0)
@@ -49,6 +49,14 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   def withEmptyJellyTextFile(testCode: (String) => Any): Unit =
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, ".jelly.txt")
+    try {
+      testCode(tempFile.toString)
+    } finally { tempFile.toFile.delete() }
+    
+  def withFullJellyTextFile(testCode: (String) => Any): Unit =
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, ".jelly.txt")
+    val text = DataGenHelper.generateJellyText(testCardinality)
+    Files.write(tempFile, text.getBytes)
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }

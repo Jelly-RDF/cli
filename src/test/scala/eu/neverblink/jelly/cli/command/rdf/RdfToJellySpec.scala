@@ -3,8 +3,8 @@ package eu.neverblink.jelly.cli.command.rdf
 import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
 import eu.neverblink.jelly.cli.{ExitException, InvalidArgument, InvalidFormatSpecified}
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
 import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
+import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
 import org.scalatest.matchers.should.Matchers
@@ -15,7 +15,7 @@ import scala.util.Using
 
 class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
 
-  protected val testCardinality: Integer = 33
+  protected val testCardinality: Int = 33
 
   def translateJellyBack(inputStream: InputStream): Model =
     Using(inputStream) { content =>
@@ -289,6 +289,100 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         },
         jenaLang = RDFLanguages.JSONLD,
       )
+
+      "Jelly text format (implicit format)" in withFullJellyTextFile { inFile =>
+        withEmptyJellyFile { outFile =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                inFile,
+                "--to",
+                outFile,
+              ),
+            )
+          val content = translateJellyBack(new FileInputStream(outFile))
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          RdfToJelly.getErrString should include("WARNING: The Jelly text format is not stable")
+        }
+      }
+
+      "Jelly text format (warning disabled)" in withFullJellyTextFile { inFile =>
+        withEmptyJellyFile { outFile =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                inFile,
+                "--to",
+                outFile,
+                "--quiet",
+              ),
+            )
+          RdfToJelly.getErrString should be ("")
+        }
+      }
+
+      "Jelly text format (explicit format parameter)" in withFullJellyTextFile { inFile =>
+        withEmptyJellyFile { outFile =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                inFile,
+                "--in-format=jelly-text",
+                "--to",
+                outFile,
+              ),
+            )
+          val content = translateJellyBack(new FileInputStream(outFile))
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        }
+      }
+
+      "Jelly text format (non-delimited output)" in withFullJellyTextFile { inFile =>
+        withEmptyJellyFile { outFile =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                inFile,
+                "--delimited=false",
+                "--to",
+                outFile,
+              ),
+            )
+          val (delimited, is) = IoUtils.autodetectDelimiting(new FileInputStream(outFile))
+          delimited should be(false)
+          val frame = RdfStreamFrame.parseFrom(is)
+          frame.rows.size should be > 0
+        }
+      }
+
+      "Jelly text format (delimited, multiple frames)" in withFullJellyTextFile { inFile =>
+        withEmptyJellyFile { outFile =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                inFile,
+                "--rows-per-frame=1",
+                "--to",
+                outFile,
+              ),
+            )
+          val (delimited, is) = IoUtils.autodetectDelimiting(new FileInputStream(outFile))
+          delimited should be(true)
+          val frames = readJellyFile(new FileInputStream(outFile))
+          frames.size should be > testCardinality
+          for frame <- frames do frame.rows.size should be(1)
+        }
+      }
     }
     "throw proper exception" when {
       "invalid format is specified" in withFullJenaFile { f =>
@@ -305,13 +399,13 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       "invalid format out of existing is specified" in withFullJenaFile { f =>
         val e =
           intercept[ExitException] {
-            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "jelly-text"))
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "jelly"))
           }
         e.code should be(1)
         e.cause.get shouldBe a[InvalidFormatSpecified]
         val cause = e.cause.get.asInstanceOf[InvalidFormatSpecified]
         cause.validFormats should be(RdfToJellyPrint.validFormatsString)
-        cause.format should be("jelly-text")
+        cause.format should be("jelly")
       }
       "invalid logical stream type is specified" in withFullJenaFile { f =>
         val e =
