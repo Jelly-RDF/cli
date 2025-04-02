@@ -118,33 +118,7 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Readable]:
       )
     Using.resource(InputStreamReader(inputStream)) { r1 =>
       Using.resource(BufferedReader(r1)) { reader =>
-        val buffer = new StringBuilder()
-        val rows = Iterator.continually(()).map { _ =>
-          reader.readLine() match {
-            case null =>
-              val s = buffer.toString()
-              buffer.clear()
-              (Some(s), false)
-            case line if line.startsWith("}") =>
-              buffer.append(line)
-              buffer.append("\n")
-              val s = buffer.toString()
-              buffer.clear()
-              (Some(s), true)
-            case line =>
-              buffer.append(line)
-              buffer.append("\n")
-              (None, true)
-          }
-        }.takeWhile(_._2).collect({ case (Some(row), _) => row })
-
-        // The only options we can respect in this mode are the frame size and the delimited flag
-        // The others are ignored, because we are doing a 1:1 conversion
-        val framesTxt =
-          if getOptions.delimited then rows.grouped(getOptions.rowsPerFrame).map(_.mkString("\n"))
-          else Iterator(rows.mkString("\n"))
-
-        framesTxt
+        jellyTextStreamAsFrames(reader)
           .map(txt => RdfStreamFrame.fromAscii(txt))
           .foreach(frame => {
             if getOptions.delimited then frame.writeDelimitedTo(outputStream)
@@ -152,3 +126,35 @@ object RdfToJelly extends RdfCommand[RdfToJellyOptions, RdfFormat.Readable]:
           })
       }
     }
+
+  /** Iterate over a Jelly text stream and return the frames as strings to be parsed.
+    * @param reader
+    *   the reader to read from
+    * @return
+    *   an iterator of Jelly text frames
+    */
+  private def jellyTextStreamAsFrames(reader: BufferedReader): Iterator[String] =
+    val buffer = new StringBuilder()
+    val rows = Iterator.continually(()).map { _ =>
+      reader.readLine() match {
+        case null =>
+          val s = buffer.toString()
+          buffer.clear()
+          (Some(s), false)
+        case line if line.startsWith("}") =>
+          buffer.append(line)
+          buffer.append("\n")
+          val s = buffer.toString()
+          buffer.clear()
+          (Some(s), true)
+        case line =>
+          buffer.append(line)
+          buffer.append("\n")
+          (None, true)
+      }
+    }.takeWhile(_._2).collect({ case (Some(row), _) => row })
+
+    // The only options we can respect in this mode are the frame size and the delimited flag
+    // The others are ignored, because we are doing a 1:1 conversion
+    if getOptions.delimited then rows.grouped(getOptions.rowsPerFrame).map(_.mkString("\n"))
+    else Iterator(rows.mkString("\n"))
