@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
+import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages, RDFWriter}
 import org.apache.jena.sys.JenaSystem
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
@@ -28,11 +28,11 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
   private def getFileExtension(format: Lang = RDFLanguages.NQUADS): String =
     format.getFileExtensions.get(0)
 
-  def withFullQuadFile(testCode: (String) => Any): Unit =
-    val extension = getFileExtension(RDFLanguages.NQUADS)
+  def withFullJenaFile(testCode: (String) => Any, jenaLang: Lang = RDFLanguages.NQUADS): Unit =
+    val extension = getFileExtension(jenaLang)
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     val model = DataGenHelper.generateTripleModel(testCardinality)
-    RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, RDFLanguages.NQUADS)
+    RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, jenaLang)
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
@@ -65,8 +65,8 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
 
-  def withEmptyQuadFile(testCode: (String) => Any): Unit =
-    val extension = getFileExtension(RDFLanguages.NQUADS)
+  def withEmptyJenaFile(testCode: (String) => Any, jenaLang: Lang = RDFLanguages.NQUADS): Unit =
+    val extension = getFileExtension(jenaLang)
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     try {
       testCode(tempFile.toString)

@@ -70,7 +70,8 @@ object RdfFormat:
     override val cliOptions: List[String] = List("jelly-text")
     val extension = ".jelly.txt"
 
-  private val rdfFormats: List[RdfFormat] = List(NQuads, NTriples, JellyBinary, JellyText)
+  private val rdfFormats: List[RdfFormat] =
+    List(NQuads, NTriples, JellyBinary, JellyText, Turtle, TriG, RdfProto, Thrift, RdfXML, JsonLD)
 
   def all: List[RdfFormat] = rdfFormats
 

@@ -18,7 +18,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
   "rdf from-jelly command" should {
     "handle conversion of Jelly to NTriples" when {
       "a file to output stream" in withFullJellyFile { j =>
-        val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
+        val nQuadString = DataGenHelper.generateJenaString(testCardinality)
         val (out, err) =
           RdfFromJelly.runTestCommand(List("rdf", "from-jelly", j))
         val sortedOut = out.split("\n").map(_.trim).sorted
@@ -29,7 +29,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       "input stream to output stream" in {
         val input = DataGenHelper.generateJellyInputStream(testCardinality)
         RdfFromJelly.setStdIn(input)
-        val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
+        val nQuadString = DataGenHelper.generateJenaString(testCardinality)
         val (out, err) = RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", "--out-format", RdfFormat.NQuads.cliOptions.head),
         )
@@ -38,8 +38,8 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         sortedOut should contain theSameElementsAs sortedQuads
       }
       "a file to file" in withFullJellyFile { j =>
-        withEmptyQuadFile { q =>
-          val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
+        withEmptyJenaFile { q =>
+          val nQuadString = DataGenHelper.generateJenaString(testCardinality)
           val (out, err) =
             RdfFromJelly.runTestCommand(
               List("rdf", "from-jelly", j, "--to", q),
@@ -54,7 +54,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
       "a file to file when defaulting to nQuads" in withFullJellyFile { j =>
         withEmptyRandomFile { q =>
-          val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
+          val nQuadString = DataGenHelper.generateJenaString(testCardinality)
           val (out, err) =
             RdfFromJelly.runTestCommand(
               List("rdf", "from-jelly", j, "--to", q),
@@ -67,10 +67,10 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           out.length should be(0)
         }
       }
-      "an input stream to file" in withEmptyQuadFile { q =>
+      "an input stream to file" in withEmptyJenaFile { q =>
         val input = DataGenHelper.generateJellyInputStream(testCardinality)
         RdfFromJelly.setStdIn(input)
-        val nQuadString = DataGenHelper.generateNQuadString(testCardinality)
+        val nQuadString = DataGenHelper.generateJenaString(testCardinality)
         val (out, err) =
           RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--to", q))
         val sortedOut = Using.resource(Source.fromFile(q)) { content =>
@@ -175,7 +175,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         exception.code should be(1)
       }
       "output file cannot be created" in withFullJellyFile { j =>
-        withEmptyQuadFile { q =>
+        withEmptyJenaFile { q =>
           Paths.get(q).toFile.setWritable(false)
           val exception =
             intercept[ExitException] {
@@ -193,7 +193,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
       }
       "deserializing error occurs" in withFullJellyFile { j =>
-        withEmptyQuadFile { q =>
+        withEmptyJenaFile { q =>
           RdfFromJelly.runTestCommand(
             List("rdf", "from-jelly", j, "--to", q),
           )
@@ -211,7 +211,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         }
       }
       "parsing error occurs with debug set" in withFullJellyFile { j =>
-        withEmptyQuadFile { q =>
+        withEmptyJenaFile { q =>
           RdfFromJelly.runTestCommand(
             List("rdf", "from-jelly", j, "--to", q),
           )
@@ -229,7 +229,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         }
       }
       "invalid output format supplied" in withFullJellyFile { j =>
-        withEmptyQuadFile { q =>
+        withEmptyJenaFile { q =>
           val exception =
             intercept[ExitException] {
               RdfFromJelly.runTestCommand(
