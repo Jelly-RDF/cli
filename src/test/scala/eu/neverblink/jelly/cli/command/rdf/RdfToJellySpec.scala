@@ -321,7 +321,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 "--quiet",
               ),
             )
-          RdfToJelly.getErrString should be ("")
+          RdfToJelly.getErrString should be("")
         }
       }
 

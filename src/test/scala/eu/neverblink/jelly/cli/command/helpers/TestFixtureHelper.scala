@@ -52,7 +52,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
-    
+
   def withFullJellyTextFile(testCode: (String) => Any): Unit =
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, ".jelly.txt")
     val text = DataGenHelper.generateJellyText(testCardinality)
