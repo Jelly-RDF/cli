@@ -2,7 +2,7 @@ package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
-import org.apache.jena.riot.{RDFDataMgr, RDFLanguages}
+import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
@@ -18,13 +18,13 @@ object DataGenHelper:
     */
   def generateTripleModel(nTriples: Int): Model =
     val model = ModelFactory.createDefaultModel()
-    val subStr = "http://example.org/subject"
-    val predStr = "http://example.org/predicate"
-    val objStr = "http://example.org/object"
+    val subStr = "http://example.org/subject/index"
+    val predStr = "http://example.org/predicate/index"
+    val objStr = "http://example.org/object/index"
     val tripleList = (1 to nTriples).map { i =>
-      val sub = ResourceFactory.createResource(s"$subStr/$i")
-      val pred = ResourceFactory.createProperty(s"$predStr/$i")
-      val obj = ResourceFactory.createResource(s"$objStr/$i")
+      val sub = ResourceFactory.createResource(s"$subStr$i")
+      val pred = ResourceFactory.createProperty(s"$predStr$i")
+      val obj = ResourceFactory.createResource(s"$objStr$i")
       val stat = ResourceFactory.createStatement(sub, pred, obj)
       model.add(stat)
     }
@@ -60,10 +60,10 @@ object DataGenHelper:
     * @return
     *   String
     */
-  def generateNQuadString(nTriples: Int): String =
+  def generateJenaString(nTriples: Int, jenaLang: Lang = RDFLanguages.NQUADS): String =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
-    RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
+    RDFDataMgr.write(outputStream, model, jenaLang)
     outputStream.toString
 
   /** This method generates an NQuad input stream with nTriples
@@ -71,11 +71,14 @@ object DataGenHelper:
     * @param nTriples
     *   number of triples to generate
     * @return
-    *   String
+    *   ByteArrayInputStream
     */
-  def generateNQuadInputStream(nTriples: Int): ByteArrayInputStream =
+  def generateJenaInputStream(
+      nTriples: Int,
+      jenaLang: Lang = RDFLanguages.NQUADS,
+  ): ByteArrayInputStream =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
-    RDFDataMgr.write(outputStream, model, RDFLanguages.NQUADS)
+    RDFDataMgr.write(outputStream, model, jenaLang)
     val nQuadStream = new ByteArrayInputStream(outputStream.toByteArray)
     nQuadStream

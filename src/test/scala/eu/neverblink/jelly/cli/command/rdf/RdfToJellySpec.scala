@@ -6,7 +6,7 @@ import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.JellyOptions
 import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
 import org.apache.jena.rdf.model.{Model, ModelFactory}
-import org.apache.jena.riot.RDFParser
+import org.apache.jena.riot.{RDFLanguages, RDFParser}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -40,7 +40,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
 
   "rdf to-jelly command" should {
     "handle conversion of NTriples to Jelly" when {
-      "a file to output stream" in withFullQuadFile { f =>
+      "a file to output stream" in withFullJenaFile { f =>
         val (out, err) =
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
@@ -48,7 +48,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
       }
 
-      "a file to file" in withFullQuadFile { f =>
+      "a file to file" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>
           val (out, err) =
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j, f))
@@ -58,7 +58,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       }
 
       "input stream to output stream" in {
-        val input = DataGenHelper.generateNQuadInputStream(testCardinality)
+        val input = DataGenHelper.generateJenaInputStream(testCardinality)
         RdfToJelly.setStdIn(input)
         val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
         val (out, err) = RdfToJelly.runTestCommand(
@@ -70,7 +70,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       }
 
       "an input stream to file" in withEmptyJellyFile { j =>
-        val input = DataGenHelper.generateNQuadInputStream(testCardinality)
+        val input = DataGenHelper.generateJenaInputStream(testCardinality)
         RdfToJelly.setStdIn(input)
         val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
         val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j))
@@ -78,7 +78,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         content.containsAll(tripleModel.listStatements())
       }
 
-      "a file to file, modified stream options" in withFullQuadFile { f =>
+      "a file to file, modified stream options" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>
           val (out, err) =
             RdfToJelly.runTestCommand(
@@ -112,7 +112,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
 
-      "a file to file, modified logical type with full IRI" in withFullQuadFile { f =>
+      "a file to file, modified logical type with full IRI" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>
           val (out, err) =
             RdfToJelly.runTestCommand(
@@ -140,7 +140,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
 
-      "a file to file, lowered number of rows per frame" in withFullQuadFile { f =>
+      "a file to file, lowered number of rows per frame" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>
           val (out, err) =
             RdfToJelly.runTestCommand(
@@ -164,7 +164,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
 
-      "a file to file, enabled namespace declarations" in withFullQuadFile { f =>
+      "a file to file, enabled namespace declarations" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>
           val (out, err) =
             RdfToJelly.runTestCommand(
@@ -188,9 +188,88 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
     }
-
+    "handle conversion of other formats to Jelly" when {
+      "NTriples" in {
+        val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.NTRIPLES)
+        RdfToJelly.setStdIn(input)
+        val (out, err) =
+          RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", "--in-format", RdfFormat.NTriples.cliOptions.head),
+          )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val content = translateJellyBack(newIn)
+        content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+      }
+      "Turtle" in {
+        val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.TURTLE)
+        RdfToJelly.setStdIn(input)
+        val (out, err) =
+          RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", "--in-format", RdfFormat.Turtle.cliOptions.head),
+          )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val content = translateJellyBack(newIn)
+        content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+      }
+      "TriG" in withFullJenaFile(
+        testCode = { f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val content = translateJellyBack(newIn)
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        },
+        jenaLang = RDFLanguages.TRIG,
+      )
+      "RDF Protobuf" in withFullJenaFile(
+        testCode = { f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--in-format", RdfFormat.RdfProto.cliOptions.head),
+            )
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val content = translateJellyBack(newIn)
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        },
+        jenaLang = RDFLanguages.RDFPROTO,
+      )
+      "RDF Thrift" in withFullJenaFile(
+        testCode = { f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val content = translateJellyBack(newIn)
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        },
+        jenaLang = RDFLanguages.RDFTHRIFT,
+      )
+      "RDF/XML" in withFullJenaFile(
+        testCode = { f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--in-format", RdfFormat.RdfXml.cliOptions.head),
+            )
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val content = translateJellyBack(newIn)
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        },
+        jenaLang = RDFLanguages.RDFXML,
+      )
+      "JSON-LD" in withFullJenaFile(
+        testCode = { f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--in-format", RdfFormat.JsonLd.cliOptions.head),
+            )
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val content = translateJellyBack(newIn)
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        },
+        jenaLang = RDFLanguages.JSONLD,
+      )
+    }
     "throw proper exception" when {
-      "invalid format is specified" in withFullQuadFile { f =>
+      "invalid format is specified" in withFullJenaFile { f =>
         val e =
           intercept[ExitException] {
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "invalid"))
@@ -201,7 +280,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         cause.validFormats should be(RdfToJellyPrint.validFormatsString)
         cause.format should be("invalid")
       }
-      "invalid format out of existing is specified" in withFullQuadFile { f =>
+      "invalid format out of existing is specified" in withFullJenaFile { f =>
         val e =
           intercept[ExitException] {
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "jelly-text"))
@@ -212,7 +291,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         cause.validFormats should be(RdfToJellyPrint.validFormatsString)
         cause.format should be("jelly-text")
       }
-      "invalid logical stream type is specified" in withFullQuadFile { f =>
+      "invalid logical stream type is specified" in withFullJenaFile { f =>
         val e =
           intercept[ExitException] {
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.logical-type", "test"))
