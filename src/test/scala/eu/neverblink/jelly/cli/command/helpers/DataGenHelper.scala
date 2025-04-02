@@ -18,9 +18,9 @@ object DataGenHelper:
     */
   def generateTripleModel(nTriples: Int): Model =
     val model = ModelFactory.createDefaultModel()
-    val subStr = "http://example.org/subject"
-    val predStr = "http://example.org/predicate"
-    val objStr = "http://example.org/object"
+    val subStr = "http://example.org/subject/index"
+    val predStr = "http://example.org/predicate/index"
+    val objStr = "http://example.org/object/index"
     val tripleList = (1 to nTriples).map { i =>
       val sub = ResourceFactory.createResource(s"$subStr$i")
       val pred = ResourceFactory.createProperty(s"$predStr$i")

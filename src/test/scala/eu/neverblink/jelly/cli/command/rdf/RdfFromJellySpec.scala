@@ -3,6 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
+import org.apache.jena.riot.RDFLanguages
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -264,6 +265,33 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           RdfFromJelly.getErrString should include(msg.getMessage)
           exception.code should be(1)
         }
+      }
+      "readable but not writable format supplied" in withFullJellyFile { j =>
+        withEmptyJenaFile(
+          testCode = { q =>
+            val exception =
+              intercept[ExitException] {
+                RdfFromJelly.runTestCommand(
+                  List(
+                    "rdf",
+                    "from-jelly",
+                    j,
+                    "--to",
+                    q,
+                    "--out-format",
+                    RdfFormat.RdfXML.cliOptions.head,
+                  ),
+                )
+              }
+            val msg = InvalidFormatSpecified(
+              RdfFormat.RdfXML.cliOptions.head,
+              RdfFromJellyPrint.validFormatsString,
+            )
+            RdfFromJelly.getErrString should include(msg.getMessage)
+            exception.code should be(1)
+          },
+          jenaLang = RDFLanguages.RDFXML,
+        )
       }
     }
   }

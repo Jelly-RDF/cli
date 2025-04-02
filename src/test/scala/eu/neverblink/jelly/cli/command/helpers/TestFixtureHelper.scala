@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.helpers
 
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages, RDFWriter}
+import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
 import org.apache.jena.sys.JenaSystem
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
@@ -9,6 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.FileOutputStream
 import java.nio.file.{Files, Path}
 import java.util.UUID.randomUUID
+import scala.util.Using
 
 object TestFixtureHelper
 
@@ -32,7 +33,9 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
     val extension = getFileExtension(jenaLang)
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     val model = DataGenHelper.generateTripleModel(testCardinality)
-    RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, jenaLang)
+    Using(new FileOutputStream(tempFile.toFile)) { fileOutputStream =>
+      RDFDataMgr.write(fileOutputStream, model, jenaLang)
+    }
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
