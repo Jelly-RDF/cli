@@ -39,7 +39,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
         frameIndex: Int,
         printer: MetricsPrinter,
     ): Unit =
-      val metrics = new FrameInfo()
+      val metrics = new FrameInfo(frameIndex)
       frame.rows.foreach(r => metricsForRow(r, metrics))
       printer.frameInfo += metrics
 

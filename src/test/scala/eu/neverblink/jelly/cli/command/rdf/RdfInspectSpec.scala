@@ -24,7 +24,6 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
       val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
       frames.get("triple_count") should be(testCardinality)
-
     }
     "be able to return all frames separately as a valid Yaml" in withFullJellyFile(
       testCode = { j =>
@@ -37,7 +36,6 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           parsed.get("frames").asInstanceOf[util.ArrayList[util.HashMap[String, Int]]].asScala
         frames.length should be <= 5
         frames.map(_.get("triple_count")).sum should be(testCardinality)
-
       },
       frameSize = 15,
     )
@@ -56,8 +54,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       val exception = intercept[ExitException] {
         RdfInspect.runTestCommand(List("rdf", "inspect", j, "--debug"))
       }
-      val err = RdfInspect.getErrString
       val msg = InvalidJellyFile(RuntimeException("")).getMessage
-      err should include(msg)
+      exception.getMessage should include(msg)
     }
   }
