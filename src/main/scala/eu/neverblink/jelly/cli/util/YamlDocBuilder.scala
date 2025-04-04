@@ -34,6 +34,7 @@ object YamlDocBuilder:
       case YamlList(v) =>
         sb.append(System.lineSeparator())
         v.zipWithIndex.foreach { (e, index) =>
+          // We want to add a comment about which frame we're summing up
           sb.append(f"# frame ${index}")
           sb.append(System.lineSeparator())
           sb.append("  " * indent).append("- ")

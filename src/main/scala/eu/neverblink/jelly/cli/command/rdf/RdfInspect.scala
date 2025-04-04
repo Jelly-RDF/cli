@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.{ExtraName, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.util.{FrameInfo, JellyUtil, MetricsPrinter}
-import eu.neverblink.jelly.cli.{HasJellyCommandOptions, JellyCommand, JellyCommandOptions}
+import eu.neverblink.jelly.cli.*
 import eu.ostrzyciel.jelly.core.proto.v1.*
 
 import java.io.InputStream
@@ -33,26 +33,30 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   private def inspectJelly(
       inputStream: InputStream,
   ): MetricsPrinter =
-    val printer = new MetricsPrinter
-    // Here we can easily compute overall metrics
 
-    inline def computeMetrics(frame: RdfStreamFrame, frameIndex: Int): Unit =
-      if printer.printOptions.isEmpty then
-        if frame.rows.nonEmpty && frame.rows.head.row.isOptions then
-          printer.printOptions = Some(frame.rows.head.row.asInstanceOf[RdfStreamOptions])
-        else throw new RuntimeException("First row of the frame is not an options row")
+    inline def computeMetrics(
+        frame: RdfStreamFrame,
+        frameIndex: Int,
+        printer: MetricsPrinter,
+    ): Unit =
       val metrics = new FrameInfo()
       frame.rows.foreach(r => metricsForRow(r, metrics))
       printer.frameInfo += metrics
 
     try {
-      JellyUtil.iterateRdfStream(inputStream).zipWithIndex.foreach {
-        case (maybeFrame, frameIndex) => computeMetrics(maybeFrame, frameIndex)
+      val allRows = JellyUtil.iterateRdfStream(inputStream).toList
+      // we need to check if the first frame contains options
+      val streamOptions = checkOptions(allRows)
+      val printer = new MetricsPrinter(streamOptions)
+      // We compute the metrics for each frame
+      // and then sum them all during the printing if desired
+      allRows.zipWithIndex.foreach { case (maybeFrame, frameIndex) =>
+        computeMetrics(maybeFrame, frameIndex, printer)
       }
       printer
     } catch {
       case e: Exception =>
-        throw new RuntimeException("Error inspecting Jelly file", e)
+        throw InvalidJellyFile(e)
     }
 
   private def metricsForRow(
@@ -69,4 +73,21 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
       case r: RdfGraphStart => metadata.graphStartCount += 1
       case r: RdfGraphEnd => metadata.graphEndCount += 1
       case r: RdfStreamOptions => metadata.optionCount += 1
+    }
+
+  /** Checks whether the first frame in the stream contains options and returns them.
+    * @param allFrames
+    *   The list of all frames in the stream.
+    * @return
+    *   The options from the first frame.
+    * @throws RuntimeException
+    *   If the first frame does not contain options or if there are no frames in the stream.
+    */
+  private def checkOptions(allFrames: List[RdfStreamFrame]): RdfStreamOptions =
+    if allFrames.isEmpty then throw new RuntimeException("No frames in the stream.")
+    if allFrames.head.rows.isEmpty then throw new RuntimeException("No rows in the frame.")
+    val frameRows = allFrames.head.rows
+    frameRows.head.row match {
+      case r: RdfStreamOptions => r
+      case _ => throw new RuntimeException("First row of the frame is not an options row.")
     }

@@ -1,6 +1,5 @@
 package eu.neverblink.jelly.cli
 
-import com.google.protobuf.InvalidProtocolBufferException
 import org.apache.jena.riot.RiotException
 
 /** Contains a set of common jelly-cli exceptions with custom output messages.
@@ -22,7 +21,7 @@ case class JellyTranscodingError(message: String)
     extends CriticalException(s"Jelly transcoding error: $message")
 case class JenaRiotException(e: RiotException)
     extends CriticalException(s"Jena RDF I/O exception: ${e.getMessage}")
-case class InvalidJellyFile(e: InvalidProtocolBufferException)
+case class InvalidJellyFile(e: Exception)
     extends CriticalException(s"Invalid Jelly file: ${e.getMessage}")
 case class InvalidFormatSpecified(format: String, validFormats: String)
     extends CriticalException(
