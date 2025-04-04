@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.helpers
 
-import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
+import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
+import org.apache.jena.riot.{Lang, RDFDataMgr, RDFFormat, RDFLanguages}
 import org.apache.jena.sys.JenaSystem
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
@@ -67,11 +67,15 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
 
-  def withFullJellyFile(testCode: (String) => Any): Unit =
+  def withFullJellyFile(testCode: (String) => Any, frameSize: Int = 256): Unit =
     val extension = getFileExtension(JellyLanguage.JELLY)
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
+    val customFormat = new RDFFormat(
+      JellyLanguage.JELLY,
+      JellyFormatVariant(frameSize = frameSize),
+    )
     val model = DataGenHelper.generateTripleModel(testCardinality)
-    RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, JellyLanguage.JELLY)
+    RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, customFormat)
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
