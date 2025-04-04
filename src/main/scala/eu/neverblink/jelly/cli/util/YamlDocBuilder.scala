@@ -6,13 +6,16 @@ object YamlDocBuilder:
     */
 
   sealed trait YamlValue
-  case class YamlString(v: String) extends YamlValue
+  sealed trait YamlScalar extends YamlValue
+  case class YamlInt(v: Int) extends YamlScalar
+  case class YamlString(v: String) extends YamlScalar
 
   case class YamlList(v: Seq[YamlValue]) extends YamlValue
 
   object YamlMap:
     def apply(v: (String, YamlValue)*): YamlMap = YamlMap(v.toMap)
     def apply(k: String, v: String): YamlMap = YamlMap(Map(k -> YamlString(v)))
+    def apply(k: String, v: Int): YamlMap = YamlMap(Map(k -> YamlInt(v)))
     def apply(k: String, v: YamlValue): YamlMap = YamlMap(Map(k -> v))
 
   case class YamlMap(v: Map[String, YamlValue]) extends YamlValue
@@ -26,9 +29,13 @@ object YamlDocBuilder:
     root match
       case YamlString(v) =>
         sb.append(quoteAndEscape(v))
+      case YamlInt(v) =>
+        sb.append(v)
       case YamlList(v) =>
         sb.append(System.lineSeparator())
-        v.foreach { e =>
+        v.zipWithIndex.foreach { (e, index) =>
+          sb.append(f"# frame ${index}")
+          sb.append(System.lineSeparator())
           sb.append("  " * indent).append("- ")
           build(e, sb, indent + 1)
           if e != v.last then sb.append(System.lineSeparator())
@@ -36,9 +43,14 @@ object YamlDocBuilder:
       case YamlMap(v) =>
         v.zipWithIndex.foreach { case ((k, e), ix) =>
           if ix != 0 then sb.append("  " * indent)
-          sb.append(quoteAndEscape(k))
+          sb.append(k)
           sb.append(": ")
-          build(e, sb, indent + 1)
+          if e.isInstanceOf[YamlMap] then
+            // If a map nested inside a map we have to indent it properly
+            sb.append(System.lineSeparator())
+            sb.append("  " * (indent + 1))
+            build(e, sb, indent + 1)
+          else build(e, sb, indent + 1)
           if ix != v.size - 1 then sb.append(System.lineSeparator())
         }
 

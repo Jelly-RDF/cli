@@ -22,7 +22,6 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
     }
     "be able to return all frames separately as a valid Yaml" in withFullJellyFile(
       testCode = { j =>
-        // I'll probably have to make a Jelly file with multiple frames to test it well
         val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", j))
         val yaml = new Yaml()
         try {

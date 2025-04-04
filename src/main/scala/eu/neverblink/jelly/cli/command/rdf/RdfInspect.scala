@@ -20,9 +20,6 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   override def names: List[List[String]] = List(
     List("rdf", "inspect"),
   )
-  // from what we've talked about yesterday it also sounded like we should accept some optional parameters
-  // specifying which frames / parts of the stream to compute the metrics for
-  // probably when only frameStart specified we should compute it only for this frame then
 
   override final def group = "rdf"
 
@@ -33,7 +30,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
     if options.perFrame then printer.printPerFrame(outputStream)
     else printer.printAggregate(outputStream)
 
-  def inspectJelly(
+  private def inspectJelly(
       inputStream: InputStream,
   ): MetricsPrinter =
     val printer = new MetricsPrinter

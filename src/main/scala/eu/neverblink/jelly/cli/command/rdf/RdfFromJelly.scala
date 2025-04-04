@@ -25,7 +25,7 @@ case class RdfFromJellyOptions(
     @ExtraName("out-format") outputFormat: Option[String] = None,
 ) extends HasJellyCommandOptions
 
-object RdfFromJelly extends RdfCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
+object RdfFromJelly extends RdfTranscodeCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "from-jelly"),
