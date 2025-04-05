@@ -43,16 +43,17 @@ object MetricsPrinter:
       o: OutputStream,
   ): Unit =
     printOptions(options, o)
-    val (fullString, indent) =
+    val builder =
       YamlDocBuilder.build(
         YamlMap(
           "frames" -> YamlBlank(),
         ),
       )
+    val fullString = builder.getString
     o.write(fullString.getBytes)
     iterator.foreach { frame =>
       val yamlFrame = YamlListElem(formatStatsIndex(frame))
-      val (fullString, _) = YamlDocBuilder.build(yamlFrame, indent)
+      val fullString = YamlDocBuilder.build(yamlFrame, builder.currIndent).getString
       o.write(fullString.getBytes)
       o.write(System.lineSeparator().getBytes)
     }
@@ -64,12 +65,12 @@ object MetricsPrinter:
   ): Unit = {
     printOptions(options, o)
     val sumCounts = iterator.reduce((a, b) => a += b)
-    val (fullString, _) =
+    val fullString =
       YamlDocBuilder.build(
         YamlMap(
           "frames" -> formatStatsCount(sumCounts),
         ),
-      )
+      ).getString
     o.write(fullString.getBytes)
   }
 
@@ -78,12 +79,12 @@ object MetricsPrinter:
       o: OutputStream,
   ): Unit =
     val options = formatOptions(options = printOptions)
-    val (fullString, _) =
+    val fullString =
       YamlDocBuilder.build(
         YamlMap(
           "stream_options" -> options,
         ),
-      )
+      ).getString
     o.write(fullString.getBytes)
     o.write(System.lineSeparator().getBytes)
 
