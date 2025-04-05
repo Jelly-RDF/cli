@@ -38,6 +38,7 @@ lazy val root = (project in file("."))
       "eu.ostrzyciel.jelly" %% "jelly-jena" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0-M30",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      "org.yaml" % "snakeyaml" % "2.4" % Test,
     ),
     scalacOptions ++= Seq(
       "-Wunused:imports",
