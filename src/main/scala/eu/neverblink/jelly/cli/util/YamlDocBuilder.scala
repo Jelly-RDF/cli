@@ -9,12 +9,14 @@ object YamlDocBuilder:
 
   sealed trait YamlValue
   sealed trait YamlScalar extends YamlValue
+  case class YamlBlank() extends YamlScalar
   case class YamlEnum(v: String, i: Int) extends YamlScalar
   case class YamlInt(v: Int) extends YamlScalar
   case class YamlBool(v: Boolean) extends YamlScalar
   case class YamlString(v: String) extends YamlScalar
 
-  case class YamlList(v: Seq[YamlValue]) extends YamlValue
+  case class YamlList(v: Seq[YamlListElem]) extends YamlValue
+  case class YamlListElem(v: YamlValue) extends YamlValue
 
   object YamlMap:
     def apply(v: (String, YamlValue)*): YamlMap = YamlMap(v.to(mutable.LinkedHashMap))
@@ -24,12 +26,13 @@ object YamlDocBuilder:
 
   case class YamlMap(v: mutable.LinkedHashMap[String, YamlValue]) extends YamlValue
 
-  def build(root: YamlValue): String =
+  def build(root: YamlValue, indent: Int = 0): (String, Int) =
     val sb = new StringBuilder
-    build(root, sb, 0)
-    sb.toString
+    val maxIndent = build(root, sb, indent)
+    (sb.toString, maxIndent)
 
-  private def build(root: YamlValue, sb: StringBuilder, indent: Int): Unit =
+  private def build(root: YamlValue, sb: StringBuilder, indent: Int): Int =
+    var maxIndent = indent
     root match
       case YamlString(v) =>
         sb.append(quoteAndEscape(v))
@@ -40,13 +43,14 @@ object YamlDocBuilder:
       case YamlEnum(v, i) =>
         sb.append(f"${v} (${i})")
       case YamlList(v) =>
-        sb.append(System.lineSeparator())
         v.zipWithIndex.foreach { (e, index) =>
-          sb.append("  " * indent).append("- ")
-          build(e, sb, indent + 1)
-          sb.append(System.lineSeparator())
+          maxIndent = build(e, sb, indent)
           if e != v.last then sb.append(System.lineSeparator())
         }
+      case YamlListElem(v) =>
+        sb.append(System.lineSeparator())
+        sb.append("  " * indent).append("- ")
+        maxIndent = build(v, sb, indent + 1)
       case YamlMap(v) =>
         v.zipWithIndex.foreach { case ((k, e), ix) =>
           if ix != 0 then sb.append("  " * indent)
@@ -56,11 +60,13 @@ object YamlDocBuilder:
             // If a map nested inside a map we have to indent it properly
             sb.append(System.lineSeparator())
             sb.append("  " * (indent + 1))
-            build(e, sb, indent + 1)
+            maxIndent = build(e, sb, indent + 1)
             sb.append(System.lineSeparator())
-          else build(e, sb, indent + 1)
+          else maxIndent = build(e, sb, indent + 1)
           if ix != v.size - 1 then sb.append(System.lineSeparator())
         }
+      case YamlBlank() => ()
+    maxIndent
 
   private def quoteAndEscape(s: String): String =
     "\"" + escape(s) + "\""

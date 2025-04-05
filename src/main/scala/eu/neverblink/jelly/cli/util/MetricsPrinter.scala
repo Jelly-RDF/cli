@@ -4,11 +4,11 @@ import eu.neverblink.jelly.cli.util.YamlDocBuilder.*
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamOptions
 
 import java.io.OutputStream
-import scala.collection.mutable.ListBuffer
 
 /** This class is used to store the metrics for a single frame
   */
 final class FrameInfo(val frameIndex: Int):
+  var frameCount: Int = 1
   var optionCount: Int = 0
   var nameCount: Int = 0
   var namespaceCount: Int = 0
@@ -20,6 +20,7 @@ final class FrameInfo(val frameIndex: Int):
   var graphEndCount: Int = 0
 
   def +=(other: FrameInfo): FrameInfo = {
+    this.frameCount += 1
     this.optionCount += other.optionCount
     this.nameCount += other.nameCount
     this.namespaceCount += other.namespaceCount
@@ -34,44 +35,57 @@ final class FrameInfo(val frameIndex: Int):
 
 end FrameInfo
 
-final class MetricsPrinter(printOptions: RdfStreamOptions):
-  import eu.neverblink.jelly.cli.util.MetricsPrinter.*
-
-  var frameInfo: ListBuffer[FrameInfo] = ListBuffer.empty
-
-  def printPerFrame(o: OutputStream): Unit = {
-    val options = formatOptions(options = printOptions)
-    val yamlFrames = YamlDocBuilder.YamlList(frameInfo.map { frame =>
-      formatStatsIndex(frame)
-    }.toSeq)
-    val fullString =
-      YamlDocBuilder.build(
-        YamlMap(
-          "stream_options" -> options,
-          "frames" -> yamlFrames,
-        ),
-      )
-    o.write(fullString.getBytes)
-
-  }
-
-  def printAggregate(o: OutputStream): Unit = {
-    val frameCount = frameInfo.length
-    val sumCounts = frameInfo.reduce(_ += _)
-    val options = formatOptions(options = printOptions)
-    val fullString =
-      YamlDocBuilder.build(
-        YamlMap(
-          "stream_options" -> options,
-          "frames" -> formatStatsCount(sumCounts, frameCount),
-        ),
-      )
-    o.write(fullString.getBytes)
-  }
-
-end MetricsPrinter
-
 object MetricsPrinter:
+
+  def printPerFrame(
+      options: RdfStreamOptions,
+      iterator: Iterator[FrameInfo],
+      o: OutputStream,
+  ): Unit =
+    printOptions(options, o)
+    val (fullString, indent) =
+      YamlDocBuilder.build(
+        YamlMap(
+          "frames" -> YamlBlank(),
+        ),
+      )
+    o.write(fullString.getBytes)
+    iterator.foreach { frame =>
+      val yamlFrame = YamlListElem(formatStatsIndex(frame))
+      val (fullString, _) = YamlDocBuilder.build(yamlFrame, indent)
+      o.write(fullString.getBytes)
+      o.write(System.lineSeparator().getBytes)
+    }
+
+  def printAggregate(
+      options: RdfStreamOptions,
+      iterator: Iterator[FrameInfo],
+      o: OutputStream,
+  ): Unit = {
+    printOptions(options, o)
+    val sumCounts = iterator.reduce((a, b) => a += b)
+    val (fullString, _) =
+      YamlDocBuilder.build(
+        YamlMap(
+          "frames" -> formatStatsCount(sumCounts),
+        ),
+      )
+    o.write(fullString.getBytes)
+  }
+
+  private def printOptions(
+      printOptions: RdfStreamOptions,
+      o: OutputStream,
+  ): Unit =
+    val options = formatOptions(options = printOptions)
+    val (fullString, _) =
+      YamlDocBuilder.build(
+        YamlMap(
+          "stream_options" -> options,
+        ),
+      )
+    o.write(fullString.getBytes)
+    o.write(System.lineSeparator().getBytes)
 
   private def formatOptions(
       options: RdfStreamOptions,
@@ -95,9 +109,8 @@ object MetricsPrinter:
 
   private def formatStatsCount(
       frame: FrameInfo,
-      frameCount: Int,
   ): YamlMap =
-    YamlMap(Seq(("frame_count", YamlInt(frameCount))) ++ formatStats(frame)*)
+    YamlMap(Seq(("frame_count", YamlInt(frame.frameCount))) ++ formatStats(frame)*)
 
   private def formatStats(
       frame: FrameInfo,

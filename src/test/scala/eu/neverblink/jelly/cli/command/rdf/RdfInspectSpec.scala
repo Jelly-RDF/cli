@@ -50,7 +50,22 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       frames.length should be(1)
       frames.map(_.get("triple_count")).sum should be(testCardinality)
     }
-    "throw an error if the input file is not a valid jelly file" in withEmptyJellyFile { j =>
+    "handle properly frame count when aggregating multiple frames" in withFullJellyFile(
+      testCode = { j =>
+        val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", j))
+        val yaml = new Yaml()
+        val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+        parsed.get("stream_options") should not be None
+        val options = parsed.get("stream_options").asInstanceOf[java.util.Map[String, Any]]
+        options.get("max_name_table_size") should be(128)
+        parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+        val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+        frames.get("triple_count") should be(testCardinality)
+        frames.get("frame_count") should be(5)
+      },
+      frameSize = 15,
+    )
+    "throw an error if the input file is not a valid Jelly file" in withEmptyJellyFile { j =>
       val exception = intercept[ExitException] {
         RdfInspect.runTestCommand(List("rdf", "inspect", j, "--debug"))
       }
