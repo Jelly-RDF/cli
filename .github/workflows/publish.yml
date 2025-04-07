@@ -58,17 +58,20 @@ jobs:
       - name: Upload assembly
         uses: actions/upload-artifact@v4
         with:
-          name: jelly-cli.jar
+          name: jelly-cli-assembly
           path: jelly-cli.jar
 
   publish:
     runs-on: ubuntu-latest
-    needs: aot-compile
+    needs:
+      - aot-compile
+      - jit-compile
     steps:
       - uses: actions/download-artifact@v4
 
       - name: Rename binaries
         run: |
+          mv jelly-cli-assembly/jelly-cli.jar jelly-cli.jar
           mv jelly-cli-macos-14/jelly-cli jelly-cli-mac-arm64
           mv jelly-cli-ubuntu-22.04/jelly-cli jelly-cli-linux-x86_64
           mv jelly-cli-ubuntu-22.04-arm/jelly-cli jelly-cli-linux-arm64
