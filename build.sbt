@@ -54,6 +54,14 @@ lazy val root = (project in file("."))
       libraryDependencies,
     ),
     buildInfoPackage := "eu.neverblink.jelly.cli",
+    assembly / assemblyMergeStrategy := {
+      case PathList("module-info.class") => MergeStrategy.discard
+      // https://jena.apache.org/documentation/notes/jena-repack.html
+      case PathList("META-INF", "services", xs @ _*) => MergeStrategy.concat
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case PathList("reference.conf") => MergeStrategy.concat
+      case _ => MergeStrategy.first
+    },
 
     // GraalVM settings
     Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
