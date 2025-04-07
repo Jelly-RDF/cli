@@ -1,9 +1,9 @@
 package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.RdfFormat.*
-import eu.neverblink.jelly.cli.command.rdf.RdfFormat.Jena.*
-import eu.neverblink.jelly.cli.util.JellyUtil
+import eu.neverblink.jelly.cli.command.rdf.util.{JellyUtil, RdfCommandPrintUtil, RdfFormat}
+import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
+import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.Jena.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
 import org.apache.jena.riot.system.StreamRDFWriter
@@ -42,9 +42,9 @@ object RdfFromJelly extends RdfTranscodeCommand[RdfFromJellyOptions, RdfFormat.W
     parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
 
   override def matchFormatToAction(
-      option: RdfFormat.Writeable,
+      format: RdfFormat.Writeable,
   ): Option[(InputStream, OutputStream) => Unit] =
-    option match
+    format match
       case j: RdfFormat.Jena.Writeable => Some(jellyToLang(j.jenaLang, _, _))
       case RdfFormat.JellyText => Some(jellyBinaryToText)
 

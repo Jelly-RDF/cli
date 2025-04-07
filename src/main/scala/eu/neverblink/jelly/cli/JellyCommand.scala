@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli
 
 import caseapp.*
-import eu.neverblink.jelly.cli.util.IoUtil
+import eu.neverblink.jelly.cli.util.io.IoUtil
 
 import java.io.*
 import scala.compiletime.uninitialized

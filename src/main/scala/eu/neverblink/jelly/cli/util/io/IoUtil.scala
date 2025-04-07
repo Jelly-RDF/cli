@@ -1,4 +1,4 @@
-package eu.neverblink.jelly.cli.util
+package eu.neverblink.jelly.cli.util.io
 
 import eu.neverblink.jelly.cli.*
 

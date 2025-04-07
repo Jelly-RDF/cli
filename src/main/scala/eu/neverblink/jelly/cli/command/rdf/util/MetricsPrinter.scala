@@ -1,6 +1,7 @@
-package eu.neverblink.jelly.cli.util
+package eu.neverblink.jelly.cli.command.rdf.util
 
-import eu.neverblink.jelly.cli.util.YamlDocBuilder.*
+import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
+import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamOptions
 
 import java.io.OutputStream

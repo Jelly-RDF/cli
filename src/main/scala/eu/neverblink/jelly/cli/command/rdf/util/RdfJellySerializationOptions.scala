@@ -1,9 +1,9 @@
-package eu.neverblink.jelly.cli.command.rdf
+package eu.neverblink.jelly.cli.command.rdf.util
 
 import caseapp.*
 import eu.neverblink.jelly.cli.InvalidArgument
-import eu.ostrzyciel.jelly.core.{JellyOptions, LogicalStreamTypeFactory}
 import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamOptions}
+import eu.ostrzyciel.jelly.core.{JellyOptions, LogicalStreamTypeFactory}
 
 /** Options for serializing in Jelly-RDF */
 case class RdfJellySerializationOptions(
