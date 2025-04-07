@@ -41,3 +41,31 @@ jobs:
     - name: Build and test
       shell: bash
       run: sbt -v +test
+
+  test-assembly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: sbt
+
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+
+      - name: Build assembly
+        shell: bash
+        run: |
+          sbt -v assembly
+          mv target/scala-*/jelly-cli-assembly*.jar jelly-cli.jar
+
+      - name: Test the assembly
+        run: |
+          java -jar jelly-cli.jar version && \
+          echo '_:b <http://t.org/> _:b .' | java -jar jelly-cli.jar \
+            rdf to-jelly --in-format=nt > out.jelly && \
+            [ -s out.jelly ]
