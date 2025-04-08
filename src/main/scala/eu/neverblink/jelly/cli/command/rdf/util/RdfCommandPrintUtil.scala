@@ -1,4 +1,4 @@
-package eu.neverblink.jelly.cli.command.rdf
+package eu.neverblink.jelly.cli.command.rdf.util
 
 import scala.reflect.TypeTest
 

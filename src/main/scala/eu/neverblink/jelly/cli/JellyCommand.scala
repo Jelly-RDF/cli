@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli
 
 import caseapp.*
-import eu.neverblink.jelly.cli.util.IoUtil
+import eu.neverblink.jelly.cli.util.io.IoUtil
 
 import java.io.*
 import scala.compiletime.uninitialized
@@ -120,8 +120,6 @@ abstract class JellyCommand[T <: HasJellyCommandOptions: {Parser, Help}] extends
     else System.in
 
   final def setStdIn(data: ByteArrayInputStream): Unit =
-    validateTestMode()
-    in.reset()
     in = data
 
   final def getOutStream: OutputStream =

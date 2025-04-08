@@ -2,8 +2,8 @@ package eu.neverblink.jelly.cli.command.rdf
 
 import caseapp.{ExtraName, Recurse}
 import caseapp.core.RemainingArgs
-import eu.neverblink.jelly.cli.util.{FrameInfo, JellyUtil, MetricsPrinter}
 import eu.neverblink.jelly.cli.*
+import eu.neverblink.jelly.cli.command.rdf.util.{FrameInfo, JellyUtil, MetricsPrinter}
 import eu.ostrzyciel.jelly.core.proto.v1.*
 
 import java.io.InputStream

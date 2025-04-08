@@ -4,6 +4,7 @@ import com.google.protobuf.InvalidProtocolBufferException
 import org.apache.jena.riot.RiotException
 import eu.neverblink.jelly.cli.*
 import caseapp.*
+import eu.neverblink.jelly.cli.command.rdf.util.{RdfCommandPrintUtil, RdfFormat}
 
 import scala.reflect.TypeTest
 import eu.ostrzyciel.jelly.core.{RdfProtoDeserializationError, RdfProtoSerializationError}
@@ -25,7 +26,7 @@ abstract class RdfTranscodeCommand[T <: HasJellyCommandOptions: {Parser, Help}, 
   lazy val printUtil: RdfCommandPrintUtil[F]
 
   /** The method responsible for matching the format to a given action */
-  def matchFormatToAction(option: F): Option[(InputStream, OutputStream) => Unit]
+  def matchFormatToAction(format: F): Option[(InputStream, OutputStream) => Unit]
 
   /** This method takes care of proper error handling and takes care of the parameter priorities in
     * matching the input to a given format conversion
@@ -42,7 +43,7 @@ abstract class RdfTranscodeCommand[T <: HasJellyCommandOptions: {Parser, Help}, 
     * @throws JenaRiotException
     * @throws InvalidJellyFile
     */
-  def parseFormatArgs(
+  final def parseFormatArgs(
       inputStream: InputStream,
       outputStream: OutputStream,
       format: Option[String],

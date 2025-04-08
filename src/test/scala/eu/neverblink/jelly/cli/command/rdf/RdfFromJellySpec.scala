@@ -3,6 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
+import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import org.apache.jena.riot.RDFLanguages
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
