@@ -14,12 +14,19 @@ import org.apache.jena.riot.RDFParser
 import org.apache.jena.riot.system.StreamRDFLib
 import org.apache.jena.sparql.core.Quad
 
-import scala.collection.BufferedIterator
 import scala.util.Using
 
 object RdfValidatePrint extends RdfCommandPrintUtil[RdfFormat.Jena]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
+@HelpMessage(
+  "Validates the input Jelly-RDF stream.\nIf no additional options are specified, " +
+    "only basic validations are performed. You can also validate the stream against " +
+    "a reference RDF file, check the stream options, and its delimiting.\n" +
+    "If an error is detected, the program will exit with a non-zero code.\n" +
+    "Otherwise, the program will exit with code 0.",
+)
+@ArgsName("<file-to-validate>")
 case class RdfValidateOptions(
     @Recurse
     common: JellyCommandOptions = JellyCommandOptions(),
@@ -85,10 +92,10 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
     // Step 1: Validate delimiting
     validateDelimiting(delimiting, delimited)
     // Step 2: Validate basic stream structure & the stream options
-    val framesBuffered = frameIterator.buffered
-    validateOptions(framesBuffered)
+    val framesSeq = frameIterator.toSeq
+    validateOptions(framesSeq)
     // Step 3: Validate the content
-    validateContent(framesBuffered, frameIndices, rdfComparison)
+    validateContent(framesSeq, frameIndices, rdfComparison)
 
   private def validateDelimiting(
       expected: Delimiting,
@@ -102,7 +109,7 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       if delimited then
         throw CriticalException("Expected undelimited input, but the file was delimited")
 
-  private def validateOptions(frames: BufferedIterator[RdfStreamFrame]): Unit =
+  private def validateOptions(frames: Seq[RdfStreamFrame]): Unit =
     // Validate basic stream structure
     if frames.isEmpty then throw CriticalException("Empty input stream")
     if frames.head.rows.isEmpty then
@@ -117,7 +124,9 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       }
       if streamOptions != o then
         throw CriticalException(
-          s"Stream options do not match the expected options in $optionsFileName",
+          s"Stream options do not match the expected options in $optionsFileName\n" +
+            s"Expected: $o\n" +
+            s"Actual: $streamOptions",
         )
       o
     }
@@ -127,7 +136,7 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
     )
 
   private def validateContent(
-      frames: BufferedIterator[RdfStreamFrame],
+      frames: Seq[RdfStreamFrame],
       frameIndices: IndexRange,
       maybeRdfComparison: Option[StreamRdfCollector],
   ): Unit =
@@ -140,12 +149,13 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       None,
       (prefix, iri) => jellyStreamConsumer.prefix(prefix, iri.getURI),
     )
-    for (frame, i) <- frameIndices.slice(frames).zipWithIndex do
+    val x = frameIndices.slice(frames).zipWithIndex
+    for (frame, i) <- x do
       val frameIndex = frameIndices.start.getOrElse(0) + i
       for row <- frame.rows do
         if row.row.isOptions && row.row.options != opt then
           throw CriticalException(
-            s"Later occurrence of stream options in frame $frameIndex do not match the first",
+            s"Later occurrence of stream options in frame $frameIndex does not match the first",
           )
         // Push the stream frames through the decoder
         // This will catch most of the errors
@@ -156,15 +166,15 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
           // because it's too performance-costly.
           case t: Triple =>
             if !opt.generalizedStatements && StatementUtils.isGeneralized(t) then
-              throw CriticalException(s"Generalized triple in frame $frameIndex: $t")
+              throw CriticalException(s"Unexpected generalized triple in frame $frameIndex: $t")
             if !opt.rdfStar && StatementUtils.isRdfStar(t) then
-              throw CriticalException(s"RDF-star triple in frame $frameIndex: $t")
+              throw CriticalException(s"Unexpected RDF-star triple in frame $frameIndex: $t")
             jellyStreamConsumer.triple(t)
           case q: Quad =>
             if !opt.generalizedStatements && StatementUtils.isGeneralized(q) then
-              throw CriticalException(s"Generalized quad in frame $frameIndex: $q")
+              throw CriticalException(s"Unexpected generalized quad in frame $frameIndex: $q")
             if !opt.rdfStar && StatementUtils.isRdfStar(q) then
-              throw CriticalException(s"RDF-star quad in frame $frameIndex: $q")
+              throw CriticalException(s"Unexpected RDF-star quad in frame $frameIndex: $q")
             jellyStreamConsumer.quad(q)
     // Compare the Jelly data with the reference RDF data, if specified
     maybeRdfComparison.foreach { rdfComparison =>
@@ -172,7 +182,7 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       val comparator =
         if getOptions.compareOrdered then OrderedRdfCompare
         else UnorderedRdfCompare
-      comparator.compare(actual, rdfComparison)
+      comparator.compare(rdfComparison, actual)
     }
 
   /** Reads the RDF file for comparison and returns a StreamRdfCollector
