@@ -7,7 +7,7 @@ import org.apache.jena.sparql.core.Quad
 
 object OrderedRdfCompare extends RdfCompare:
   import StatementUtils.*
-  
+
   def compare(
       expected: StreamRdfCollector,
       actual: StreamRdfCollector,
@@ -27,7 +27,8 @@ object OrderedRdfCompare extends RdfCompare:
           if bNodeMap.contains(eId) then
             if bNodeMap(eId) != aId then
               throw new CriticalException(
-                s"RDF element $i is different: expected $e, got $a. $e is already mapped to ${bNodeMap(eId)}.",
+                s"RDF element $i is different: expected $e, got $a. $eId is " +
+                  s"already mapped to ${bNodeMap(eId)}.",
               )
           else bNodeMap(eId) = aId
         else if et != at then
@@ -38,9 +39,9 @@ object OrderedRdfCompare extends RdfCompare:
     eSeq.zip(aSeq).zipWithIndex.foreach { case ((e, a), i) =>
       (e, a) match {
         case (e: Triple, a: Triple) =>
-          if e != a then tryIsomorphism(iterateTerms(e), iterateTerms(a), i)
+          tryIsomorphism(iterateTerms(e), iterateTerms(a), i)
         case (e: Quad, a: Quad) =>
-          if e != a then tryIsomorphism(iterateTerms(e), iterateTerms(a), i)
+          tryIsomorphism(iterateTerms(e), iterateTerms(a), i)
         case (e: NamespaceDeclaration, a: NamespaceDeclaration) =>
           if e != a then
             throw new CriticalException(

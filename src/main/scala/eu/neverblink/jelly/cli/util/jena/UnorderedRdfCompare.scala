@@ -11,13 +11,13 @@ object UnorderedRdfCompare extends RdfCompare:
       expected: StreamRdfCollector,
       actual: StreamRdfCollector,
   ): Unit =
-    val eDataset = DatasetGraphFactory.empty()
-    val aDataset = DatasetGraphFactory.empty()
+    val eDataset = DatasetGraphFactory.create()
+    val aDataset = DatasetGraphFactory.create()
     expected.replay(StreamRDFLib.dataset(eDataset))
     actual.replay(StreamRDFLib.dataset(aDataset))
     if eDataset.size() != aDataset.size() then
       throw new CriticalException(
-        s"Expected ${eDataset.size()} named graphs, but got ${aDataset.size()}.",
+        s"Expected ${eDataset.size()} named graph(s), but got ${aDataset.size()}.",
       )
     if !eDataset.getDefaultGraph.isIsomorphicWith(aDataset.getDefaultGraph) then
       throw new CriticalException(

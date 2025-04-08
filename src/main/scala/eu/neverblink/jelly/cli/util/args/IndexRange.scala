@@ -16,6 +16,9 @@ final case class IndexRange(
 /** Parser for Rust-style index ranges.
   */
 object IndexRange:
+  def apply(range: String): IndexRange =
+    apply(range, "--range")
+
   def apply(range: String, argumentName: String): IndexRange = try {
     range.trim match {
       case "" => IndexRange(None, None)
