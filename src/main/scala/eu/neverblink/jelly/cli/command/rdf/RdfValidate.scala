@@ -20,7 +20,7 @@ object RdfValidatePrint extends RdfCommandPrintUtil[RdfFormat.Jena]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
 @HelpMessage(
-  "Validates the input Jelly-RDF stream.\nIf no additional options are specified, " +
+  "Validates a Jelly-RDF stream.\nIf no additional options are specified, " +
     "only basic validations are performed. You can also validate the stream against " +
     "a reference RDF file, check the stream options, and its delimiting.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
