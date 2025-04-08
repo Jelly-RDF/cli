@@ -50,13 +50,13 @@ class RdfCompareSpec extends AnyWordSpec, Matchers:
   private val ns1 = NamespaceDeclaration("ex", "http://example.com/")
   private val ns2 = NamespaceDeclaration("ex2", "http://example.com/")
 
-  val c1 = StreamRdfCollector()
+  val c1: StreamRdfCollector = StreamRdfCollector()
   c1.prefix(ns1.prefix, ns1.iri)
   c1.triple(t_iri_1)
   c1.triple(t_bnode_1)
   c1.quad(q_bnode_1)
 
-  val c2 = StreamRdfCollector()
+  val c2: StreamRdfCollector = StreamRdfCollector()
   c2.prefix(ns1.prefix, ns1.iri)
   c2.triple(t_iri_1)
   c2.triple(t_bnode_2)

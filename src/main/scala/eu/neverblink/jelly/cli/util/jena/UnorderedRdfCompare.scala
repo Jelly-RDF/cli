@@ -21,7 +21,7 @@ object UnorderedRdfCompare extends RdfCompare:
       )
     if !eDataset.getDefaultGraph.isIsomorphicWith(aDataset.getDefaultGraph) then
       throw new CriticalException(
-        s"Default graph is not isomorphic with the expected one.",
+        "Default graph is not isomorphic with the expected one.",
       )
     for name <- eDataset.listGraphNodes().asScala do
       if !aDataset.containsGraph(name) then

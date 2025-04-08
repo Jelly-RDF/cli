@@ -46,32 +46,32 @@ class IndexRangeSpec extends AnyWordSpec, Matchers:
       val e = intercept[InvalidArgument] {
         IndexRange("a..b")
       }
-      e.argument should be ("--range")
-      e.argumentValue should be ("a..b")
-      e.message.get should include ("Correct ranges are in the form")
+      e.argument should be("--range")
+      e.argumentValue should be("a..b")
+      e.message.get should include("Correct ranges are in the form")
     }
 
     "not parse an invalid range (123a)" in {
       val e = intercept[InvalidArgument] {
         IndexRange("123a")
       }
-      e.argument should be ("--range")
-      e.argumentValue should be ("123a")
-      e.message.get should include ("Correct ranges are in the form")
+      e.argument should be("--range")
+      e.argumentValue should be("123a")
+      e.message.get should include("Correct ranges are in the form")
     }
 
     "not parse an invalid range (asdad)" in {
       val e = intercept[InvalidArgument] {
         IndexRange("asdad")
       }
-      e.argument should be ("--range")
-      e.argumentValue should be ("asdad")
-      e.message.get should include ("Correct ranges are in the form")
+      e.argument should be("--range")
+      e.argumentValue should be("asdad")
+      e.message.get should include("Correct ranges are in the form")
     }
 
     "slice a collection" in {
       val range = IndexRange(Some(1), Some(3))
       val collection = Seq(0, 1, 2, 3, 4)
-      range.slice(collection) should be (Seq(1, 2))
+      range.slice(collection) should be(Seq(1, 2))
     }
   }
