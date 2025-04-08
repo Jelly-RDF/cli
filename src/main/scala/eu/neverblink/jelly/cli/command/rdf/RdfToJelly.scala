@@ -1,11 +1,8 @@
 package eu.neverblink.jelly.cli.command.rdf
+
 import caseapp.*
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.util.{
-  RdfCommandPrintUtil,
-  RdfFormat,
-  RdfJellySerializationOptions,
-}
+import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame

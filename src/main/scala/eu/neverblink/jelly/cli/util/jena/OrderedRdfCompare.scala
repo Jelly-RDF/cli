@@ -5,6 +5,8 @@ import eu.ostrzyciel.jelly.core.NamespaceDeclaration
 import org.apache.jena.graph.{Node, Triple}
 import org.apache.jena.sparql.core.Quad
 
+import scala.collection.mutable
+
 object OrderedRdfCompare extends RdfCompare:
   import StatementUtils.*
 
@@ -18,7 +20,7 @@ object OrderedRdfCompare extends RdfCompare:
       throw new CriticalException(
         s"Expected ${eSeq.size} RDF elements, but got ${aSeq.size} elements.",
       )
-    val bNodeMap = scala.collection.mutable.Map.empty[String, String]
+    val bNodeMap = mutable.Map.empty[String, String]
     def tryIsomorphism(e: Seq[Node], a: Seq[Node], i: Int): Unit =
       e.zip(a).foreach { (et, at) =>
         if et.isBlank && at.isBlank then

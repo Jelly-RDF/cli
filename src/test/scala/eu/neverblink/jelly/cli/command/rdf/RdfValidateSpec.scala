@@ -59,15 +59,15 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         RdfValidate.runTestCommand(List("rdf", "validate"))
       }
 
-      "--delimiting=delimited, input delimited" in {
+      "--delimited=true, input delimited" in {
         RdfValidate.setStdIn(ByteArrayInputStream(bDelimited))
-        RdfValidate.runTestCommand(List("rdf", "validate", "--delimiting=delimited"))
+        RdfValidate.runTestCommand(List("rdf", "validate", "--delimited=true"))
       }
 
-      "--delimiting=delimited, input undelimited" in {
+      "--delimited=true, input undelimited" in {
         RdfValidate.setStdIn(ByteArrayInputStream(bUndelimited))
         val e = intercept[ExitException] {
-          RdfValidate.runTestCommand(List("rdf", "validate", "--delimiting=delimited"))
+          RdfValidate.runTestCommand(List("rdf", "validate", "--delimited=true"))
         }
         e.cause.get shouldBe a[CriticalException]
         e.cause.get.getMessage should include(
@@ -75,10 +75,10 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         )
       }
 
-      "--delimiting=undelimited, input delimited" in {
+      "--delimited=false, input delimited" in {
         RdfValidate.setStdIn(ByteArrayInputStream(bDelimited))
         val e = intercept[ExitException] {
-          RdfValidate.runTestCommand(List("rdf", "validate", "--delimiting=undelimited"))
+          RdfValidate.runTestCommand(List("rdf", "validate", "--delimited=false"))
         }
         e.cause.get shouldBe a[CriticalException]
         e.cause.get.getMessage should include(
@@ -86,19 +86,19 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         )
       }
 
-      "--delimiting=nondelimited, input undelimited" in {
+      "--delimited=false, input undelimited" in {
         RdfValidate.setStdIn(ByteArrayInputStream(bUndelimited))
-        RdfValidate.runTestCommand(List("rdf", "validate", "--delimiting=nondelimited"))
+        RdfValidate.runTestCommand(List("rdf", "validate", "--delimited=false"))
       }
 
-      "invalid argument passed to --delimiting" in {
+      "invalid argument passed to --delimited" in {
         val e = intercept[ExitException] {
-          RdfValidate.runTestCommand(List("rdf", "validate", "--delimiting=invalid"))
+          RdfValidate.runTestCommand(List("rdf", "validate", "--delimited=invalid"))
         }
         e.cause.get shouldBe a[CriticalException]
-        e.cause.get.getMessage should include("--delimiting")
+        e.cause.get.getMessage should include("--delimited")
         e.cause.get.getMessage should include(
-          "Valid values: either, delimited, undelimited",
+          "Valid values: true, false, either",
         )
       }
     }

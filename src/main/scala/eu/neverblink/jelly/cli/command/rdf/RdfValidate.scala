@@ -24,7 +24,9 @@ object RdfValidatePrint extends RdfCommandPrintUtil[RdfFormat.Jena]:
     "only basic validations are performed. You can also validate the stream against " +
     "a reference RDF file, check the stream options, and its delimiting.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
-    "Otherwise, the program will exit with code 0.",
+    "Otherwise, the program will exit with code 0.\n" +
+    "Note: this command does not work in a streaming manner. If you try to validate a very large " +
+    "file, you may run out of memory.",
 )
 @ArgsName("<file-to-validate>")
 case class RdfValidateOptions(
@@ -56,9 +58,9 @@ case class RdfValidateOptions(
     optionsFile: Option[String] = None,
     @HelpMessage(
       "Whether the input stream should be checked to be delimited or undelimited. " +
-        "Possible values: 'either', 'delimited', 'undelimited'. Default: 'either'.",
+        "Possible values: 'either', 'true', 'false'. Default: 'either'.",
     )
-    delimiting: String = "either",
+    delimited: String = "either",
 ) extends HasJellyCommandOptions
 
 object RdfValidate extends JellyCommand[RdfValidateOptions]:
@@ -72,17 +74,15 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
   override def doRun(options: RdfValidateOptions, remainingArgs: RemainingArgs): Unit =
     // Parse input options
     val frameIndices = IndexRange(options.compareFrameIndices, "--compare-frame-indices")
-    val delimiting = options.delimiting match
-      case "" => Delimiting.Either
-      case "either" => Delimiting.Either
-      case "delimited" => Delimiting.Delimited
-      case "undelimited" => Delimiting.Undelimited
-      case "nondelimited" => Delimiting.Undelimited
+    val delimiting = options.delimited match
+      case "" | "either" => Delimiting.Either
+      case "true" => Delimiting.Delimited
+      case "false" => Delimiting.Undelimited
       case _ =>
         throw InvalidArgument(
-          "--delimiting",
-          options.delimiting,
-          Some("Valid values: either, delimited, undelimited"),
+          "--delimited",
+          options.delimited,
+          Some("Valid values: true, false, either"),
         )
     val rdfComparison =
       options.compareToRdfFile.map(n => getRdfForComparison(n, options.compareToFormat))
