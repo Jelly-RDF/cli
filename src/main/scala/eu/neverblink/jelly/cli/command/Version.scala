@@ -3,6 +3,9 @@ package eu.neverblink.jelly.cli.command
 import caseapp.*
 import eu.neverblink.jelly.cli.*
 
+@HelpMessage(
+  "Prints the version of the Jelly CLI and the Jelly library.",
+)
 case class VersionOptions(
     @Recurse
     common: JellyCommandOptions = JellyCommandOptions(),
