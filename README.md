@@ -51,7 +51,7 @@ To inspect a Jelly file and get basic information describing its contents, such 
 $ ./jelly-cli rdf inspect input.jelly
 ```
 
-You can also compute triple and quad counts separately for each frame with the `--per-frame` option:
+You can also compute the statistics separately for each stream frame with the `--per-frame` option:
 
 ```shell
 $ ./jelly-cli rdf inspect input.jelly --per-frame
