@@ -31,7 +31,7 @@ case class RdfInspectOptions(
       "Whether to print the statistics per frame (default: false). " +
         "If true, the statistics are computed and printed separately for each frame in the stream.",
     )
-    @ExtraName("per-frame") perFrame: Boolean = false,
+    perFrame: Boolean = false,
 ) extends HasJellyCommandOptions
 
 object RdfInspect extends JellyCommand[RdfInspectOptions]:

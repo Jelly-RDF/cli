@@ -15,23 +15,51 @@ $ chmod +x jelly-cli
 $ ./jelly-cli --help
 ```
 
+## Usage
+
+### Convert RDF to Jelly
+
 To convert an RDF file (e.g., Turtle) to Jelly, simply run:
 
 ```shell
 $ ./jelly-cli rdf to-jelly input.ttl > output.jelly
 ```
 
+### Convert Jelly to RDF
+
 To convert from Jelly to RDF run:
 
 ```shell
-$ ./jelly-cli rdf from-jelly input.jelly > output.ttl
+$ ./jelly-cli rdf from-jelly input.jelly > output.nq
 ```
 
-To inspect a Jelly file and get basic statistics describing its contents, run
+By default, `jelly-cli` will translate files to NQuads. 
+But you can also specify the output format with `--out-format`, for example:
+
+```shell
+$ ./jelly-cli rdf from-jelly input.jelly --out-format=ttl > output.ttl
+```
+
+You can specify most well-known formats supported by Apache Jena, but also a custom Jelly-Text format. 
+Jelly-Text is a human-readable format that is not meant for machine consumption. It is useful for debugging and inspecting Jelly files.
+
+### Inspect Jelly files
+
+To inspect a Jelly file and get basic information describing its contents, such as stream options or number of triples in the file, run
 
 ```shell
 $ ./jelly-cli rdf inspect input.jelly
 ```
+
+You can also compute triple and quad counts separately for each frame with the `--per-frame` option:
+
+```shell
+$ ./jelly-cli rdf inspect input.jelly --per-frame
+```
+
+In both cases, you will get the output as a valid YAML.
+
+### Validate Jelly files
 
 To validate a Jelly file, run
 
@@ -39,12 +67,23 @@ To validate a Jelly file, run
 $ ./jelly-cli rdf validate input.jelly
 ```
 
+You can also check whether the Jelly file has been encoded using specific stream options or is equivalent to another RDF file.
+
+### General tips
+
 Use the `--help` option to learn more about all the available settings:
 
 ```shell
 $ ./jelly-cli rdf to-jelly --help
 $ ./jelly-cli rdf from-jelly --help
 $ ./jelly-cli rdf inspect --help
+```
+
+And use the `--debug` option to get more information about any exceptions you encounter. 
+You can set it for any of the commands described above, for example:
+
+```shell
+$ ./jelly-cli rdf to-jelly --debug
 ```
 
 For more information, go to the official [jelly-cli documentation](https://jelly-rdf.github.io/dev/use-cases/jelly-cli).
