@@ -67,7 +67,7 @@ To validate a Jelly file, run
 $ ./jelly-cli rdf validate input.jelly
 ```
 
-You can also check whether the Jelly file has been encoded using specific stream options or is equivalent to another RDF file.
+You can also check whether the Jelly file has been encoded using specific stream options or is equivalent to another RDF file, with the use of additional options to this command.
 
 ### General tips
 
@@ -77,6 +77,7 @@ Use the `--help` option to learn more about all the available settings:
 $ ./jelly-cli rdf to-jelly --help
 $ ./jelly-cli rdf from-jelly --help
 $ ./jelly-cli rdf inspect --help
+$ ./jelly-cli rdf validate --help
 ```
 
 And use the `--debug` option to get more information about any exceptions you encounter. 
