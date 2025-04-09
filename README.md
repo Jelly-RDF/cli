@@ -27,6 +27,18 @@ To convert from Jelly to RDF run:
 $ ./jelly-cli rdf from-jelly input.jelly > output.ttl
 ```
 
+To inspect a Jelly file and get basic statistics describing its contents, run
+
+```shell
+$ ./jelly-cli rdf inspect input.jelly
+```
+
+To validate a Jelly file, run
+
+```shell
+$ ./jelly-cli rdf validate input.jelly
+```
+
 Use the `--help` option to learn more about all the available settings:
 
 ```shell
@@ -34,6 +46,8 @@ $ ./jelly-cli rdf to-jelly --help
 $ ./jelly-cli rdf from-jelly --help
 $ ./jelly-cli rdf inspect --help
 ```
+
+For more information, go to the official [jelly-cli documentation](https://jelly-rdf.github.io/dev/use-cases/jelly-cli).
 
 Alternatively, you can use the JAR build, which runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases)** and download the `jelly-cli.jar` file. Then, run it like so:
 
