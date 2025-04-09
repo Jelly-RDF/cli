@@ -1,8 +1,6 @@
 # jelly-cli
 
-***Warning: This project is in early development and is not yet ready for production use.***
-
-CLI utility for working with Jelly data.
+Fast and convenient CLI utility for working with Jelly data.
 
 ## Quick start
 
@@ -80,16 +78,11 @@ $ ./jelly-cli rdf inspect --help
 $ ./jelly-cli rdf validate --help
 ```
 
-And use the `--debug` option to get more information about any exceptions you encounter. 
-You can set it for any of the commands described above, for example:
+And use the `--debug` option to get more information about any exceptions you encounter.
 
-```shell
-$ ./jelly-cli rdf to-jelly --debug
-```
+## Alternative installation
 
-For more information, go to the official [jelly-cli documentation](https://jelly-rdf.github.io/dev/use-cases/jelly-cli).
-
-Alternatively, you can use the JAR build, which runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases)** and download the `jelly-cli.jar` file. Then, run it like so:
+If for some reason the binaries wouldn't work for you, you can use the JAR build. The build runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases)** and download the `jelly-cli.jar` file. Then, run it like so:
 
 ```shell
 java -jar jelly-cli.jar --help
