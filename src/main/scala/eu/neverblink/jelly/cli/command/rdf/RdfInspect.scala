@@ -17,6 +17,7 @@ import java.io.InputStream
     "If no output file is specified, the output is written to stdout.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
     "Otherwise, the program will exit with code 0.\n",
+  "Note: this command works in a streaming manner and scales well to large files",
 )
 @ArgsName("<file-to-inspect>")
 case class RdfInspectOptions(

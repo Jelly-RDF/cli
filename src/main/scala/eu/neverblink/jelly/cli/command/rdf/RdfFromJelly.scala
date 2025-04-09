@@ -17,7 +17,7 @@ object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
 
 @HelpMessage(
   "Translates a Jelly-RDF stream to a different RDF format. \n" +
-    "If not input file is specified, the input is read from stdin.\n" +
+    "If no input file is specified, the input is read from stdin.\n" +
     "If no output file is specified, the output is written to stdout.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
     "Otherwise, the program will exit with code 0.\n" +
