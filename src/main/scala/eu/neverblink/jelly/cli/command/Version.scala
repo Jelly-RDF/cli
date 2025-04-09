@@ -4,7 +4,7 @@ import caseapp.*
 import eu.neverblink.jelly.cli.*
 
 @HelpMessage(
-  "Prints the version of the Jelly CLI and the Jelly library.",
+  "Prints the version of the jelly-cli utility and the Jelly-JVM library.",
 )
 case class VersionOptions(
     @Recurse
