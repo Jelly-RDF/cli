@@ -1,6 +1,6 @@
 # jelly-cli
 
-Fast and convenient CLI utility for working with the [Jelly](https://jelly-rdf.github.io/dev/) protocol for RDF streaming.
+Fast and convenient CLI utility for working with the [Jelly](https://jelly-rdf.github.io/dev/) knowledge graph streaming protocol.
 
 ## Quick start
 
