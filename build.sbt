@@ -6,7 +6,7 @@ resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
 lazy val jenaV = "5.3.0"
-lazy val jellyV = "2.9.1+10-e92cafe2-SNAPSHOT"
+lazy val jellyV = "2.10.0"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
