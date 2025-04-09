@@ -4,7 +4,7 @@ Fast and convenient CLI utility for working with the [Jelly](https://jelly-rdf.g
 
 ## Quick start
 
-If you are using Linux (x86_64, ARM64), macOS (ARM64), or Windows (x86_64), the recommended way run `jelly-cli` is to use a pre-built binary. Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases)** and download the binary built for your platform.
+If you are using Linux (x86_64, ARM64), macOS (ARM64), or Windows (x86_64), the recommended way run `jelly-cli` is to use a pre-built binary. Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the binary built for your platform.
 
 You can then run it like so:
 
@@ -82,7 +82,7 @@ And use the `--debug` option to get more information about any exceptions you en
 
 ## Alternative installation
 
-If for some reason the binaries wouldn't work for you, you can use the JAR build. The build runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases)** and download the `jelly-cli.jar` file. Then, run it like so:
+If for some reason the binaries wouldn't work for you, you can use the JAR build. The build runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the `jelly-cli.jar` file. Then, run it like so:
 
 ```shell
 java -jar jelly-cli.jar --help
