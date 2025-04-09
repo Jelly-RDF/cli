@@ -1,6 +1,6 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import caseapp.{ExtraName, HelpMessage, Recurse}
+import caseapp.{ArgsName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.{FrameInfo, JellyUtil, MetricsPrinter}
@@ -18,6 +18,7 @@ import java.io.InputStream
     "If an error is detected, the program will exit with a non-zero code.\n" +
     "Otherwise, the program will exit with code 0.\n",
 )
+@ArgsName("<file-to-inspect>")
 case class RdfInspectOptions(
     @Recurse
     common: JellyCommandOptions = JellyCommandOptions(),
@@ -27,7 +28,7 @@ case class RdfInspectOptions(
     @ExtraName("to") outputFile: Option[String] = None,
     @HelpMessage(
       "Whether to print the statistics per frame (default: false). " +
-        "If true, the statistics are computed and printed separatelty for each frame in the stream.",
+        "If true, the statistics are computed and printed separately for each frame in the stream.",
     )
     @ExtraName("per-frame") perFrame: Boolean = false,
 ) extends HasJellyCommandOptions
