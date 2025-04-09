@@ -15,13 +15,26 @@ import scala.util.Using
 object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
 
+@HelpMessage(
+  "Translates an RDF file to a Jelly-RDF stream. \n" +
+    "If no input file is specified, the input is read from stdin.\n" +
+    "If no output file is specified, the output is written to stdout.\n" +
+    "If an error is detected, the program will exit with a non-zero code.\n" +
+    "Otherwise, the program will exit with code 0.\n" +
+    "Note: this command works in a streaming manner and scales well to large files. ",
+)
+@ArgsName("<file-to-convert>")
 case class RdfToJellyOptions(
     @Recurse
     common: JellyCommandOptions = JellyCommandOptions(),
-    @ExtraName("to") outputFile: Option[String] = None,
-    @ValueDescription("Input format.")
     @HelpMessage(
-      RdfToJellyPrint.helpMsg,
+      "Output file to write the Jelly to. If not specified, the output is written to stdout.",
+    )
+    @ExtraName("to") outputFile: Option[String] = None,
+    @HelpMessage(
+      "RDF format of the data that should be translated to Jelly. " +
+        "If not explicitly specified, but input file supplied, the format is inferred from the file name. " +
+        RdfToJellyPrint.helpMsg,
     )
     @ExtraName("in-format") inputFormat: Option[String] = None,
     @Recurse

@@ -1,17 +1,36 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import caseapp.{ExtraName, Recurse}
+import caseapp.{ArgsName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.{FrameInfo, JellyUtil, MetricsPrinter}
 import eu.ostrzyciel.jelly.core.proto.v1.*
 
 import java.io.InputStream
-
+@HelpMessage(
+  "Prints statistics about a Jelly-RDF stream.\n" +
+    "Statistics include: Jelly stream options and counts of various row types, " +
+    "including triples, quads, names, prefixes, " +
+    "namespaces, datatypes, and graphs.\n" +
+    "Output statistics are returned as a valid YAML. \n" +
+    "If no input file is specified, the input is read from stdin.\n" +
+    "If no output file is specified, the output is written to stdout.\n" +
+    "If an error is detected, the program will exit with a non-zero code.\n" +
+    "Otherwise, the program will exit with code 0.\n",
+  "Note: this command works in a streaming manner and scales well to large files",
+)
+@ArgsName("<file-to-inspect>")
 case class RdfInspectOptions(
     @Recurse
     common: JellyCommandOptions = JellyCommandOptions(),
+    @HelpMessage(
+      "File to write the output statistics to. If not specified, the output is written to stdout.",
+    )
     @ExtraName("to") outputFile: Option[String] = None,
+    @HelpMessage(
+      "Whether to print the statistics per frame (default: false). " +
+        "If true, the statistics are computed and printed separately for each frame in the stream.",
+    )
     @ExtraName("per-frame") perFrame: Boolean = false,
 ) extends HasJellyCommandOptions
 

@@ -7,8 +7,8 @@ import java.io.*
 import scala.compiletime.uninitialized
 
 case class JellyCommandOptions(
-    @HelpMessage("Add to run command in debug mode") debug: Boolean = false,
-    @HelpMessage("Add to silence any warnings") quiet: Boolean = false,
+    @HelpMessage("Add to run command in debug mode. ") debug: Boolean = false,
+    @HelpMessage("Add to silence any warnings. ") quiet: Boolean = false,
 )
 
 trait HasJellyCommandOptions:
