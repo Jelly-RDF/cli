@@ -41,7 +41,7 @@ $ ./jelly-cli rdf from-jelly input.jelly --out-format=ttl > output.ttl
 ```
 
 You can specify most well-known formats supported by Apache Jena, but also a custom Jelly-Text format. 
-Jelly-Text is a human-readable format that is not meant for machine consumption. It is useful for debugging and inspecting Jelly files.
+Jelly-Text is a human-readable translation of Jelly binary. It's not meant for machine consumption. It is useful for debugging and inspecting Jelly files.
 
 ### Inspect Jelly files
 
