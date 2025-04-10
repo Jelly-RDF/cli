@@ -8,17 +8,17 @@ import java.io.OutputStream
 
 /** This class is used to store the metrics for a single frame
   */
-final class FrameInfo(val frameIndex: Int):
-  var frameCount: Int = 1
-  var optionCount: Int = 0
-  var nameCount: Int = 0
-  var namespaceCount: Int = 0
-  var tripleCount: Int = 0
-  var quadCount: Int = 0
-  var prefixCount: Int = 0
-  var datatypeCount: Int = 0
-  var graphStartCount: Int = 0
-  var graphEndCount: Int = 0
+final class FrameInfo(val frameIndex: Long):
+  var frameCount: Long = 1
+  var optionCount: Long = 0
+  var nameCount: Long = 0
+  var namespaceCount: Long = 0
+  var tripleCount: Long = 0
+  var quadCount: Long = 0
+  var prefixCount: Long = 0
+  var datatypeCount: Long = 0
+  var graphStartCount: Long = 0
+  var graphEndCount: Long = 0
 
   def +=(other: FrameInfo): FrameInfo = {
     this.frameCount += 1
@@ -107,26 +107,26 @@ object MetricsPrinter:
   private def formatStatsIndex(
       frame: FrameInfo,
   ): YamlMap =
-    YamlMap(Seq(("frame_index", YamlInt(frame.frameIndex))) ++ formatStats(frame)*)
+    YamlMap(Seq(("frame_index", YamlLong(frame.frameIndex))) ++ formatStats(frame)*)
 
   private def formatStatsCount(
       frame: FrameInfo,
   ): YamlMap =
-    YamlMap(Seq(("frame_count", YamlInt(frame.frameCount))) ++ formatStats(frame)*)
+    YamlMap(Seq(("frame_count", YamlLong(frame.frameCount))) ++ formatStats(frame)*)
 
   private def formatStats(
       frame: FrameInfo,
   ): Seq[(String, YamlValue)] =
     Seq(
-      ("option_count", YamlInt(frame.optionCount)),
-      ("triple_count", YamlInt(frame.tripleCount)),
-      ("quad_count", YamlInt(frame.quadCount)),
-      ("graph_start_count", YamlInt(frame.graphStartCount)),
-      ("graph_end_count", YamlInt(frame.graphEndCount)),
-      ("namespace_count", YamlInt(frame.namespaceCount)),
-      ("name_count", YamlInt(frame.nameCount)),
-      ("prefix_count", YamlInt(frame.prefixCount)),
-      ("datatype_count", YamlInt(frame.datatypeCount)),
+      ("option_count", YamlLong(frame.optionCount)),
+      ("triple_count", YamlLong(frame.tripleCount)),
+      ("quad_count", YamlLong(frame.quadCount)),
+      ("graph_start_count", YamlLong(frame.graphStartCount)),
+      ("graph_end_count", YamlLong(frame.graphEndCount)),
+      ("namespace_count", YamlLong(frame.namespaceCount)),
+      ("name_count", YamlLong(frame.nameCount)),
+      ("prefix_count", YamlLong(frame.prefixCount)),
+      ("datatype_count", YamlLong(frame.datatypeCount)),
     )
 
 end MetricsPrinter
