@@ -15,6 +15,8 @@ class YamlDocBuilder(var currIndent: Int = 0):
         sb.append(quoteAndEscape(v))
       case YamlInt(v) =>
         sb.append(v)
+      case YamlLong(v) =>
+        sb.append(v)
       case YamlBool(v) =>
         sb.append(v.toString)
       case YamlEnum(v, i) =>
@@ -54,6 +56,7 @@ object YamlDocBuilder:
   case class YamlBlank() extends YamlScalar
   case class YamlEnum(v: String, i: Int) extends YamlScalar
   case class YamlInt(v: Int) extends YamlScalar
+  case class YamlLong(v: Long) extends YamlScalar
   case class YamlBool(v: Boolean) extends YamlScalar
   case class YamlString(v: String) extends YamlScalar
 
