@@ -43,7 +43,7 @@ Jelly-Text is a human-readable translation of Jelly binary. It's not meant for m
 
 ### Transcode Jelly files
 
-The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm, but the output stream's options must the same or greater than the inputs.
+The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm. However, the numerical values for each of the options in the output stream must be greater than or equal to those in the input stream(s).
 
 ```shell
 $ ./jelly-cli rdf transcode input.jelly > output.jelly

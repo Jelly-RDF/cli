@@ -3,6 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
+import eu.ostrzyciel.jelly.core.RdfProtoError
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamOptions
 import eu.ostrzyciel.jelly.core.{JellyOptions, ProtoTranscoder}
 
@@ -42,7 +43,8 @@ object RdfTranscode extends JellyCommand[RdfTranscodeOptions]:
     val outOpt = options.jellySerializationOptions.asRdfStreamOptions
     val (inputStream, outputStream) =
       getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    jellyToJelly(inputStream, outputStream, outOpt)
+    try jellyToJelly(inputStream, outputStream, outOpt)
+    catch case e: RdfProtoError => throw JellyTranscodingError(e.getMessage)
 
   /** Transcodes the input Jelly stream into another Jelly stream.
     * @param inputStream

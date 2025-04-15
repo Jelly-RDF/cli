@@ -36,6 +36,7 @@ case class ExitException(
     cause: Option[Throwable] = None,
 ) extends CriticalException(
       s"Exiting with code $code." + cause.map(e => s" Cause: ${e.getMessage}").getOrElse(""),
-    )
+    ):
+  override def getCause: Throwable = cause.getOrElse(this)
 
 class CriticalException(message: String) extends Exception(message)

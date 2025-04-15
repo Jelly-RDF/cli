@@ -1,5 +1,6 @@
 package eu.neverblink.jelly.cli.command.rdf
 
+import eu.neverblink.jelly.cli.{ExitException, JellyTranscodingError}
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
 import eu.neverblink.jelly.cli.command.rdf.util.{JellyUtil, RdfJellySerializationOptions}
 import eu.ostrzyciel.jelly.core.proto.v1.*
@@ -25,57 +26,68 @@ class RdfTranscodeSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
     opt.rdfStar should be(defaultOpt.rdfStar)
     opt.generalizedStatements should be(defaultOpt.generalizedStatements)
 
-  "transcode input file with no additional options" in withFullJellyFile { j =>
-    RdfTranscode.runTestCommand(List("rdf", "transcode", j))
-    val outB = RdfTranscode.getOutBytes
-    checkOutputWithDefaultOptions(outB)
-  }
-
-  "transcode stdin with no additional options" in withFullJellyFile { j =>
-    val inBytes = FileInputStream(j).readAllBytes()
-    RdfTranscode.setStdIn(ByteArrayInputStream(inBytes))
-    RdfTranscode.runTestCommand(List("rdf", "transcode"))
-    val outB = RdfTranscode.getOutBytes
-    checkOutputWithDefaultOptions(outB)
-  }
-
-  "transcode input file to output file with no additional options" in withEmptyJellyFile { jOut =>
-    withFullJellyFile { jIn =>
-      RdfTranscode.runTestCommand(List("rdf", "transcode", "--to", jOut, jIn))
-      val outB = FileInputStream(jOut).readAllBytes()
+  "rdf transcode command" should {
+    "transcode input file with no additional options" in withFullJellyFile { j =>
+      RdfTranscode.runTestCommand(List("rdf", "transcode", j))
+      val outB = RdfTranscode.getOutBytes
       checkOutputWithDefaultOptions(outB)
     }
-  }
 
-  "merge 100 input streams" in withFullJellyFile { j =>
-    val inBytes1 = FileInputStream(j).readAllBytes()
-    val inBytes = (0 until 100).map(_ => inBytes1).reduce(_ ++ _)
-    RdfTranscode.setStdIn(ByteArrayInputStream(inBytes))
-    RdfTranscode.runTestCommand(List("rdf", "transcode"))
-    val outB = RdfTranscode.getOutBytes
-    checkOutputWithDefaultOptions(outB)
-    val outFrames = JellyUtil.iterateRdfStream(ByteArrayInputStream(outB)).toSeq
-    outFrames.size should be(100)
-    outFrames.foreach { f =>
-      f.rows.size should be >= testCardinality
+    "transcode stdin with no additional options" in withFullJellyFile { j =>
+      val inBytes = FileInputStream(j).readAllBytes()
+      RdfTranscode.setStdIn(ByteArrayInputStream(inBytes))
+      RdfTranscode.runTestCommand(List("rdf", "transcode"))
+      val outB = RdfTranscode.getOutBytes
+      checkOutputWithDefaultOptions(outB)
     }
-  }
 
-  "transcode input file with changed output options" in withFullJellyFile { j =>
-    RdfTranscode.runTestCommand(
-      List(
-        "rdf",
-        "transcode",
-        "--opt.max-prefix-table-size=600",
-        "--opt.logical-type=GRAPHS",
-        j,
-      ),
-    )
-    val outB = RdfTranscode.getOutBytes
-    val f = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(outB)).get
-    f.rows.size should be > testCardinality
-    val opt = f.rows.head.row.options
-    opt.maxPrefixTableSize should be(600)
-    opt.physicalType should be(PhysicalStreamType.TRIPLES)
-    opt.logicalType should be(LogicalStreamType.GRAPHS)
+    "transcode input file to output file with no additional options" in withEmptyJellyFile { jOut =>
+      withFullJellyFile { jIn =>
+        RdfTranscode.runTestCommand(List("rdf", "transcode", "--to", jOut, jIn))
+        val outB = FileInputStream(jOut).readAllBytes()
+        checkOutputWithDefaultOptions(outB)
+      }
+    }
+
+    "merge 100 input streams" in withFullJellyFile { j =>
+      val inBytes1 = FileInputStream(j).readAllBytes()
+      val inBytes = (0 until 100).map(_ => inBytes1).reduce(_ ++ _)
+      RdfTranscode.setStdIn(ByteArrayInputStream(inBytes))
+      RdfTranscode.runTestCommand(List("rdf", "transcode"))
+      val outB = RdfTranscode.getOutBytes
+      checkOutputWithDefaultOptions(outB)
+      val outFrames = JellyUtil.iterateRdfStream(ByteArrayInputStream(outB)).toSeq
+      outFrames.size should be(100)
+      outFrames.foreach { f =>
+        f.rows.size should be >= testCardinality
+      }
+    }
+
+    "transcode input file with changed output options" in withFullJellyFile { j =>
+      RdfTranscode.runTestCommand(
+        List(
+          "rdf",
+          "transcode",
+          "--opt.max-prefix-table-size=600",
+          "--opt.logical-type=GRAPHS",
+          j,
+        ),
+      )
+      val outB = RdfTranscode.getOutBytes
+      val f = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(outB)).get
+      f.rows.size should be > testCardinality
+      val opt = f.rows.head.row.options
+      opt.maxPrefixTableSize should be(600)
+      opt.physicalType should be(PhysicalStreamType.TRIPLES)
+      opt.logicalType should be(LogicalStreamType.GRAPHS)
+    }
+
+    "not allow for output name table size to smaller than the input" in withFullJellyFile { j =>
+      val e = intercept[ExitException] {
+        RdfTranscode.runTestCommand(List("rdf", "transcode", "--opt.max-name-table-size=60", j))
+      }
+      val cause = e.getCause
+      cause shouldBe a[JellyTranscodingError]
+      cause.getMessage should include("Input lookup size cannot be greater")
+    }
   }
