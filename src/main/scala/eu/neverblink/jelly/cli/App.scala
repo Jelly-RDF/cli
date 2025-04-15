@@ -22,6 +22,7 @@ object App extends CommandsEntryPoint:
     Version,
     RdfFromJelly,
     RdfToJelly,
+    RdfTranscode,
     RdfInspect,
     RdfValidate,
   )

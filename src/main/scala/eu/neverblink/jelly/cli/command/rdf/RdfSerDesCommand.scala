@@ -13,8 +13,8 @@ import java.io.{InputStream, OutputStream}
 
 /** This abstract class is responsible for the common logic in both RDF parsing commands
   */
-abstract class RdfTranscodeCommand[T <: HasJellyCommandOptions: {Parser, Help}, F <: RdfFormat](
-    using tt: TypeTest[RdfFormat, F],
+abstract class RdfSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}, F <: RdfFormat](using
+    tt: TypeTest[RdfFormat, F],
 ) extends JellyCommand[T]:
 
   override final def group = "rdf"
