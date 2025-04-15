@@ -41,6 +41,14 @@ $ ./jelly-cli rdf from-jelly input.jelly --out-format=ttl > output.ttl
 You can specify most well-known formats supported by Apache Jena, but also a custom Jelly-Text format. 
 Jelly-Text is a human-readable translation of Jelly binary. It's not meant for machine consumption. It is useful for debugging and inspecting Jelly files.
 
+### Transcode Jelly files
+
+The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm. However, the numerical values for each of the options in the output stream must be greater than or equal to those in the input stream(s).
+
+```shell
+$ ./jelly-cli rdf transcode input.jelly > output.jelly
+```
+
 ### Inspect Jelly files
 
 To inspect a Jelly file and get basic information describing its contents, such as stream options or number of triples in the file, run
@@ -74,6 +82,7 @@ Use the `--help` option to learn more about all the available settings:
 ```shell
 $ ./jelly-cli rdf to-jelly --help
 $ ./jelly-cli rdf from-jelly --help
+$ ./jelly-cli rdf transcode --help
 $ ./jelly-cli rdf inspect --help
 $ ./jelly-cli rdf validate --help
 ```

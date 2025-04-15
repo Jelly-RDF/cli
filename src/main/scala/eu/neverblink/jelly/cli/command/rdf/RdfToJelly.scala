@@ -55,7 +55,7 @@ case class RdfToJellyOptions(
     delimited: Boolean = true,
 ) extends HasJellyCommandOptions
 
-object RdfToJelly extends RdfTranscodeCommand[RdfToJellyOptions, RdfFormat.Readable]:
+object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable]:
 
   override def names: List[List[String]] = List(
     List("rdf", "to-jelly"),
