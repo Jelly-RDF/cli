@@ -62,12 +62,12 @@ object RdfFormat:
   // We do not ever want to write or read from Jelly to Jelly
   // So better not have it as Writeable or Readable, just mark that it's integrated into Jena
   case object JellyBinary extends RdfFormat.Jena:
-    override val fullName: String = "Jelly binary format"
+    override val fullName: String = "Jelly binary"
     override val cliOptions: List[String] = List("jelly")
     override val jenaLang: Lang = JellyLanguage.JELLY
 
   case object JellyText extends RdfFormat, RdfFormat.Writeable, RdfFormat.Readable:
-    override val fullName: String = "Jelly text format"
+    override val fullName: String = "Jelly text"
     override val cliOptions: List[String] = List("jelly-text")
     val extension = ".jelly.txt"
 
@@ -79,7 +79,7 @@ object RdfFormat:
   /** Returns a string representation of the option for the user.
     */
   def optionString(option: RdfFormat): String =
-    f"${option.cliOptions.map(s => f"\"${s}\"").mkString(", ")} for ${option.fullName}"
+    f"${option.fullName}: ${option.cliOptions.map(s => f"$s").mkString(", ")}"
 
   /** Finds the appropriate RdfFormat based on supplied option string.
     */

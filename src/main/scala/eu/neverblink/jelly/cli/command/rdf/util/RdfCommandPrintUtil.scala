@@ -10,7 +10,7 @@ trait RdfCommandPrintUtil[F <: RdfFormat](using tt: TypeTest[RdfFormat, F]):
   /** Prints the available RDF formats to the user.
     */
   lazy val validFormatsString: String =
-    validFormats.map(RdfFormat.optionString).mkString(", ")
+    validFormats.map(RdfFormat.optionString).mkString("; ")
 
   lazy val helpMsg: String =
-    f"Possible values: ${validFormatsString}. Default format: ${defaultFormat.fullName}"
+    f"Possible values: ${validFormatsString}. Default: ${defaultFormat.fullName}"

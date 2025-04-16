@@ -38,7 +38,7 @@ case class RdfValidateOptions(
     compareToRdfFile: Option[String] = None,
     @HelpMessage(
       "Format of the RDF file to compare the input stream to. If not specified, the format is " +
-        "inferred from the file name.",
+        "inferred from the file name. " + RdfValidatePrint.validFormatsString,
     )
     compareToFormat: Option[String] = None,
     @HelpMessage(
