@@ -21,7 +21,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
   protected val testCardinality: Int = 33
 
   // Make a test input stream with 10 frames... all are the same, but it doesn't matter
-  private val input10: Array[Byte] = {
+  private val input10Frames: Array[Byte] = {
     val j1 = DataGenHelper.generateJellyBytes(testCardinality)
     val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1)).get
     val os = ByteArrayOutputStream()
@@ -105,7 +105,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
 
       "input stream of 10 frames to output stream, --take-frames=''" in {
-        RdfFromJelly.setStdIn(ByteArrayInputStream(input10))
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
         val (out, err) = RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", "--out-format", "nt", "--take-frames", ""),
         )
@@ -114,7 +114,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
 
       "input stream of 10 frames to output stream, --take-frames=7" in {
-        RdfFromJelly.setStdIn(ByteArrayInputStream(input10))
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
         val (out, err) = RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", "--out-format", "nt", "--take-frames", "7"),
         )
@@ -123,7 +123,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
 
       "input stream of 10 frames to output stream, --take-frames=3..=5" in {
-        RdfFromJelly.setStdIn(ByteArrayInputStream(input10))
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
         val (out, err) = RdfFromJelly.runTestCommand(
           List("rdf", "from-jelly", "--out-format", "nt", "--take-frames", "3..=5"),
         )
@@ -200,7 +200,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
 
       "input stream (10 frames) to output stream --take-frames=3..=5" in withFullJellyFile { j =>
-        RdfFromJelly.setStdIn(ByteArrayInputStream(input10))
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
         val (out, err) = RdfFromJelly.runTestCommand(
           List(
             "rdf",

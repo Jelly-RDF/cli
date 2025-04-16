@@ -57,18 +57,11 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
   val defaultAction: (InputStream, OutputStream) => Unit =
     jellyToLang(RdfFormat.NQuads.jenaLang, _, _)
 
-  private var takeFrames: Option[IndexRange] = None
-
-  private def getTakeFrames: IndexRange =
-    if takeFrames.isEmpty then
-      throw new IllegalStateException(
-        "takeFrames is not set. Please call setTakeFrames before using this method.",
-      )
-    else takeFrames.get
+  private def takeFrames: IndexRange = IndexRange(getOptions.takeFrames, "--take-frames")
 
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
     // Parse options now to make sure they are valid
-    this.takeFrames = Some(IndexRange(options.takeFrames, "--take-frames"))
+    takeFrames
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
@@ -103,10 +96,10 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
         if outputEnabled then writer.prefix(String, Node.getURI)
       },
     )
-    val inputFrames = getTakeFrames.end match
+    val inputFrames = takeFrames.end match
       case Some(end) => JellyUtil.iterateRdfStream(inputStream).take(end)
       case None => JellyUtil.iterateRdfStream(inputStream)
-    val startFrom = getTakeFrames.start.getOrElse(0)
+    val startFrom = takeFrames.start.getOrElse(0)
     for (frame, i) <- inputFrames.zipWithIndex do
       // If we are not yet in the output range, still fully parse the frame and update the decoder
       // state. We need this to decode the later frames correctly.
@@ -143,7 +136,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     try {
       val it = JellyUtil.iterateRdfStream(inputStream)
         .zipWithIndex
-      getTakeFrames.slice(it).foreach { case (maybeFrame, frameIndex) =>
+      takeFrames.slice(it).foreach { case (maybeFrame, frameIndex) =>
         writeFrameToOutput(maybeFrame, frameIndex)
       }
     } finally {
