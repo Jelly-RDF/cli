@@ -4,11 +4,12 @@ import eu.neverblink.jelly.cli.InvalidArgument
 
 import scala.collection.IterableOnceOps
 
-/**
- * Represents a range of indices, similar to Rust-style ranges.
- * @param start start index (inclusive)
- * @param end end index (exclusive)
- */
+/** Represents a range of indices, similar to Rust-style ranges.
+  * @param start
+  *   start index (inclusive)
+  * @param end
+  *   end index (exclusive)
+  */
 final case class IndexRange(
     start: Option[Int],
     end: Option[Int],
