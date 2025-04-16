@@ -48,8 +48,7 @@ case class RdfValidateOptions(
     compareOrdered: Boolean = false,
     @HelpMessage(
       "Frame indices to compare. If not specified, all frames are compared. " +
-        "The indices are 0-based and can be specified as a Rust-style range: " +
-        "'..3', '3..', '1..5', '4..=6'",
+        IndexRange.helpText,
     )
     compareFrameIndices: String = "",
     @HelpMessage(
