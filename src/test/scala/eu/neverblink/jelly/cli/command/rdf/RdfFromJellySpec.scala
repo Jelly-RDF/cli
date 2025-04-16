@@ -4,10 +4,13 @@ import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
+import eu.ostrzyciel.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
+import eu.ostrzyciel.jelly.core.{JellyOptions, ProtoTranscoder}
 import org.apache.jena.riot.RDFLanguages
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Paths}
 import scala.io.Source
@@ -16,6 +19,21 @@ import scala.util.Using
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
   protected val testCardinality: Int = 33
+
+  // Make a test input stream with 10 frames... all are the same, but it doesn't matter
+  private val input10Frames: Array[Byte] = {
+    val j1 = DataGenHelper.generateJellyBytes(testCardinality)
+    val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1)).get
+    val os = ByteArrayOutputStream()
+    // Need to use the transcoder to make sure the lookup IDs are correct
+    val transcoder = ProtoTranscoder.fastMergingTranscoderUnsafe(
+      outputOptions = JellyOptions.bigGeneralized.withPhysicalType(
+        PhysicalStreamType.TRIPLES,
+      ),
+    )
+    for _ <- 0 until 10 do transcoder.ingestFrame(f1).writeDelimitedTo(os)
+    os.toByteArray
+  }
 
   "rdf from-jelly command" should {
     "handle conversion of Jelly to NTriples" when {
@@ -39,6 +57,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         val sortedQuads = nQuadString.split("\n").map(_.trim).sorted
         sortedOut should contain theSameElementsAs sortedQuads
       }
+
       "a file to file" in withFullJellyFile { j =>
         withEmptyJenaFile { q =>
           val nQuadString = DataGenHelper.generateJenaString(testCardinality)
@@ -54,6 +73,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           out.length should be(0)
         }
       }
+
       "a file to file when defaulting to nQuads" in withFullJellyFile { j =>
         withEmptyRandomFile { q =>
           val nQuadString = DataGenHelper.generateJenaString(testCardinality)
@@ -69,6 +89,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           out.length should be(0)
         }
       }
+
       "an input stream to file" in withEmptyJenaFile { q =>
         val input = DataGenHelper.generateJellyInputStream(testCardinality)
         RdfFromJelly.setStdIn(input)
@@ -82,7 +103,35 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         sortedOut should contain theSameElementsAs sortedQuads
         out.length should be(0)
       }
+
+      "input stream of 10 frames to output stream, --take-frames=''" in {
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+        val (out, err) = RdfFromJelly.runTestCommand(
+          List("rdf", "from-jelly", "--out-format", "nt", "--take-frames", ""),
+        )
+        val outSize = out.split("\n").length
+        outSize should be(10 * testCardinality)
+      }
+
+      "input stream of 10 frames to output stream, --take-frames=7" in {
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+        val (out, err) = RdfFromJelly.runTestCommand(
+          List("rdf", "from-jelly", "--out-format", "nt", "--take-frames", "7"),
+        )
+        val outSize = out.split("\n").length
+        outSize should be(testCardinality)
+      }
+
+      "input stream of 10 frames to output stream, --take-frames=3..=5" in {
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+        val (out, err) = RdfFromJelly.runTestCommand(
+          List("rdf", "from-jelly", "--out-format", "nt", "--take-frames", "3..=5"),
+        )
+        val outSize = out.split("\n").length
+        outSize should be(3 * testCardinality)
+      }
     }
+
     "handle conversion of Jelly binary to text" when {
       "a file to output stream" in withFullJellyFile { j =>
         val (out, err) =
@@ -113,6 +162,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         "rows".r.findAllIn(out).length should be(70)
         "http://example.org/predicate/".r.findAllIn(out).length should be(1)
       }
+
       "a file to file when inferred type" in withFullJellyFile { j =>
         withEmptyJellyTextFile { t =>
           val (out, err) =
@@ -147,9 +197,27 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           "rows".r.findAllIn(inTxt).length should be(70)
           "http://example.org/predicate/".r.findAllIn(inTxt).length should be(1)
         }
+      }
 
+      "input stream (10 frames) to output stream --take-frames=3..=5" in withFullJellyFile { j =>
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+        val (out, err) = RdfFromJelly.runTestCommand(
+          List(
+            "rdf",
+            "from-jelly",
+            "--out-format=jelly-text",
+            "--take-frames=3..=5",
+          ),
+        )
+
+        out should not include "# Frame 0"
+        out should include("# Frame 3")
+        out should include("# Frame 4")
+        out should include("# Frame 5")
+        "rows".r.findAllIn(out).length should be(3 * testCardinality)
       }
     }
+
     "throw proper exception" when {
       "input file is not found" in {
         val nonExist = "non-existing-file"
@@ -161,6 +229,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
+
       "input file is not accessible" in withFullJellyFile { j =>
         val permissions = PosixFilePermissions.fromString("---------")
         Files.setPosixFilePermissions(
@@ -176,6 +245,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         RdfFromJelly.getErrString should include(msg)
         exception.code should be(1)
       }
+
       "output file cannot be created" in withFullJellyFile { j =>
         withEmptyJenaFile { q =>
           Paths.get(q).toFile.setWritable(false)
@@ -190,10 +260,9 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           Paths.get(q).toFile.setWritable(true)
           RdfFromJelly.getErrString should include(msg)
           exception.code should be(1)
-
         }
-
       }
+
       "deserializing error occurs" in withFullJellyFile { j =>
         withEmptyJenaFile { q =>
           RdfFromJelly.runTestCommand(
@@ -212,6 +281,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           exception.code should be(1)
         }
       }
+
       "parsing error occurs with debug set" in withFullJellyFile { j =>
         withEmptyJenaFile { q =>
           RdfFromJelly.runTestCommand(
@@ -230,6 +300,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           exception.code should be(1)
         }
       }
+
       "invalid output format supplied" in withFullJellyFile { j =>
         withEmptyJenaFile { q =>
           val exception =
@@ -243,6 +314,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           exception.code should be(1)
         }
       }
+
       "invalid but known output format supplied" in withFullJellyFile { j =>
         withEmptyJellyFile { q =>
           val exception =
@@ -267,6 +339,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           exception.code should be(1)
         }
       }
+
       "readable but not writable format supplied" in withFullJellyFile { j =>
         withEmptyJenaFile(
           testCode = { q =>
@@ -293,6 +366,17 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           },
           jenaLang = RDFLanguages.RDFXML,
         )
+      }
+
+      "invalid --take-frames argument provided" in {
+        val e = intercept[ExitException] {
+          RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--out-format", "nt", "--take-frames", "invalid"),
+          )
+        }
+        val cause = e.getCause.asInstanceOf[InvalidArgument]
+        cause.argument should be("--take-frames")
+        cause.argumentValue should be("invalid")
       }
     }
   }

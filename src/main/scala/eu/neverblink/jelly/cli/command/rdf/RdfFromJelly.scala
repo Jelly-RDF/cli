@@ -5,10 +5,13 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.Jena.*
-import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
+import eu.neverblink.jelly.cli.util.args.IndexRange
+import eu.ostrzyciel.jelly.convert.jena.JenaConverterFactory
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
+import org.apache.jena.graph.Triple
+import org.apache.jena.riot.Lang
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{Lang, RDFParser}
+import org.apache.jena.sparql.core.Quad
 
 import java.io.{InputStream, OutputStream}
 
@@ -36,6 +39,11 @@ case class RdfFromJellyOptions(
         "If not explicitly specified, but output file supplied, the format is inferred from the file name. " + RdfFromJellyPrint.helpMsg,
     )
     @ExtraName("out-format") outputFormat: Option[String] = None,
+    @HelpMessage(
+      "Frame indices to include in the output. If not specified, all frames are included. " +
+        IndexRange.helpText,
+    )
+    takeFrames: String = "",
 ) extends HasJellyCommandOptions
 
 object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
@@ -49,7 +57,11 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
   val defaultAction: (InputStream, OutputStream) => Unit =
     jellyToLang(RdfFormat.NQuads.jenaLang, _, _)
 
+  private def takeFrames: IndexRange = IndexRange(getOptions.takeFrames, "--take-frames")
+
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
+    // Parse options now to make sure they are valid
+    takeFrames
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
@@ -75,8 +87,34 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       inputStream: InputStream,
       outputStream: OutputStream,
   ): Unit =
-    val nQuadWriter = StreamRDFWriter.getWriterStream(outputStream, jenaLang)
-    RDFParser.source(inputStream).lang(JellyLanguage.JELLY).parse(nQuadWriter)
+    val writer = StreamRDFWriter.getWriterStream(outputStream, jenaLang)
+    // Whether the output is active at this moment
+    var outputEnabled = false
+    val decoder = JenaConverterFactory.anyStatementDecoder(
+      // Only pass on the namespaces to the writer if the output is enabled
+      namespaceHandler = (String, Node) => {
+        if outputEnabled then writer.prefix(String, Node.getURI)
+      },
+    )
+    val inputFrames = takeFrames.end match
+      case Some(end) => JellyUtil.iterateRdfStream(inputStream).take(end)
+      case None => JellyUtil.iterateRdfStream(inputStream)
+    val startFrom = takeFrames.start.getOrElse(0)
+    for (frame, i) <- inputFrames.zipWithIndex do
+      // If we are not yet in the output range, still fully parse the frame and update the decoder
+      // state. We need this to decode the later frames correctly.
+      if i < startFrom then for row <- frame.rows do decoder.ingestRowFlat(row)
+      else
+        // TODO: write frame index as a comment here
+        //   https://github.com/Jelly-RDF/cli/issues/4
+        outputEnabled = true
+        // We are in the output range, so we can start writing the output
+        for row <- frame.rows do
+          decoder.ingestRowFlat(row) match
+            case null => ()
+            case t: Triple => writer.triple(t)
+            case q: Quad => writer.quad(q)
+        writer.finish()
 
   /** This method reads the Jelly file, rewrites it to Jelly text and writes it to some output
     * stream
@@ -96,9 +134,10 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       outputStream.write(frame.getBytes)
 
     try {
-      JellyUtil.iterateRdfStream(inputStream).zipWithIndex.foreach {
-        case (maybeFrame, frameIndex) =>
-          writeFrameToOutput(maybeFrame, frameIndex)
+      val it = JellyUtil.iterateRdfStream(inputStream)
+        .zipWithIndex
+      takeFrames.slice(it).foreach { case (maybeFrame, frameIndex) =>
+        writeFrameToOutput(maybeFrame, frameIndex)
       }
     } finally {
       outputStream.flush()
