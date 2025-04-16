@@ -113,6 +113,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       if i < startFrom then for row <- frame.rows do decoder.ingestRowFlat(row)
       else
         // TODO: write frame index as a comment here
+        //   https://github.com/Jelly-RDF/cli/issues/4
         outputEnabled = true
         // We are in the output range, so we can start writing the output
         for row <- frame.rows do
