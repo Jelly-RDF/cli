@@ -57,7 +57,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
         frame: RdfStreamFrame,
         frameIndex: Int,
     ): FrameInfo =
-      val metrics = new FrameInfo(frameIndex)
+      val metrics = new FrameInfo(frameIndex, frame.metadata)
       frame.rows.foreach(r => metricsForRow(r, metrics))
       metrics
 

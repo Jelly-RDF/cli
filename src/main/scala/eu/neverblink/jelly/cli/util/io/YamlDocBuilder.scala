@@ -40,7 +40,8 @@ class YamlDocBuilder(var currIndent: Int = 0):
             sb.append(System.lineSeparator())
             sb.append("  " * (indent + 1))
             this.build(e, indent + 1)
-            sb.append(System.lineSeparator())
+            // If we are at the root level, add a blank line for readability
+            if indent == 0 then sb.append(System.lineSeparator())
           else this.build(e, indent + 1)
           if ix != v.size - 1 then sb.append(System.lineSeparator())
         }
