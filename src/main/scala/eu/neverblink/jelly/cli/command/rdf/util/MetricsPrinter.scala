@@ -1,14 +1,15 @@
 package eu.neverblink.jelly.cli.command.rdf.util
 
-import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
+import com.google.protobuf.ByteString
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
+import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamOptions
 
 import java.io.OutputStream
 
 /** This class is used to store the metrics for a single frame
   */
-final class FrameInfo(val frameIndex: Long):
+final class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
   var frameCount: Long = 1
   var optionCount: Long = 0
   var nameCount: Long = 0
@@ -107,12 +108,31 @@ object MetricsPrinter:
   private def formatStatsIndex(
       frame: FrameInfo,
   ): YamlMap =
-    YamlMap(Seq(("frame_index", YamlLong(frame.frameIndex))) ++ formatStats(frame)*)
+    YamlMap(
+      Seq(("frame_index", YamlLong(frame.frameIndex))) ++
+        formatMetadata(frame.metadata).map(("metadata", _)) ++
+        formatStats(frame)*,
+    )
 
   private def formatStatsCount(
       frame: FrameInfo,
   ): YamlMap =
+    // Not printing metadata in this case, as there is no upper bound on the number of frames
+    // and thus on the size of the collected metadata.
     YamlMap(Seq(("frame_count", YamlLong(frame.frameCount))) ++ formatStats(frame)*)
+
+  private def formatMetadata(
+      metadata: Map[String, ByteString],
+  ): Option[YamlMap] =
+    if metadata.isEmpty then None
+    else
+      Some(
+        YamlMap(
+          metadata.map { case (k, v) =>
+            k -> YamlString(v.toByteArray.map("%02x" format _).mkString)
+          }.toSeq*,
+        ),
+      )
 
   private def formatStats(
       frame: FrameInfo,
