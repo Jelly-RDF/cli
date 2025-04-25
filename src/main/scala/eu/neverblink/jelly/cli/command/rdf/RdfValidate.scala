@@ -129,6 +129,10 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
         )
       o
     }
+    if streamOptions.version <= 0 then
+      throw CriticalException(
+        "The version field in RdfStreamOptions is <= 0. This field MUST be set to a positive value.",
+      )
     JellyOptions.checkCompatibility(
       streamOptions,
       expectedOptions.getOrElse(JellyOptions.defaultSupportedOptions),

@@ -337,7 +337,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         val f = RdfStreamFrame(
           Seq(
             RdfStreamRow(
-              JellyOptions.smallStrict,
+              JellyOptions.smallStrict.withVersion(2),
             ),
           ),
         )
@@ -347,6 +347,18 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         }
         e.cause.get shouldBe a[RdfProtoDeserializationError]
         e.cause.get.getMessage should include("Incoming physical stream type is not set")
+      }
+
+      "version in options is set to 0" in {
+        val f = RdfStreamFrame(
+          Seq(RdfStreamRow(JellyOptions.smallStrict)),
+        )
+        RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
+        val e = intercept[ExitException] {
+          RdfValidate.runTestCommand(List("rdf", "validate"))
+        }
+        e.cause.get shouldBe a[CriticalException]
+        e.cause.get.getMessage should include("The version field in RdfStreamOptions is <= 0")
       }
 
       "same input options supplied as in the validation source" in withFullJellyFile { j =>
