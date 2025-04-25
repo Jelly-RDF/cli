@@ -397,6 +397,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         cause.validFormats should be(RdfToJellyPrint.validFormatsString)
         cause.format should be("invalid")
       }
+
       "invalid format out of existing is specified" in withFullJenaFile { f =>
         val e =
           intercept[ExitException] {
@@ -408,10 +409,23 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         cause.validFormats should be(RdfToJellyPrint.validFormatsString)
         cause.format should be("jelly")
       }
+
       "invalid logical stream type is specified" in withFullJenaFile { f =>
         val e =
           intercept[ExitException] {
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.logical-type", "test"))
+          }
+        e.cause.get shouldBe a[InvalidArgument]
+        val cause = e.cause.get.asInstanceOf[InvalidArgument]
+        cause.argument should be("--opt.logical-type")
+        cause.argumentValue should be("test")
+        e.code should be(1)
+      }
+
+      "name table with size < 8 specified" in withFullJenaFile { f =>
+        val e =
+          intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.max-name-table-size=5"))
           }
         e.cause.get shouldBe a[InvalidArgument]
         val cause = e.cause.get.asInstanceOf[InvalidArgument]
