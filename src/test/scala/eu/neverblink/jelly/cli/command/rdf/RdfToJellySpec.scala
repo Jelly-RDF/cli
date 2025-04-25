@@ -2,7 +2,12 @@ package eu.neverblink.jelly.cli.command.rdf
 
 import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
-import eu.neverblink.jelly.cli.{ExitException, InvalidArgument, InvalidFormatSpecified}
+import eu.neverblink.jelly.cli.{
+  ExitException,
+  InvalidArgument,
+  InvalidFormatSpecified,
+  JellySerializationError,
+}
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
 import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
@@ -423,14 +428,12 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       }
 
       "name table with size < 8 specified" in withFullJenaFile { f =>
-        val e =
-          intercept[ExitException] {
-            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.max-name-table-size=5"))
-          }
-        e.cause.get shouldBe a[InvalidArgument]
-        val cause = e.cause.get.asInstanceOf[InvalidArgument]
-        cause.argument should be("--opt.logical-type")
-        cause.argumentValue should be("test")
+        val e = intercept[ExitException] {
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.max-name-table-size=5"))
+        }
+        e.cause.get shouldBe a[JellySerializationError]
+        val cause = e.cause.get.asInstanceOf[JellySerializationError]
+        cause.message should include("name table size of 5 ")
         e.code should be(1)
       }
     }
