@@ -430,11 +430,14 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
             val frame1 = Using.resource(FileInputStream(jellyF)) { is =>
               RdfStreamFrame.parseDelimitedFrom(is).get
             }
-            val frames = frame1 +: (1 to 10).map { i =>
-              RdfStreamFrame(
-                Seq(RdfStreamRow(RdfTriple(RdfIri(0, i), RdfIri(0, i), RdfLiteral("aaaa")))),
-              )
-            }
+            val frame2 = RdfStreamFrame(
+              Seq(
+                RdfStreamRow(RdfTriple(RdfLiteral("aaaa"), RdfLiteral("aaaa"), RdfLiteral("aaaa"))),
+              ),
+            )
+            val frames = Seq(RdfStreamFrame(Seq(frame1.rows.head))) :+ frame2 :+ frame1 :++
+              (1 to 10).map { _ => frame2 }
+
             val b = {
               val os = ByteArrayOutputStream()
               frames.foreach(_.writeDelimitedTo(os))
@@ -448,7 +451,9 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
                 "--compare-to-rdf-file=" + jenaF,
                 "--compare-to-format=nt",
                 "--compare-ordered=true",
-                "--compare-frame-indices=0",
+                // Compare frame index non-zero to check if the decoder's state is updated correctly
+                // even if the frame is not used in the comparison.
+                "--compare-frame-indices=2",
               ),
             )
           }
@@ -478,13 +483,13 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
                 "--compare-to-rdf-file=" + jenaF,
                 "--compare-to-format=nt",
                 "--compare-ordered=true",
-                "--compare-frame-indices=0..4",
+                "--compare-frame-indices=1..4",
               ),
             )
           }
           e.cause.get shouldBe a[CriticalException]
           e.cause.get.getMessage should include(
-            "Expected 37 RDF elements, but got 40",
+            "Expected 37 RDF elements, but got 3 ",
           )
         }
       }

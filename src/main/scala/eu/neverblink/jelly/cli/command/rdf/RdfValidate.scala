@@ -152,13 +152,15 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       None,
       (prefix, iri) => jellyStreamConsumer.prefix(prefix, iri.getURI),
     )
-    val x = frameIndices.slice(frames).zipWithIndex
-    for (frame, i) <- x do
-      val frameIndex = frameIndices.start.getOrElse(0) + i
+    val frames2 = frameIndices.end match
+      case Some(end) => frames.take(end)
+      case None => frames
+    val startFrom = frameIndices.start.getOrElse(0)
+    for (frame, i) <- frames2.zipWithIndex do
       for row <- frame.rows do
         if row.row.isOptions && row.row.options != opt then
           throw CriticalException(
-            s"Later occurrence of stream options in frame $frameIndex does not match the first",
+            s"Later occurrence of stream options in frame $i does not match the first",
           )
         // Push the stream frames through the decoder
         // This will catch most of the errors
@@ -169,16 +171,18 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
           // because it's too performance-costly.
           case t: Triple =>
             if !opt.generalizedStatements && StatementUtils.isGeneralized(t) then
-              throw CriticalException(s"Unexpected generalized triple in frame $frameIndex: $t")
+              throw CriticalException(s"Unexpected generalized triple in frame $i: $t")
             if !opt.rdfStar && StatementUtils.isRdfStar(t) then
-              throw CriticalException(s"Unexpected RDF-star triple in frame $frameIndex: $t")
-            jellyStreamConsumer.triple(t)
+              throw CriticalException(s"Unexpected RDF-star triple in frame $i: $t")
+            // Add the triple to the comparison set, if we are in the compare range
+            if i >= startFrom then jellyStreamConsumer.triple(t)
           case q: Quad =>
             if !opt.generalizedStatements && StatementUtils.isGeneralized(q) then
-              throw CriticalException(s"Unexpected generalized quad in frame $frameIndex: $q")
+              throw CriticalException(s"Unexpected generalized quad in frame $i: $q")
             if !opt.rdfStar && StatementUtils.isRdfStar(q) then
-              throw CriticalException(s"Unexpected RDF-star quad in frame $frameIndex: $q")
-            jellyStreamConsumer.quad(q)
+              throw CriticalException(s"Unexpected RDF-star quad in frame $i: $q")
+            // Add the quad to the comparison set, if we are in the compare range
+            if i >= startFrom then jellyStreamConsumer.quad(q)
     // Compare the Jelly data with the reference RDF data, if specified
     maybeRdfComparison.foreach { rdfComparison =>
       val actual = jellyStreamConsumer.asInstanceOf[StreamRdfCollector]
