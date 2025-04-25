@@ -1,5 +1,6 @@
 package eu.neverblink.jelly.cli.command.helpers
 
+import eu.neverblink.jelly.cli.util.jena.riot.CliRiot
 import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFFormat, RDFLanguages}
 import org.apache.jena.sys.JenaSystem
@@ -18,6 +19,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   TestFixtureHelper.synchronized {
     JenaSystem.init()
+    CliRiot.initialize()
   }
 
   private val tmpDir: Path = Files.createTempDirectory("jelly-cli")

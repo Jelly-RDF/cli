@@ -19,9 +19,9 @@ abstract class JellyCommand[T <: HasJellyCommandOptions: {Parser, Help}] extends
 
   private var isTest = false
   private var options: Option[T] = None
-  final protected[cli] var out = System.out
-  final protected[cli] var err = System.err
-  final protected[cli] var in = System.in
+  final protected[cli] var out: PrintStream = System.out
+  final protected[cli] var err: PrintStream = System.err
+  final protected[cli] var in: InputStream = System.in
 
   private var osOut: ByteArrayOutputStream = uninitialized
   private var osErr: ByteArrayOutputStream = uninitialized
@@ -119,7 +119,7 @@ abstract class JellyCommand[T <: HasJellyCommandOptions: {Parser, Help}] extends
     if isTest then in
     else System.in
 
-  final def setStdIn(data: ByteArrayInputStream): Unit =
+  final def setStdIn(data: InputStream): Unit =
     in = data
 
   final def getOutStream: OutputStream =

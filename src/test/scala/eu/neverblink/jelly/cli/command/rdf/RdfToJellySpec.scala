@@ -8,6 +8,7 @@ import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
 import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
+import org.apache.jena.sparql.core.DatasetGraphFactory
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -70,6 +71,30 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val content = translateJellyBack(newIn)
         content.containsAll(tripleModel.listStatements())
+      }
+
+      "input stream to output stream, generalized RDF (N-Triples)" in {
+        val inputStream = new FileInputStream(getClass.getResource("/generalized.nt").getPath)
+        RdfToJelly.setStdIn(inputStream)
+        val (out, err) = RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format=nt"),
+        )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val content = translateJellyBack(newIn)
+        content.size() should be(4)
+      }
+
+      "input stream to output stream, generalized RDF (N-Quads)" in {
+        val inputStream = new FileInputStream(getClass.getResource("/generalized.nq").getPath)
+        RdfToJelly.setStdIn(inputStream)
+        val (out, err) = RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format=nq"),
+        )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val ds = DatasetGraphFactory.create()
+        RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
+        ds.size() should be(4) // 4 named graphs
+        ds.getDefaultGraph.size() should be(4) // 4 triples in the default graph
       }
 
       "an input stream to file" in withEmptyJellyFile { j =>
@@ -211,6 +236,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
     }
+
     "handle conversion of other formats to Jelly" when {
       "NTriples" in {
         val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.NTRIPLES)
@@ -385,6 +411,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
     }
+
     "throw proper exception" when {
       "invalid format is specified" in withFullJenaFile { f =>
         val e =
