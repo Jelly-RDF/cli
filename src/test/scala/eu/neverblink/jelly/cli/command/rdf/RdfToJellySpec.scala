@@ -72,6 +72,23 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         content.containsAll(tripleModel.listStatements())
       }
 
+      "input stream to output stream, generalized RDF" in {
+        val input =
+          """
+            |<http://example.org/resource/r1> _:b1 <http://example.org/resource/r2> .
+            |"Resource 1" <http://example.org/property/p> <http://example.org/resource/r3> .
+            |<http://example.org/resource/r3> "Property Label" <http://example.org/resource/r1> .
+            |""".stripMargin
+        val inputStream = new ByteArrayInputStream(input.getBytes)
+        RdfToJelly.setStdIn(inputStream)
+        val (out, err) = RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format", RdfFormat.NQuads.cliOptions.head),
+        )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val content = translateJellyBack(newIn)
+        content.size() should be(3)
+      }
+
       "an input stream to file" in withEmptyJellyFile { j =>
         val input = DataGenHelper.generateJenaInputStream(testCardinality)
         RdfToJelly.setStdIn(input)
@@ -211,6 +228,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
     }
+
     "handle conversion of other formats to Jelly" when {
       "NTriples" in {
         val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.NTRIPLES)
@@ -385,6 +403,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
     }
+
     "throw proper exception" when {
       "invalid format is specified" in withFullJenaFile { f =>
         val e =
