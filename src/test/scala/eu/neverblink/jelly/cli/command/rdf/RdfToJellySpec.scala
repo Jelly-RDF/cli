@@ -13,6 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
+import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
 class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
@@ -95,6 +96,44 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
         ds.size() should be(4) // 4 named graphs
         ds.getDefaultGraph.size() should be(4) // 4 triples in the default graph
+      }
+
+      "input stream to output stream, GRAPHS stream type, RDF dataset" in {
+        val inputStream = DataGenHelper.generateJenaInputStreamDataset(
+          10,
+          testCardinality,
+          RDFLanguages.NQUADS,
+        )
+        RdfToJelly.setStdIn(inputStream)
+        val (out, err) = RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format=nq", "--opt.physical-type=GRAPHS"),
+        )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val ds = DatasetGraphFactory.create()
+        RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
+        ds.size() should be(10) // 10 named graphs
+        ds.getDefaultGraph.size() should be(testCardinality)
+        for gn <- ds.listGraphNodes().asScala do ds.getGraph(gn).size() should be(testCardinality)
+      }
+
+      "input stream to output stream, GRAPHS stream type, 5 RDF datasets" in {
+        val bytes = (1 to 5).map(i => DataGenHelper.generateJenaInputStreamDataset(
+          4,
+          testCardinality,
+          RDFLanguages.NQUADS,
+          f"dataset$i/",
+        ).readAllBytes()).foldLeft(Array.empty[Byte])(_ ++ _)
+        val inputStream = new ByteArrayInputStream(bytes)
+        RdfToJelly.setStdIn(inputStream)
+        val (out, err) = RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format=nq", "--opt.physical-type=GRAPHS"),
+        )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val ds = DatasetGraphFactory.create()
+        RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
+        ds.size() should be(20)
+        ds.getDefaultGraph.size() should be(testCardinality * 5)
+        for gn <- ds.listGraphNodes().asScala do ds.getGraph(gn).size() should be(testCardinality)
       }
 
       "an input stream to file" in withEmptyJellyFile { j =>
@@ -456,6 +495,17 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         e.cause.get shouldBe a[JellySerializationError]
         val cause = e.cause.get.asInstanceOf[JellySerializationError]
         cause.message should include("name table size of 5 ")
+        e.code should be(1)
+      }
+      
+      "unknown physical type specified" in withFullJenaFile { f =>
+        val e = intercept[ExitException] {
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.physical-type=UNKNOWN"))
+        }
+        e.cause.get shouldBe a[InvalidArgument]
+        val cause = e.cause.get.asInstanceOf[InvalidArgument]
+        cause.argument should be("--opt.physical-type")
+        cause.argumentValue should be("UNKNOWN")
         e.code should be(1)
       }
     }
