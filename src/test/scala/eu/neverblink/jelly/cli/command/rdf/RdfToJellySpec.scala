@@ -117,12 +117,14 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       }
 
       "input stream to output stream, GRAPHS stream type, 5 RDF datasets" in {
-        val bytes = (1 to 5).map(i => DataGenHelper.generateJenaInputStreamDataset(
-          4,
-          testCardinality,
-          RDFLanguages.NQUADS,
-          f"dataset$i/",
-        ).readAllBytes()).foldLeft(Array.empty[Byte])(_ ++ _)
+        val bytes = (1 to 5).map(i =>
+          DataGenHelper.generateJenaInputStreamDataset(
+            4,
+            testCardinality,
+            RDFLanguages.NQUADS,
+            f"dataset$i/",
+          ).readAllBytes(),
+        ).foldLeft(Array.empty[Byte])(_ ++ _)
         val inputStream = new ByteArrayInputStream(bytes)
         RdfToJelly.setStdIn(inputStream)
         val (out, err) = RdfToJelly.runTestCommand(
@@ -497,7 +499,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         cause.message should include("name table size of 5 ")
         e.code should be(1)
       }
-      
+
       "unknown physical type specified" in withFullJenaFile { f =>
         val e = intercept[ExitException] {
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.physical-type=UNKNOWN"))
