@@ -108,12 +108,18 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format=nq", "--opt.physical-type=GRAPHS"),
         )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val ds = DatasetGraphFactory.create()
-        RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
+        val bytes = RdfToJelly.getOutBytes
+        RDFParser.source(ByteArrayInputStream(bytes)).lang(
+          JellyLanguage.JELLY,
+        ).parse(ds)
         ds.size() should be(10) // 10 named graphs
         ds.getDefaultGraph.size() should be(testCardinality)
         for gn <- ds.listGraphNodes().asScala do ds.getGraph(gn).size() should be(testCardinality)
+        // Check the logical stream type -- should be the default one
+        val frame = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(bytes))
+          .get
+        frame.rows.head.row.options.logicalType should be(LogicalStreamType.FLAT_QUADS)
       }
 
       "input stream to output stream, GRAPHS stream type, 5 RDF datasets" in {
@@ -128,14 +134,26 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val inputStream = new ByteArrayInputStream(bytes)
         RdfToJelly.setStdIn(inputStream)
         val (out, err) = RdfToJelly.runTestCommand(
-          List("rdf", "to-jelly", "--in-format=nq", "--opt.physical-type=GRAPHS"),
+          List(
+            "rdf",
+            "to-jelly",
+            "--in-format=nq",
+            "--opt.physical-type=GRAPHS",
+            "--opt.logical-type=DATASETS",
+          ),
         )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val ds = DatasetGraphFactory.create()
-        RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
+        val outBytes = RdfToJelly.getOutBytes
+        RDFParser.source(ByteArrayInputStream(outBytes)).lang(
+          JellyLanguage.JELLY,
+        ).parse(ds)
         ds.size() should be(20)
         ds.getDefaultGraph.size() should be(testCardinality * 5)
         for gn <- ds.listGraphNodes().asScala do ds.getGraph(gn).size() should be(testCardinality)
+        // Check the logical stream type -- should be DATASETS
+        val frame = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(outBytes))
+          .get
+        frame.rows.head.row.options.logicalType should be(LogicalStreamType.DATASETS)
       }
 
       "an input stream to file" in withEmptyJellyFile { j =>

@@ -6,7 +6,7 @@ import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
 import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
-import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
@@ -106,7 +106,12 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
         // GRAPHS
         JellyStreamWriterGraphs(
           JellyFormatVariant(
-            opt = jellyOpt,
+            // By default, set the logical stream type to FLAT_QUADS (this is what JellyStreamWriter
+            // in jelly-jena does for physical type QUADS).
+            opt = jellyOpt.withLogicalType(
+              if jellyOpt.logicalType.isUnspecified then LogicalStreamType.FLAT_QUADS
+              else jellyOpt.logicalType,
+            ),
             frameSize = getOptions.rowsPerFrame,
             enableNamespaceDeclarations = getOptions.enableNamespaceDeclarations,
             delimited = getOptions.delimited,
