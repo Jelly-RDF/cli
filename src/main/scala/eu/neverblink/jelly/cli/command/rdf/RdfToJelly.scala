@@ -4,8 +4,9 @@ import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
-import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
+import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
+import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
@@ -98,23 +99,43 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       inputStream: InputStream,
       outputStream: OutputStream,
   ): Unit =
+    val jellyOpt = getOptions.jellySerializationOptions.asRdfStreamOptions
     // Configure the writer
-    val writerContext = RIOT.getContext.copy()
-      .set(
-        JellyLanguage.SYMBOL_STREAM_OPTIONS,
-        getOptions.jellySerializationOptions.asRdfStreamOptions,
-      )
-      .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
-      .set(
-        JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
-        getOptions.enableNamespaceDeclarations,
-      )
-      .set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
-    val jellyWriter = StreamRDFWriter.getWriterStream(
-      outputStream,
-      JellyLanguage.JELLY,
-      writerContext,
-    )
+    val jellyWriter =
+      if jellyOpt.physicalType.isGraphs then
+        // GRAPHS
+        JellyStreamWriterGraphs(
+          JellyFormatVariant(
+            // By default, set the logical stream type to FLAT_QUADS (this is what JellyStreamWriter
+            // in jelly-jena does for physical type QUADS).
+            opt = jellyOpt.withLogicalType(
+              if jellyOpt.logicalType.isUnspecified then LogicalStreamType.FLAT_QUADS
+              else jellyOpt.logicalType,
+            ),
+            frameSize = getOptions.rowsPerFrame,
+            enableNamespaceDeclarations = getOptions.enableNamespaceDeclarations,
+            delimited = getOptions.delimited,
+          ),
+          out = outputStream,
+        )
+      else
+        // TRIPLES or QUADS
+        val writerContext = RIOT.getContext.copy()
+          .set(
+            JellyLanguage.SYMBOL_STREAM_OPTIONS,
+            jellyOpt,
+          )
+          .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
+          .set(
+            JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
+            getOptions.enableNamespaceDeclarations,
+          )
+          .set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
+        StreamRDFWriter.getWriterStream(
+          outputStream,
+          JellyLanguage.JELLY,
+          writerContext,
+        )
     RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)
 
   /** Convert Jelly text to Jelly binary.

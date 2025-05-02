@@ -2,7 +2,7 @@ package eu.neverblink.jelly.cli.command.rdf.util
 
 import caseapp.*
 import eu.neverblink.jelly.cli.InvalidArgument
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamOptions}
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamOptions}
 import eu.ostrzyciel.jelly.core.{JellyOptions, LogicalStreamTypeFactory}
 
 /** Options for serializing in Jelly-RDF */
@@ -28,6 +28,11 @@ case class RdfJellySerializationOptions(
     )
     `opt.maxDatatypeTableSize`: Int = JellyOptions.bigStrict.maxDatatypeTableSize,
     @HelpMessage(
+      "Physical stream type. One of: TRIPLES, QUADS, GRAPHS. " +
+        "Default: either TRIPLES or QUADS, depending on the input format.",
+    )
+    `opt.physicalType`: Option[String] = None,
+    @HelpMessage(
       "Logical (RDF-STaX-based) stream type. This can be either a name like " +
         "`FLAT_QUADS` or a full IRI like `https://w3id.org/stax/ontology#flatQuadStream`. " +
         "Default: (unspecified)",
@@ -52,6 +57,17 @@ case class RdfJellySerializationOptions(
         `opt.logicalType`.get,
         Some("Logical type must be either a full RDF-STaX IRI or a name like `FLAT_QUADS`"),
       )
+    val physicalType = `opt.physicalType`.map(_.trim.toUpperCase) match
+      case Some("TRIPLES") => PhysicalStreamType.TRIPLES
+      case Some("QUADS") => PhysicalStreamType.QUADS
+      case Some("GRAPHS") => PhysicalStreamType.GRAPHS
+      case Some(x) =>
+        throw InvalidArgument(
+          "--opt.physical-type",
+          x,
+          Some("Physical type must be one of: TRIPLES, QUADS, GRAPHS"),
+        )
+      case None => PhysicalStreamType.UNSPECIFIED
     RdfStreamOptions(
       streamName = `opt.streamName`,
       generalizedStatements = `opt.generalizedStatements`,
@@ -59,5 +75,6 @@ case class RdfJellySerializationOptions(
       maxNameTableSize = `opt.maxNameTableSize`,
       maxPrefixTableSize = `opt.maxPrefixTableSize`,
       maxDatatypeTableSize = `opt.maxDatatypeTableSize`,
+      physicalType = physicalType,
       logicalType = logicalType.getOrElse(LogicalStreamType.UNSPECIFIED),
     )
