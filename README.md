@@ -118,3 +118,7 @@ The CI checks will not pass if this is not the case.
 - Run `sbt assembly`
 - The resulting JAR will be in `./target/scala-3.*.*/jelly-cli-assembly-*.jar`
 - Run it like: `java -jar <path-to-jar>`
+
+----
+
+The development of the Jelly protocol, its implementations, and supporting tooling was co-funded by the European Union. **[More details](https://w3id.org/jelly/dev/licensing/projects)**.
