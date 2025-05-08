@@ -573,11 +573,13 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "RDF-star triples in S, P, and O positions (generalized=true)" in {
-        val quoted = NodeFactory.createTripleNode(Triple.create(
-          NodeFactory.createBlankNode(),
-          NodeFactory.createURI("http://example.org/predicate"),
-          NodeFactory.createBlankNode(),
-        ))
+        val quoted = NodeFactory.createTripleNode(
+          Triple.create(
+            NodeFactory.createBlankNode(),
+            NodeFactory.createURI("http://example.org/predicate"),
+            NodeFactory.createBlankNode(),
+          ),
+        )
         val t = Triple.create(quoted, quoted, quoted)
         val enc = JenaConverterFactory.encoder(
           ProtoEncoder.Params(
