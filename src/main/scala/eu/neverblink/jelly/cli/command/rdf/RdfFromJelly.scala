@@ -4,7 +4,6 @@ import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
-import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.Jena.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
 import eu.ostrzyciel.jelly.convert.jena.JenaConverterFactory
 import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
