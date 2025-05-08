@@ -1,10 +1,11 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import eu.neverblink.jelly.cli.{CriticalException, ExitException}
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
-import eu.ostrzyciel.jelly.core.RdfProtoDeserializationError
-import eu.ostrzyciel.jelly.core.JellyOptions
+import eu.neverblink.jelly.cli.{CriticalException, ExitException}
+import eu.ostrzyciel.jelly.convert.jena.JenaConverterFactory
 import eu.ostrzyciel.jelly.core.proto.v1.*
+import eu.ostrzyciel.jelly.core.{JellyOptions, ProtoEncoder, RdfProtoDeserializationError}
+import org.apache.jena.graph.{NodeFactory, Triple}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -510,6 +511,87 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         e.cause.get.getMessage should include(
           "Invalid format option: \"invalid\"",
         )
+      }
+
+      "RDF-star triples in subject and object positions (generalized=false)" in {
+        val t = Triple.create(
+          NodeFactory.createTripleNode(
+            Triple.create(
+              NodeFactory.createBlankNode(),
+              NodeFactory.createURI("http://example.org/predicate"),
+              NodeFactory.createBlankNode(),
+            ),
+          ),
+          NodeFactory.createURI("http://example.org/predicate"),
+          NodeFactory.createTripleNode(
+            Triple.create(
+              NodeFactory.createBlankNode(),
+              NodeFactory.createURI("http://example.org/predicate"),
+              NodeFactory.createBlankNode(),
+            ),
+          ),
+        )
+        val enc = JenaConverterFactory.encoder(
+          ProtoEncoder.Params(
+            JellyOptions.smallRdfStar.withPhysicalType(PhysicalStreamType.TRIPLES),
+          ),
+        )
+        val rows = enc.addTripleStatement(t)
+        val f = RdfStreamFrame(rows.toSeq)
+        val is = ByteArrayInputStream(f.toByteArray)
+        RdfValidate.setStdIn(is)
+        val (out, err) = RdfValidate.runTestCommand(List("rdf", "validate"))
+        err shouldBe empty
+      }
+
+      "not validate RDF-star triples in predicate position (generalized=false)" in {
+        val t = Triple.create(
+          NodeFactory.createBlankNode(),
+          NodeFactory.createTripleNode(
+            Triple.create(
+              NodeFactory.createBlankNode(),
+              NodeFactory.createURI("http://example.org/predicate"),
+              NodeFactory.createBlankNode(),
+            ),
+          ),
+          NodeFactory.createBlankNode(),
+        )
+        val enc = JenaConverterFactory.encoder(
+          ProtoEncoder.Params(
+            JellyOptions.smallRdfStar.withPhysicalType(PhysicalStreamType.TRIPLES),
+          ),
+        )
+        val rows = enc.addTripleStatement(t)
+        val f = RdfStreamFrame(rows.toSeq)
+        val is = ByteArrayInputStream(f.toByteArray)
+        RdfValidate.setStdIn(is)
+        val e = intercept[ExitException] {
+          RdfValidate.runTestCommand(List("rdf", "validate"))
+        }
+        e.cause.get shouldBe a[CriticalException]
+        e.cause.get.getMessage should include("Unexpected generalized triple in frame 0:")
+      }
+
+      "RDF-star triples in S, P, and O positions (generalized=true)" in {
+        val quoted = NodeFactory.createTripleNode(
+          Triple.create(
+            NodeFactory.createBlankNode(),
+            NodeFactory.createURI("http://example.org/predicate"),
+            NodeFactory.createBlankNode(),
+          ),
+        )
+        val t = Triple.create(quoted, quoted, quoted)
+        val enc = JenaConverterFactory.encoder(
+          ProtoEncoder.Params(
+            JellyOptions.smallAllFeatures.withPhysicalType(PhysicalStreamType.TRIPLES),
+          ),
+        )
+        val rows = enc.addTripleStatement(t)
+        val f = RdfStreamFrame(rows.toSeq)
+        val is = ByteArrayInputStream(f.toByteArray)
+        RdfValidate.setStdIn(is)
+        val (out, err) = RdfValidate.runTestCommand(List("rdf", "validate"))
+        err shouldBe empty
       }
     }
   }
