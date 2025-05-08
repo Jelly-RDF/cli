@@ -12,7 +12,7 @@ object StatementUtils:
     q.getSubject :: q.getPredicate :: q.getObject :: q.getGraph :: Nil
 
   def isGeneralized(t: Triple): Boolean =
-    (!t.getSubject.isBlank && !t.getSubject.isURI && !t.getObject.isNodeTriple)
+    (!t.getSubject.isBlank && !t.getSubject.isURI && !t.getSubject.isNodeTriple)
       || !t.getPredicate.isURI
 
   def isGeneralized(q: Quad): Boolean =
