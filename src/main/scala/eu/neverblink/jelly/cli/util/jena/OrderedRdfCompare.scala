@@ -10,6 +10,13 @@ import scala.collection.mutable
 object OrderedRdfCompare extends RdfCompare:
   import StatementUtils.*
 
+  private val termNames = Seq(
+    "subject",
+    "predicate",
+    "object",
+    "graph",
+  )
+
   def compare(
       expected: StreamRdfCollector,
       actual: StreamRdfCollector,
@@ -21,29 +28,40 @@ object OrderedRdfCompare extends RdfCompare:
         s"Expected ${eSeq.size} RDF elements, but got ${aSeq.size} elements.",
       )
     val bNodeMap = mutable.Map.empty[String, String]
-    def tryIsomorphism(e: Seq[Node], a: Seq[Node], i: Int): Unit =
-      e.zip(a).foreach { (et, at) =>
+
+    def tryIsomorphism(e: Seq[Node], a: Seq[Node], location: String): Unit =
+      e.zip(a).zipWithIndex.foreach { (terms, termIndex) =>
+        val (et, at) = terms
         if et.isBlank && at.isBlank then
           val eId = et.getBlankNodeLabel
           val aId = at.getBlankNodeLabel
           if bNodeMap.contains(eId) then
             if bNodeMap(eId) != aId then
               throw new CriticalException(
-                s"RDF element $i is different: expected $e, got $a. $eId is " +
-                  s"already mapped to ${bNodeMap(eId)}.",
+                s"RDF element $location is different in ${termNames(termIndex)} term: " +
+                  s"expected $e, got $a. $eId is already mapped to ${bNodeMap(eId)}.",
               )
           else bNodeMap(eId) = aId
+        else if et.isNodeTriple && at.isNodeTriple then
+          // Recurse into the RDF-star quoted triple
+          tryIsomorphism(
+            iterateTerms(et.getTriple),
+            iterateTerms(at.getTriple),
+            f"${location}_${termNames(termIndex)}",
+          )
         else if et != at then
           throw new CriticalException(
-            s"RDF element $i is different: expected $e, got $a.",
+            s"RDF element $location is different in ${termNames(termIndex)} term: " +
+              s"expected $e, got $a.",
           )
       }
+
     eSeq.zip(aSeq).zipWithIndex.foreach { case ((e, a), i) =>
       (e, a) match {
         case (e: Triple, a: Triple) =>
-          tryIsomorphism(iterateTerms(e), iterateTerms(a), i)
+          tryIsomorphism(iterateTerms(e), iterateTerms(a), i.toString)
         case (e: Quad, a: Quad) =>
-          tryIsomorphism(iterateTerms(e), iterateTerms(a), i)
+          tryIsomorphism(iterateTerms(e), iterateTerms(a), i.toString)
         case (e: NamespaceDeclaration, a: NamespaceDeclaration) =>
           if e != a then
             throw new CriticalException(

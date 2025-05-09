@@ -124,7 +124,7 @@ class RdfCompareSpec extends AnyWordSpec, Matchers:
       val e = intercept[CriticalException] {
         OrderedRdfCompare.compare(c1, c3)
       }
-      e.getMessage should include("RDF element 3 is different: expected")
+      e.getMessage should include("RDF element 3 is different in subject term: expected")
       e.getMessage should include("b1 is already mapped to b1")
     }
 
@@ -137,7 +137,7 @@ class RdfCompareSpec extends AnyWordSpec, Matchers:
       val e = intercept[CriticalException] {
         OrderedRdfCompare.compare(c1, c3)
       }
-      e.getMessage should include("RDF element 1 is different: expected")
+      e.getMessage should include("RDF element 1 is different in subject term: expected")
     }
   }
 

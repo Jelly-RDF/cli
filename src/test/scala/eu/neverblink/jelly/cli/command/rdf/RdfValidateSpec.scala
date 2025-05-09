@@ -3,9 +3,11 @@ package eu.neverblink.jelly.cli.command.rdf
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
 import eu.neverblink.jelly.cli.{CriticalException, ExitException}
 import eu.ostrzyciel.jelly.convert.jena.JenaConverterFactory
+import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
 import eu.ostrzyciel.jelly.core.proto.v1.*
 import eu.ostrzyciel.jelly.core.{JellyOptions, ProtoEncoder, RdfProtoDeserializationError}
 import org.apache.jena.graph.{NodeFactory, Triple}
+import org.apache.jena.riot.Lang
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -511,6 +513,41 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         e.cause.get.getMessage should include(
           "Invalid format option: \"invalid\"",
         )
+      }
+
+      // Regression test for https://github.com/Jelly-RDF/cli/issues/113
+      "comparing RDF-star data with blank nodes and nested triples" in {
+        val t = Triple.create(
+          NodeFactory.createTripleNode(
+            Triple.create(
+              NodeFactory.createTripleNode(
+                Triple.create(
+                  NodeFactory.createBlankNode(),
+                  NodeFactory.createURI("http://example.org/predicate"),
+                  NodeFactory.createBlankNode(),
+                ),
+              ),
+              NodeFactory.createURI("http://example.org/predicate"),
+              NodeFactory.createBlankNode(),
+            ),
+          ),
+          NodeFactory.createURI("http://example.org/predicate"),
+          NodeFactory.createBlankNode(),
+        )
+        withJenaFileOfContent(Seq(t), Lang.NT) { ntFile =>
+          withJenaFileOfContent(Seq(t), JellyLanguage.JELLY) { jellyFile =>
+            val (out, err) = RdfValidate.runTestCommand(
+              List(
+                "rdf",
+                "validate",
+                "--compare-to-rdf-file=" + ntFile,
+                "--compare-ordered=true",
+                jellyFile,
+              ),
+            )
+            err shouldBe empty
+          }
+        }
       }
 
       "RDF-star triples in subject and object positions (generalized=false)" in {
