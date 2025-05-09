@@ -2,7 +2,9 @@ package eu.neverblink.jelly.cli.command.helpers
 
 import eu.neverblink.jelly.cli.util.jena.riot.CliRiot
 import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
+import org.apache.jena.graph.Triple
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFFormat, RDFLanguages}
+import org.apache.jena.sparql.graph.GraphFactory
 import org.apache.jena.sys.JenaSystem
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
@@ -45,6 +47,20 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
   def withEmptyJellyFile(testCode: (String) => Any): Unit =
     val extension = getFileExtension(JellyLanguage.JELLY)
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
+    try {
+      testCode(tempFile.toString)
+    } finally { tempFile.toFile.delete() }
+
+  def withJenaFileOfContent[T](content: Seq[Triple], jenaLang: Lang = RDFLanguages.NQUADS)(
+      testCode: String => T,
+  ): T =
+    val extension = getFileExtension(jenaLang)
+    val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
+    val graph = GraphFactory.createGraphMem()
+    content.foreach(graph.add)
+    Using(new FileOutputStream(tempFile.toFile)) { fileOutputStream =>
+      RDFDataMgr.write(fileOutputStream, graph, jenaLang)
+    }
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
