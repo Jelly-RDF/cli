@@ -121,11 +121,10 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       else
         // TRIPLES or QUADS
         if jellyOpt.physicalType.isUnspecified then
-          if !isQuietMode && isLogicalComplex(jellyOpt) then
+          if !isQuietMode && isLogicalGrouped(jellyOpt) then
             printLine(
-              "WARNING: The physical type is unspecified, but the logical type is complex and requires framing. " +
-                "This may lead to unexpected results. " +
-                "Please specify the physical type explicitly. " +
+              "WARNING: Logical type setting ignored because physical type is not set. " +
+                "Set the physical type to properly pass on the logical type." +
                 "Use --quiet to silence this warning.",
               true,
             )
@@ -181,13 +180,13 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       }
     }
 
-  /** Check if the logical type is more complex than FLAT_TRIPLES or FLAT_QUADS.
+  /** Check if the logical type is defined and grouped.
     * @param jellyOpt
     *   the Jelly options
     * @return
     *   true if the logical type is specified and expects framing
     */
-  private def isLogicalComplex(
+  private def isLogicalGrouped(
       jellyOpt: RdfStreamOptions,
   ): Boolean =
     !(jellyOpt.logicalType.isFlatQuads || jellyOpt.logicalType.isFlatTriples || jellyOpt.logicalType.isUnspecified)
