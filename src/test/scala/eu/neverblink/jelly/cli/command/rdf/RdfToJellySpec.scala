@@ -4,7 +4,7 @@ import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.cli.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
 import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
@@ -227,8 +227,41 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
 
-      "a file to file, modified logical type to LOGICAL_STREAM_TYPE_GRAPHS" in withFullJenaFile {
-        f =>
+      "a file to file, physical type set to TRIPLES, logical type to GRAPHS" in withFullJenaFile(
+        testCode = { f =>
+          withEmptyJellyFile { j =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "to-jelly",
+                  f,
+                  "--opt.physical-type=TRIPLES",
+                  "--opt.logical-type=GRAPHS",
+                  "--to",
+                  j,
+                ),
+              )
+            val content = translateJellyBack(new FileInputStream(j))
+            content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.rows.head.row.options
+            opts.streamName should be("")
+            opts.generalizedStatements should be(true)
+            opts.rdfStar should be(true)
+            opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
+            opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
+            opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
+            opts.physicalType should be(PhysicalStreamType.TRIPLES)
+            opts.logicalType should be(LogicalStreamType.GRAPHS)
+            opts.version should be(1)
+          }
+        },
+        jenaLang = RDFLanguages.NTRIPLES,
+      )
+
+      "a file to file, physical type unspecified, logical type set to GRAPHS" in withFullJenaFile(
+        testCode = { f =>
           withEmptyJellyFile { j =>
             val (out, err) =
               RdfToJelly.runTestCommand(
@@ -251,34 +284,39 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
             opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
             opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
-            opts.logicalType should be(LogicalStreamType.GRAPHS)
+            opts.logicalType should be(LogicalStreamType.FLAT_TRIPLES)
             opts.version should be(1)
           }
-      }
+        },
+        jenaLang = RDFLanguages.NTRIPLES,
+      )
 
-      "a file to file, lowered number of rows per frame" in withFullJenaFile { f =>
-        withEmptyJellyFile { j =>
-          val (out, err) =
-            RdfToJelly.runTestCommand(
-              List(
-                "rdf",
-                "to-jelly",
-                f,
-                "--rows-per-frame=10",
-                "--to",
-                j,
-              ),
-            )
-          val content = translateJellyBack(new FileInputStream(j))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
-          val frames = readJellyFile(new FileInputStream(j))
-          frames.size should be > 3
-          for frame <- frames do
-            // The encoder may slightly overshoot the target if it needs to pack the lookup entries
-            // together with the triple.
-            frame.rows.size should be <= 15
-        }
-      }
+      "a file to file, lowered number of rows per frame" in withFullJenaFile(
+        testCode = { f =>
+          withEmptyJellyFile { j =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "to-jelly",
+                  f,
+                  "--rows-per-frame=10",
+                  "--to",
+                  j,
+                ),
+              )
+            val content = translateJellyBack(new FileInputStream(j))
+            content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+            val frames = readJellyFile(new FileInputStream(j))
+            frames.size should be > 3
+            for frame <- frames do
+              // The encoder may slightly overshoot the target if it needs to pack the lookup entries
+              // together with the triple.
+              frame.rows.size should be <= 15
+          }
+        },
+        jenaLang = RDFLanguages.NTRIPLES,
+      )
 
       "a file to file, enabled namespace declarations" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>

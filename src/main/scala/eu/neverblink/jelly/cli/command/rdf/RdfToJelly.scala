@@ -5,7 +5,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
-import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
+import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
 import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
@@ -120,21 +120,33 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
         )
       else
         // TRIPLES or QUADS
-        val writerContext = RIOT.getContext.copy()
-          .set(
-            JellyLanguage.SYMBOL_STREAM_OPTIONS,
-            jellyOpt,
+        if jellyOpt.physicalType.isUnspecified then
+          // If the physical type is unspecified, we want to autodetect it through getWriterStream
+          val writerContext = RIOT.getContext.copy()
+            .set(
+              JellyLanguage.SYMBOL_STREAM_OPTIONS,
+              jellyOpt,
+            )
+            .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
+            .set(
+              JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
+              getOptions.enableNamespaceDeclarations,
+            ).set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
+          StreamRDFWriter.getWriterStream(
+            outputStream,
+            JellyLanguage.JELLY,
+            writerContext,
           )
-          .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
-          .set(
-            JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
-            getOptions.enableNamespaceDeclarations,
-          ).set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
-        StreamRDFWriter.getWriterStream(
-          outputStream,
-          JellyLanguage.JELLY,
-          writerContext,
-        )
+        else
+          // If the physical type is specified, we can just construct the writer
+          val variant = JellyFormatVariant(
+            opt = jellyOpt,
+            frameSize = getOptions.rowsPerFrame,
+            enableNamespaceDeclarations = getOptions.enableNamespaceDeclarations,
+            delimited = getOptions.delimited,
+          )
+          JellyStreamWriter(variant, outputStream)
+
     RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)
 
   /** Convert Jelly text to Jelly binary.
