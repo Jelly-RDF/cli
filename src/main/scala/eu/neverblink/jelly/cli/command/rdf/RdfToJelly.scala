@@ -6,7 +6,7 @@ import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
 import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame, RdfStreamOptions}
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
@@ -121,7 +121,14 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       else
         // TRIPLES or QUADS
         if jellyOpt.physicalType.isUnspecified then
-          // If the physical type is unspecified, we want to autodetect it through getWriterStream
+          if !isQuietMode && isLogicalComplex(jellyOpt) then
+            printLine(
+              "WARNING: The physical type is unspecified, but the logical type is complex and requires framing. " +
+                "This may lead to unexpected results. " +
+                "Please specify the physical type explicitly. " +
+                "Use --quiet to silence this warning.",
+              true,
+            )
           val writerContext = RIOT.getContext.copy()
             .set(
               JellyLanguage.SYMBOL_STREAM_OPTIONS,
@@ -173,6 +180,17 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           })
       }
     }
+
+  /** Check if the logical type is more complex than FLAT_TRIPLES or FLAT_QUADS.
+    * @param jellyOpt
+    *   the Jelly options
+    * @return
+    *   true if the logical type is specified and expects framing
+    */
+  private def isLogicalComplex(
+      jellyOpt: RdfStreamOptions,
+  ): Boolean =
+    !(jellyOpt.logicalType.isFlatQuads || jellyOpt.logicalType.isFlatTriples || jellyOpt.logicalType.isUnspecified)
 
   /** Iterate over a Jelly text stream and return the frames as strings to be parsed.
     * @param reader
