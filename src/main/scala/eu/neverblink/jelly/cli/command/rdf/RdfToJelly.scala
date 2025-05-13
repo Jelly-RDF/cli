@@ -129,8 +129,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           .set(
             JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
             getOptions.enableNamespaceDeclarations,
-          )
-          .set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
+          ).set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
         StreamRDFWriter.getWriterStream(
           outputStream,
           JellyLanguage.JELLY,

@@ -227,6 +227,35 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
 
+      "a file to file, modified logical type to LOGICAL_STREAM_TYPE_GRAPHS" in withFullJenaFile {
+        f =>
+          withEmptyJellyFile { j =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "to-jelly",
+                  f,
+                  "--opt.logical-type=GRAPHS",
+                  "--to",
+                  j,
+                ),
+              )
+            val content = translateJellyBack(new FileInputStream(j))
+            content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.rows.head.row.options
+            opts.streamName should be("")
+            opts.generalizedStatements should be(true)
+            opts.rdfStar should be(true)
+            opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
+            opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
+            opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
+            opts.logicalType should be(LogicalStreamType.GRAPHS)
+            opts.version should be(1)
+          }
+      }
+
       "a file to file, lowered number of rows per frame" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>
           val (out, err) =
