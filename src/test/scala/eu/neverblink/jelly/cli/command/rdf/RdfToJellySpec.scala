@@ -4,7 +4,7 @@ import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.cli.*
 import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
 import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
@@ -42,7 +42,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
     }
 
   "rdf to-jelly command" should {
-    "handle conversion of NTriples to Jelly" when {
+    "handle conversion of NQuads to Jelly" when {
       "a file to output stream" in withFullJenaFile { f =>
         val (out, err) =
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
@@ -227,6 +227,37 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
 
+      "a file to file, physical type set to QUADS, logical type to DATASET STREAM" in withFullJenaFile {
+        f =>
+          withEmptyJellyFile { j =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "to-jelly",
+                  f,
+                  "--opt.physical-type=QUADS",
+                  "--opt.logical-type=DATASETS",
+                  "--to",
+                  j,
+                ),
+              )
+            val content = translateJellyBack(new FileInputStream(j))
+            content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.rows.head.row.options
+            opts.streamName should be("")
+            opts.generalizedStatements should be(true)
+            opts.rdfStar should be(true)
+            opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
+            opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
+            opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
+            opts.physicalType should be(PhysicalStreamType.QUADS)
+            opts.logicalType should be(LogicalStreamType.DATASETS)
+            opts.version should be(1)
+          }
+      }
+
       "a file to file, lowered number of rows per frame" in withFullJenaFile { f =>
         withEmptyJellyFile { j =>
           val (out, err) =
@@ -297,16 +328,88 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
     }
 
     "handle conversion of other formats to Jelly" when {
-      "NTriples" in {
-        val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.NTRIPLES)
-        RdfToJelly.setStdIn(input)
-        val (out, err) =
-          RdfToJelly.runTestCommand(
-            List("rdf", "to-jelly", "--in-format", RdfFormat.NTriples.cliOptions.head),
-          )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-        val content = translateJellyBack(newIn)
-        content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+      "NTriples" when {
+        "base functionality expected" in {
+          val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.NTRIPLES)
+          RdfToJelly.setStdIn(input)
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", "--in-format", RdfFormat.NTriples.cliOptions.head),
+            )
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val content = translateJellyBack(newIn)
+          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        }
+        "a file to file, physical type set to TRIPLES, logical type to GRAPHS" in withFullJenaFile(
+          testCode = { f =>
+            withEmptyJellyFile { j =>
+              val (out, err) =
+                RdfToJelly.runTestCommand(
+                  List(
+                    "rdf",
+                    "to-jelly",
+                    f,
+                    "--opt.physical-type=TRIPLES",
+                    "--opt.logical-type=GRAPHS",
+                    "--to",
+                    j,
+                  ),
+                )
+              val content = translateJellyBack(new FileInputStream(j))
+              content.containsAll(
+                DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+              )
+              val frames = readJellyFile(new FileInputStream(j))
+              val opts = frames.head.rows.head.row.options
+              opts.streamName should be("")
+              opts.generalizedStatements should be(true)
+              opts.rdfStar should be(true)
+              opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
+              opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
+              opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
+              opts.physicalType should be(PhysicalStreamType.TRIPLES)
+              opts.logicalType should be(LogicalStreamType.GRAPHS)
+              opts.version should be(1)
+            }
+          },
+          jenaLang = RDFLanguages.NTRIPLES,
+        )
+
+        "a file to file, physical type unspecified, logical type set to GRAPHS" in withFullJenaFile(
+          testCode = { f =>
+            withEmptyJellyFile { j =>
+              val (out, err) =
+                RdfToJelly.runTestCommand(
+                  List(
+                    "rdf",
+                    "to-jelly",
+                    f,
+                    "--opt.logical-type=GRAPHS",
+                    "--to",
+                    j,
+                  ),
+                )
+              val content = translateJellyBack(new FileInputStream(j))
+              content.containsAll(
+                DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+              )
+              val frames = readJellyFile(new FileInputStream(j))
+              val opts = frames.head.rows.head.row.options
+              opts.streamName should be("")
+              opts.generalizedStatements should be(true)
+              opts.rdfStar should be(true)
+              opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
+              opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
+              opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
+              opts.logicalType should be(LogicalStreamType.FLAT_TRIPLES)
+              opts.version should be(1)
+              RdfToJelly.getErrString should include(
+                "WARNING: Logical type setting ignored because physical type is not set.",
+              )
+            }
+          },
+          jenaLang = RDFLanguages.NTRIPLES,
+        )
       }
       "Turtle" in {
         val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.TURTLE)

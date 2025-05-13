@@ -5,8 +5,8 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
-import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame}
+import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
+import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame, RdfStreamOptions}
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
@@ -120,22 +120,39 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
         )
       else
         // TRIPLES or QUADS
-        val writerContext = RIOT.getContext.copy()
-          .set(
-            JellyLanguage.SYMBOL_STREAM_OPTIONS,
-            jellyOpt,
+        if jellyOpt.physicalType.isUnspecified then
+          if !isQuietMode && isLogicalGrouped(jellyOpt) then
+            printLine(
+              "WARNING: Logical type setting ignored because physical type is not set. " +
+                "Set the physical type to properly pass on the logical type." +
+                "Use --quiet to silence this warning.",
+              true,
+            )
+          val writerContext = RIOT.getContext.copy()
+            .set(
+              JellyLanguage.SYMBOL_STREAM_OPTIONS,
+              jellyOpt,
+            )
+            .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
+            .set(
+              JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
+              getOptions.enableNamespaceDeclarations,
+            ).set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
+          StreamRDFWriter.getWriterStream(
+            outputStream,
+            JellyLanguage.JELLY,
+            writerContext,
           )
-          .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
-          .set(
-            JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
-            getOptions.enableNamespaceDeclarations,
+        else
+          // If the physical type is specified, we can just construct the writer
+          val variant = JellyFormatVariant(
+            opt = jellyOpt,
+            frameSize = getOptions.rowsPerFrame,
+            enableNamespaceDeclarations = getOptions.enableNamespaceDeclarations,
+            delimited = getOptions.delimited,
           )
-          .set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
-        StreamRDFWriter.getWriterStream(
-          outputStream,
-          JellyLanguage.JELLY,
-          writerContext,
-        )
+          JellyStreamWriter(variant, outputStream)
+
     RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)
 
   /** Convert Jelly text to Jelly binary.
@@ -162,6 +179,17 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           })
       }
     }
+
+  /** Check if the logical type is defined and grouped.
+    * @param jellyOpt
+    *   the Jelly options
+    * @return
+    *   true if the logical type is specified and expects framing
+    */
+  private def isLogicalGrouped(
+      jellyOpt: RdfStreamOptions,
+  ): Boolean =
+    !(jellyOpt.logicalType.isFlatQuads || jellyOpt.logicalType.isFlatTriples || jellyOpt.logicalType.isUnspecified)
 
   /** Iterate over a Jelly text stream and return the frames as strings to be parsed.
     * @param reader
