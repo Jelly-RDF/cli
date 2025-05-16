@@ -91,7 +91,7 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
     // Step 1: Validate delimiting
     validateDelimiting(delimiting, delimited)
     // Step 2: Validate basic stream structure & the stream options
-    val framesSeq = frameIterator.toSeq
+    val framesSeq = skipEmptyFrames(frameIterator.toSeq)
     validateOptions(framesSeq)
     // Step 3: Validate the content
     validateContent(framesSeq, frameIndices, rdfComparison)
@@ -109,10 +109,6 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
         throw CriticalException("Expected undelimited input, but the file was delimited")
 
   private def validateOptions(frames: Seq[RdfStreamFrame]): Unit =
-    // Validate basic stream structure
-    if frames.isEmpty then throw CriticalException("Empty input stream")
-    if frames.head.rows.isEmpty then
-      throw CriticalException("First frame in the input stream is empty")
     if !frames.head.rows.head.row.isOptions then
       throw CriticalException("First row in the input stream does not contain stream options")
     val streamOptions = frames.head.rows.head.row.options
@@ -191,6 +187,23 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
         else UnorderedRdfCompare
       comparator.compare(rdfComparison, actual)
     }
+
+  /** Skip empty frames in the stream. If the first frame is empty, we skip it and continue with the
+    * next one. If the first row is empty, we throw an exception
+    * @param frames
+    *   frames to check
+    * @return
+    *   frames after empty frames
+    */
+  private def skipEmptyFrames(
+      frames: Seq[RdfStreamFrame],
+  ): Seq[RdfStreamFrame] =
+    if frames.isEmpty then throw CriticalException("Empty input stream")
+    if frames.head.rows.isEmpty then
+      // We want to accept empty frames in the stream, but not empty streams
+      if frames.tail.isEmpty then throw CriticalException("All frames are empty")
+      return skipEmptyFrames(frames.tail)
+    return frames
 
   /** Reads the RDF file for comparison and returns a StreamRdfCollector
     * @param fileName

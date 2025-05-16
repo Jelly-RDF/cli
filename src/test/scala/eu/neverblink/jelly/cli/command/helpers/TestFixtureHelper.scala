@@ -10,7 +10,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.FileOutputStream
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.UUID.randomUUID
 import scala.util.Using
 
@@ -24,6 +24,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
     CliRiot.initialize()
   }
 
+  private val specificTestDir: Path = Paths.get("src", "test", "resources")
   private val tmpDir: Path = Files.createTempDirectory("jelly-cli")
 
   /** The number of triples to generate for the tests
@@ -84,6 +85,16 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
     try {
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
+
+  def withSpecificJellyFile(
+      testCode: (String) => Any,
+      fileName: String,
+  ): Unit = {
+    val filePath = specificTestDir.resolve(fileName)
+    if !Files.exists(filePath) then
+      throw new IllegalArgumentException(s"File $fileName does not exist in $specificTestDir")
+    else testCode(filePath.toString)
+  }
 
   def withFullJellyFile(testCode: (String) => Any, frameSize: Int = 256): Unit =
     val extension = getFileExtension(JellyLanguage.JELLY)
