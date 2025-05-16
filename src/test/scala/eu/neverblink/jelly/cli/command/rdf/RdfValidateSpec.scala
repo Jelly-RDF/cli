@@ -34,6 +34,14 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       fileName = "firstEmptyFrame.jelly",
     )
 
+    "accept three first empty frames" in withSpecificJellyFile(
+      testCode = { jellyF =>
+        val (out, err) = RdfValidate.runTestCommand(List("rdf", "validate", jellyF))
+        out shouldBe empty
+      },
+      fileName = "threeFirstEmptyFrames.jelly",
+    )
+
     "validate delimiting" when {
       val frame = RdfStreamFrame(
         Seq(

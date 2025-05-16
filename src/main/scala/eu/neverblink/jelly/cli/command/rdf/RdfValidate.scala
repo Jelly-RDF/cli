@@ -14,6 +14,7 @@ import org.apache.jena.riot.RDFParser
 import org.apache.jena.riot.system.StreamRDFLib
 import org.apache.jena.sparql.core.Quad
 
+import scala.annotation.tailrec
 import scala.util.Using
 
 object RdfValidatePrint extends RdfCommandPrintUtil[RdfFormat.Jena]:
@@ -195,15 +196,16 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
     * @return
     *   frames after empty frames
     */
+  @tailrec
   private def skipEmptyFrames(
       frames: Seq[RdfStreamFrame],
   ): Seq[RdfStreamFrame] =
     if frames.isEmpty then throw CriticalException("Empty input stream")
-    if frames.head.rows.isEmpty then
+    else if frames.head.rows.isEmpty then
       // We want to accept empty frames in the stream, but not empty streams
       if frames.tail.isEmpty then throw CriticalException("All frames are empty")
-      return skipEmptyFrames(frames.tail)
-    return frames
+      skipEmptyFrames(frames.tail)
+    else frames
 
   /** Reads the RDF file for comparison and returns a StreamRdfCollector
     * @param fileName
