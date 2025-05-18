@@ -8,7 +8,7 @@ import eu.neverblink.jelly.cli.util.io.IoUtil
 import eu.neverblink.jelly.cli.util.jena.*
 import eu.ostrzyciel.jelly.convert.jena.JenaConverterFactory
 import eu.ostrzyciel.jelly.core.JellyOptions
-import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
+import eu.ostrzyciel.jelly.core.proto.v1.{RdfStreamFrame, RdfStreamOptions}
 import org.apache.jena.graph.Triple
 import org.apache.jena.riot.RDFParser
 import org.apache.jena.riot.system.StreamRDFLib
@@ -92,10 +92,10 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
     // Step 1: Validate delimiting
     validateDelimiting(delimiting, delimited)
     // Step 2: Validate basic stream structure & the stream options
-    val framesSeq = skipEmptyFrames(frameIterator.toSeq)
-    validateOptions(framesSeq)
+    val framesSeq = frameIterator.toSeq
+    val streamOptions = validateOptions(skipEmptyFrames(framesSeq))
     // Step 3: Validate the content
-    validateContent(framesSeq, frameIndices, rdfComparison)
+    validateContent(framesSeq, frameIndices, rdfComparison, streamOptions)
 
   private def validateDelimiting(
       expected: Delimiting,
@@ -109,7 +109,7 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       if delimited then
         throw CriticalException("Expected undelimited input, but the file was delimited")
 
-  private def validateOptions(frames: Seq[RdfStreamFrame]): Unit =
+  private def validateOptions(frames: Seq[RdfStreamFrame]): RdfStreamOptions =
     if !frames.head.rows.head.row.isOptions then
       throw CriticalException("First row in the input stream does not contain stream options")
     val streamOptions = frames.head.rows.head.row.options
@@ -134,17 +134,18 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       streamOptions,
       expectedOptions.getOrElse(JellyOptions.defaultSupportedOptions),
     )
+    streamOptions
 
   private def validateContent(
       frames: Seq[RdfStreamFrame],
       frameIndices: IndexRange,
       maybeRdfComparison: Option[StreamRdfCollector],
+      opt: RdfStreamOptions,
   ): Unit =
     // Prepare data structures
     val jellyStreamConsumer =
       if maybeRdfComparison.isDefined then StreamRdfCollector()
       else StreamRDFLib.sinkNull()
-    val opt = frames.head.rows.head.row.options
     val dec = JenaConverterFactory.anyStatementDecoder(
       None,
       (prefix, iri) => jellyStreamConsumer.prefix(prefix, iri.getURI),

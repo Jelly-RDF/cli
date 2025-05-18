@@ -443,6 +443,36 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         }
       }
 
+      "content matches the reference RDF file, empty frames in the stream, sliced comparison" in withFullJenaFile {
+        jenaF =>
+          withEmptyJenaFile { emptyJenaF =>
+            withFullJellyFile { jellyF =>
+              // Three empty frames and the start and end
+              val input =
+                Array[Byte](0, 0, 0) ++ FileInputStream(jellyF).readAllBytes() ++ Array[Byte](
+                  0,
+                  0,
+                  0,
+                )
+              val params = Seq(
+                (jenaF, "3"),
+                (emptyJenaF, "0..=2"),
+                (emptyJenaF, "4..=6"),
+              )
+              for (comparisonFile, frameIndices) <- params do
+                RdfValidate.setStdIn(ByteArrayInputStream(input))
+                RdfValidate.runTestCommand(
+                  List(
+                    "rdf",
+                    "validate",
+                    "--compare-to-rdf-file=" + comparisonFile,
+                    "--compare-frame-indices=" + frameIndices,
+                  ),
+                )
+            }
+          }
+      }
+
       "content matches the reference RDF file, using a slice of the stream" in withFullJenaFile {
         jenaF =>
           withFullJellyFile { jellyF =>
