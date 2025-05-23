@@ -3,9 +3,10 @@ package eu.neverblink.jelly.cli.command.rdf.util
 import com.google.protobuf.ByteString
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
-import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamOptions
+import eu.neverblink.jelly.core.proto.v1.RdfStreamOptions
 
 import java.io.OutputStream
+import scala.language.postfixOps
 
 /** This class is used to store the metrics for a single frame
   */
@@ -94,15 +95,15 @@ object MetricsPrinter:
       options: RdfStreamOptions,
   ): YamlMap =
     YamlMap(
-      "stream_name" -> YamlString(options.streamName),
-      "physical_type" -> YamlEnum(options.physicalType.toString, options.physicalType.value),
-      "generalized_statements" -> YamlBool(options.generalizedStatements),
-      "rdf_star" -> YamlBool(options.rdfStar),
-      "max_name_table_size" -> YamlInt(options.maxNameTableSize),
-      "max_prefix_table_size" -> YamlInt(options.maxPrefixTableSize),
-      "max_datatype_table_size" -> YamlInt(options.maxDatatypeTableSize),
-      "logical_type" -> YamlEnum(options.logicalType.toString, options.logicalType.value),
-      "version" -> YamlInt(options.version),
+      "stream_name" -> YamlString(options.getStreamName),
+      "physical_type" -> YamlEnum(options.getPhysicalType.toString, options.getPhysicalTypeValue),
+      "generalized_statements" -> YamlBool(options.getGeneralizedStatements),
+      "rdf_star" -> YamlBool(options.getRdfStar),
+      "max_name_table_size" -> YamlInt(options.getMaxNameTableSize),
+      "max_prefix_table_size" -> YamlInt(options.getMaxPrefixTableSize),
+      "max_datatype_table_size" -> YamlInt(options.getMaxDatatypeTableSize),
+      "logical_type" -> YamlEnum(options.getLogicalType.toString, options.getLogicalTypeValue),
+      "version" -> YamlInt(options.getVersion),
     )
 
   private def formatStatsIndex(
@@ -129,7 +130,7 @@ object MetricsPrinter:
       Some(
         YamlMap(
           metadata.map { case (k, v) =>
-            k -> YamlString(v.toByteArray.map("%02x" format _).mkString)
+            k -> YamlString(v.toStringUtf8)
           }.toSeq*,
         ),
       )

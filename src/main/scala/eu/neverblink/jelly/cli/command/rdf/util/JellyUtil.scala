@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.rdf.util
 
-import eu.ostrzyciel.jelly.core.IoUtils
-import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
+import eu.neverblink.jelly.core.utils.IoUtils
+import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
 
 import java.io.InputStream
 
@@ -23,17 +23,18 @@ object JellyUtil:
     */
   def iterateRdfStreamWithDelimitingInfo(
       inputStream: InputStream,
-  ): (Boolean, Iterator[RdfStreamFrame]) =
-    IoUtils.autodetectDelimiting(inputStream) match
-      case (false, newIn) =>
-        // Non-delimited Jelly file
-        // In this case, we can only read one frame
-        (false, Iterator(RdfStreamFrame.parseFrom(newIn)))
-      case (true, newIn) =>
-        // Delimited Jelly file
-        // In this case, we can read multiple frames
-        (
-          true,
-          Iterator.continually(RdfStreamFrame.parseDelimitedFrom(newIn))
-            .takeWhile(_.isDefined).map(_.get),
-        )
+  ): (Boolean, Iterator[RdfStreamFrame]) = {
+    val delimitingResponse = IoUtils.autodetectDelimiting(inputStream)
+    if delimitingResponse.isDelimited then
+      // Delimited Jelly file
+      // In this case, we can read multiple frames
+      (
+        true,
+        Iterator.continually(RdfStreamFrame.parseDelimitedFrom(delimitingResponse.newInput))
+          .takeWhile(_ != null),
+      )
+    else
+      // Non-delimited Jelly file
+      // In this case, we can only read one frame
+      (false, Iterator(RdfStreamFrame.parseFrom(delimitingResponse.newInput)))
+  }

@@ -2,8 +2,9 @@ package eu.neverblink.jelly.cli.command.rdf.util
 
 import caseapp.*
 import eu.neverblink.jelly.cli.InvalidArgument
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamOptions}
-import eu.ostrzyciel.jelly.core.{JellyOptions, LogicalStreamTypeFactory}
+import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamOptions}
+import eu.neverblink.jelly.core.utils.LogicalStreamTypeUtils
+import eu.neverblink.jelly.core.JellyOptions
 
 /** Options for serializing in Jelly-RDF */
 case class RdfJellySerializationOptions(
@@ -16,17 +17,17 @@ case class RdfJellySerializationOptions(
     @HelpMessage("Whether the stream may contain RDF-star statements. Default: true")
     `opt.rdfStar`: Boolean = true,
     @HelpMessage(
-      "Maximum size of the name lookup table. Default: " + JellyOptions.bigStrict.maxNameTableSize,
+      "Maximum size of the name lookup table. Default: " + JellyOptions.BIG_STRICT.getMaxNameTableSize,
     )
-    `opt.maxNameTableSize`: Int = JellyOptions.bigStrict.maxNameTableSize,
+    `opt.maxNameTableSize`: Int = JellyOptions.BIG_STRICT.getMaxNameTableSize,
     @HelpMessage(
-      "Maximum size of the prefix lookup table. Default: " + JellyOptions.bigStrict.maxPrefixTableSize,
+      "Maximum size of the prefix lookup table. Default: " + JellyOptions.BIG_STRICT.getMaxPrefixTableSize,
     )
-    `opt.maxPrefixTableSize`: Int = JellyOptions.bigStrict.maxPrefixTableSize,
+    `opt.maxPrefixTableSize`: Int = JellyOptions.BIG_STRICT.getMaxPrefixTableSize,
     @HelpMessage(
-      "Maximum size of the datatype lookup table. Default: " + JellyOptions.bigStrict.maxDatatypeTableSize,
+      "Maximum size of the datatype lookup table. Default: " + JellyOptions.BIG_STRICT.getMaxDatatypeTableSize,
     )
-    `opt.maxDatatypeTableSize`: Int = JellyOptions.bigStrict.maxDatatypeTableSize,
+    `opt.maxDatatypeTableSize`: Int = JellyOptions.BIG_STRICT.getMaxDatatypeTableSize,
     @HelpMessage(
       "Physical stream type. One of: TRIPLES, QUADS, GRAPHS. " +
         "Default: either TRIPLES or QUADS, depending on the input format.",
@@ -50,7 +51,9 @@ case class RdfJellySerializationOptions(
           "https://w3id.org/stax/ontology#" + wordSeq.mkString + "Stream"
         case _ => "" // invalid IRI, we'll catch it in the next step
       }
-    val logicalType = logicalIri.flatMap(LogicalStreamTypeFactory.fromOntologyIri)
+    val logicalType = logicalIri.flatMap({ iri =>
+      Option(LogicalStreamTypeUtils.fromOntologyIri(iri))
+    })
     if logicalIri.isDefined && logicalType.isEmpty then
       throw InvalidArgument(
         "--opt.logical-type",
@@ -68,13 +71,12 @@ case class RdfJellySerializationOptions(
           Some("Physical type must be one of: TRIPLES, QUADS, GRAPHS"),
         )
       case None => PhysicalStreamType.UNSPECIFIED
-    RdfStreamOptions(
-      streamName = `opt.streamName`,
-      generalizedStatements = `opt.generalizedStatements`,
-      rdfStar = `opt.rdfStar`,
-      maxNameTableSize = `opt.maxNameTableSize`,
-      maxPrefixTableSize = `opt.maxPrefixTableSize`,
-      maxDatatypeTableSize = `opt.maxDatatypeTableSize`,
-      physicalType = physicalType,
-      logicalType = logicalType.getOrElse(LogicalStreamType.UNSPECIFIED),
-    )
+    RdfStreamOptions.newInstance()
+      .setStreamName(`opt.streamName`)
+      .setGeneralizedStatements(`opt.generalizedStatements`)
+      .setRdfStar(`opt.rdfStar`)
+      .setMaxNameTableSize(`opt.maxNameTableSize`)
+      .setMaxPrefixTableSize(`opt.maxPrefixTableSize`)
+      .setMaxDatatypeTableSize(`opt.maxDatatypeTableSize`)
+      .setPhysicalType(physicalType)
+      .setLogicalType(logicalType.getOrElse(LogicalStreamType.UNSPECIFIED))

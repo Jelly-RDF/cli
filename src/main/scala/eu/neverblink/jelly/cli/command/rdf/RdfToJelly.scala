@@ -1,12 +1,15 @@
 package eu.neverblink.jelly.cli.command.rdf
 
 import caseapp.*
+import com.google.protobuf.TextFormat
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
-import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, RdfStreamFrame, RdfStreamOptions}
+import eu.neverblink.jelly.convert.jena.JenaConverterFactory
+import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
+import eu.neverblink.jelly.core.proto.google.v1 as google
+import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamOptions}
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
@@ -102,25 +105,27 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
     val jellyOpt = getOptions.jellySerializationOptions.asRdfStreamOptions
     // Configure the writer
     val jellyWriter =
-      if jellyOpt.physicalType.isGraphs then
+      if jellyOpt.getPhysicalType == PhysicalStreamType.GRAPHS then
         // GRAPHS
         JellyStreamWriterGraphs(
-          JellyFormatVariant(
-            // By default, set the logical stream type to FLAT_QUADS (this is what JellyStreamWriter
-            // in jelly-jena does for physical type QUADS).
-            opt = jellyOpt.withLogicalType(
-              if jellyOpt.logicalType.isUnspecified then LogicalStreamType.FLAT_QUADS
-              else jellyOpt.logicalType,
-            ),
-            frameSize = getOptions.rowsPerFrame,
-            enableNamespaceDeclarations = getOptions.enableNamespaceDeclarations,
-            delimited = getOptions.delimited,
-          ),
+          JellyFormatVariant
+            .builder()
+            .options(
+              jellyOpt.clone.setLogicalType(
+                if jellyOpt.getLogicalType == LogicalStreamType.UNSPECIFIED then
+                  LogicalStreamType.FLAT_QUADS
+                else jellyOpt.getLogicalType,
+              ),
+            )
+            .frameSize(getOptions.rowsPerFrame)
+            .enableNamespaceDeclarations(getOptions.enableNamespaceDeclarations)
+            .isDelimited(getOptions.delimited)
+            .build(),
           out = outputStream,
         )
       else
         // TRIPLES or QUADS
-        if jellyOpt.physicalType.isUnspecified then
+        if jellyOpt.getPhysicalType == PhysicalStreamType.UNSPECIFIED then
           if !isQuietMode && isLogicalGrouped(jellyOpt) then
             printLine(
               "WARNING: Logical type setting ignored because physical type is not set. " +
@@ -145,13 +150,14 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           )
         else
           // If the physical type is specified, we can just construct the writer
-          val variant = JellyFormatVariant(
-            opt = jellyOpt,
-            frameSize = getOptions.rowsPerFrame,
-            enableNamespaceDeclarations = getOptions.enableNamespaceDeclarations,
-            delimited = getOptions.delimited,
-          )
-          JellyStreamWriter(variant, outputStream)
+          val variant = JellyFormatVariant
+            .builder()
+            .options(jellyOpt)
+            .frameSize(getOptions.rowsPerFrame)
+            .enableNamespaceDeclarations(getOptions.enableNamespaceDeclarations)
+            .isDelimited(getOptions.delimited)
+            .build()
+          JellyStreamWriter(JenaConverterFactory.getInstance(), variant, outputStream)
 
     RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)
 
@@ -172,7 +178,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
     Using.resource(InputStreamReader(inputStream)) { r1 =>
       Using.resource(BufferedReader(r1)) { reader =>
         jellyTextStreamAsFrames(reader)
-          .map(txt => RdfStreamFrame.fromAscii(txt))
+          .map(txt => TextFormat.parse(txt, classOf[google.RdfStreamFrame]))
           .foreach(frame => {
             if getOptions.delimited then frame.writeDelimitedTo(outputStream)
             else frame.writeTo(outputStream)
@@ -189,7 +195,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
   private def isLogicalGrouped(
       jellyOpt: RdfStreamOptions,
   ): Boolean =
-    !(jellyOpt.logicalType.isFlatQuads || jellyOpt.logicalType.isFlatTriples || jellyOpt.logicalType.isUnspecified)
+    !(jellyOpt.getLogicalType == LogicalStreamType.FLAT_QUADS || jellyOpt.getLogicalType == LogicalStreamType.FLAT_TRIPLES || jellyOpt.getLogicalType == LogicalStreamType.UNSPECIFIED)
 
   /** Iterate over a Jelly text stream and return the frames as strings to be parsed.
     * @param reader

@@ -3,11 +3,12 @@ package eu.neverblink.jelly.cli.command.rdf
 import eu.neverblink.jelly.cli.{ExitException, JellyTranscodingError}
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
 import eu.neverblink.jelly.cli.command.rdf.util.{JellyUtil, RdfJellySerializationOptions}
-import eu.ostrzyciel.jelly.core.proto.v1.*
+import eu.neverblink.jelly.core.proto.v1.*
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{ByteArrayInputStream, FileInputStream}
+import scala.jdk.CollectionConverters.*
 
 class RdfTranscodeSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
   protected val testCardinality: Int = 36
@@ -16,15 +17,15 @@ class RdfTranscodeSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
 
   private def checkOutputWithDefaultOptions(b: Array[Byte]): Unit =
     val outF = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(b))
-    outF.get.rows.size should be > 36
-    val opt = outF.get.rows.head.row.options
-    opt.physicalType should be(PhysicalStreamType.TRIPLES)
-    opt.logicalType should be(LogicalStreamType.FLAT_TRIPLES)
-    opt.maxNameTableSize should be(defaultOpt.maxNameTableSize)
-    opt.maxPrefixTableSize should be(defaultOpt.maxPrefixTableSize)
-    opt.maxDatatypeTableSize should be(defaultOpt.maxDatatypeTableSize)
-    opt.rdfStar should be(defaultOpt.rdfStar)
-    opt.generalizedStatements should be(defaultOpt.generalizedStatements)
+    outF.getRows.size should be > 36
+    val opt = outF.getRows.asScala.head.getOptions
+    opt.getPhysicalType should be(PhysicalStreamType.TRIPLES)
+    opt.getLogicalType should be(LogicalStreamType.FLAT_TRIPLES)
+    opt.getMaxNameTableSize should be(defaultOpt.getMaxNameTableSize)
+    opt.getMaxPrefixTableSize should be(defaultOpt.getMaxPrefixTableSize)
+    opt.getMaxDatatypeTableSize should be(defaultOpt.getMaxDatatypeTableSize)
+    opt.getRdfStar should be(defaultOpt.getRdfStar)
+    opt.getGeneralizedStatements should be(defaultOpt.getGeneralizedStatements)
 
   "rdf transcode command" should {
     "transcode input file with no additional options" in withFullJellyFile { j =>
@@ -59,7 +60,7 @@ class RdfTranscodeSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       val outFrames = JellyUtil.iterateRdfStream(ByteArrayInputStream(outB)).toSeq
       outFrames.size should be(100)
       outFrames.foreach { f =>
-        f.rows.size should be >= testCardinality
+        f.getRows.size should be >= testCardinality
       }
     }
 
@@ -74,12 +75,12 @@ class RdfTranscodeSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         ),
       )
       val outB = RdfTranscode.getOutBytes
-      val f = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(outB)).get
-      f.rows.size should be > testCardinality
-      val opt = f.rows.head.row.options
-      opt.maxPrefixTableSize should be(600)
-      opt.physicalType should be(PhysicalStreamType.TRIPLES)
-      opt.logicalType should be(LogicalStreamType.GRAPHS)
+      val f = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(outB))
+      f.getRows.size should be > testCardinality
+      val opt = f.getRows.asScala.head.getOptions
+      opt.getMaxPrefixTableSize should be(600)
+      opt.getPhysicalType should be(PhysicalStreamType.TRIPLES)
+      opt.getLogicalType should be(LogicalStreamType.GRAPHS)
     }
 
     "not allow for output name table size to smaller than the input" in withFullJellyFile { j =>

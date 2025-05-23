@@ -7,7 +7,7 @@ import caseapp.*
 import eu.neverblink.jelly.cli.command.rdf.util.{RdfCommandPrintUtil, RdfFormat}
 
 import scala.reflect.TypeTest
-import eu.ostrzyciel.jelly.core.{RdfProtoDeserializationError, RdfProtoSerializationError}
+import eu.neverblink.jelly.core.{RdfProtoDeserializationError, RdfProtoSerializationError}
 
 import java.io.{InputStream, OutputStream}
 

@@ -3,11 +3,11 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
-import eu.ostrzyciel.jelly.core.RdfProtoError
-import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamOptions
-import eu.ostrzyciel.jelly.core.{JellyOptions, ProtoTranscoder}
+import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, RdfStreamOptions}
+import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory, RdfProtoTranscodingError}
 
 import java.io.{InputStream, OutputStream}
+import scala.jdk.CollectionConverters.*
 
 @HelpMessage(
   "Quickly transcodes the input Jelly file into another Jelly file.\n" +
@@ -44,7 +44,7 @@ object RdfTranscode extends JellyCommand[RdfTranscodeOptions]:
     val (inputStream, outputStream) =
       getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     try jellyToJelly(inputStream, outputStream, outOpt)
-    catch case e: RdfProtoError => throw JellyTranscodingError(e.getMessage)
+    catch case e: RdfProtoTranscodingError => throw JellyTranscodingError(e.getMessage)
 
   /** Transcodes the input Jelly stream into another Jelly stream.
     * @param inputStream
@@ -61,20 +61,19 @@ object RdfTranscode extends JellyCommand[RdfTranscodeOptions]:
   ): Unit =
     val in = JellyUtil.iterateRdfStream(inputStream).buffered
     val head = in.head
-    if head.rows.isEmpty then throw CriticalException("Empty input stream")
-    if !head.rows.head.row.isOptions then
+    if head.getRows.asScala.isEmpty then throw CriticalException("Empty input stream")
+    if !head.getRows.asScala.head.hasOptions then
       throw CriticalException("First input row is not an options row")
-    val inOpt = head.rows.head.row.options
+    val inOpt = head.getRows.asScala.head.getOptions
 
-    val transcoder = ProtoTranscoder.fastMergingTranscoder(
-      supportedInputOptions = JellyOptions.defaultSupportedOptions,
-      outputOptions = outOpt.copy(
-        // There is no way to specify the physical type with options currently.
-        // Just use the one from the input.
-        physicalType = inOpt.physicalType,
-        logicalType =
-          if outOpt.logicalType.isUnspecified then inOpt.logicalType else outOpt.logicalType,
-      ),
+    val transcoder = JellyTranscoderFactory.fastMergingTranscoder(
+      JellyOptions.DEFAULT_SUPPORTED_OPTIONS,
+      outOpt.clone()
+        .setPhysicalType(inOpt.getPhysicalType)
+        .setLogicalType(
+          if outOpt.getLogicalType == LogicalStreamType.UNSPECIFIED then inOpt.getLogicalType
+          else outOpt.getLogicalType,
+        ),
     )
 
     in.map(transcoder.ingestFrame)

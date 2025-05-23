@@ -4,8 +4,8 @@ import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
-import eu.ostrzyciel.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
-import eu.ostrzyciel.jelly.core.{JellyOptions, ProtoTranscoder}
+import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
+import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
 import org.apache.jena.riot.RDFLanguages
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,13 +23,12 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
   // Make a test input stream with 10 frames... all are the same, but it doesn't matter
   private val input10Frames: Array[Byte] = {
     val j1 = DataGenHelper.generateJellyBytes(testCardinality)
-    val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1)).get
+    val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1))
     val os = ByteArrayOutputStream()
     // Need to use the transcoder to make sure the lookup IDs are correct
-    val transcoder = ProtoTranscoder.fastMergingTranscoderUnsafe(
-      outputOptions = JellyOptions.bigGeneralized.withPhysicalType(
-        PhysicalStreamType.TRIPLES,
-      ),
+    val transcoder = JellyTranscoderFactory.fastMergingTranscoderUnsafe(
+      JellyOptions.BIG_GENERALIZED.clone
+        .setPhysicalType(PhysicalStreamType.TRIPLES),
     )
     for _ <- 0 until 10 do transcoder.ingestFrame(f1).writeDelimitedTo(os)
     os.toByteArray
@@ -147,7 +146,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         val outString = """# Frame 0
                           |rows {
                           |  options {
-                          |    stream_name: ""
                           |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
                           |    generalized_statements: true
                           |    rdf_star: true
@@ -182,7 +180,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
             """# Frame 0
               |rows {
               |  options {
-              |    stream_name: ""
               |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
               |    generalized_statements: true
               |    rdf_star: true

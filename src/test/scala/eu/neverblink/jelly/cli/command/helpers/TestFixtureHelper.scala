@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.command.helpers
 
 import eu.neverblink.jelly.cli.util.jena.riot.CliRiot
-import eu.ostrzyciel.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
+import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
 import org.apache.jena.graph.Triple
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFFormat, RDFLanguages}
 import org.apache.jena.sparql.graph.GraphFactory
@@ -101,7 +101,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     val customFormat = new RDFFormat(
       JellyLanguage.JELLY,
-      JellyFormatVariant(frameSize = frameSize),
+      JellyFormatVariant.builder.frameSize(frameSize).build(),
     )
     val model = DataGenHelper.generateTripleModel(testCardinality)
     RDFDataMgr.write(new FileOutputStream(tempFile.toFile), model, customFormat)
