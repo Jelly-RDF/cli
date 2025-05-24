@@ -1,5 +1,6 @@
 package eu.neverblink.jelly.cli.command.rdf
 
+import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.command.helpers.DataGenHelper
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
@@ -53,7 +54,12 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
       println(f"Regions: $regions")
       println("Throwing last error if found...")
       result.filter(_.isRight).lastOption match
-        case Some(Right(e)) => throw e
+        case Some(Right(e)) =>
+          e match
+            case e2: InvalidProtocolBufferException =>
+              println(e2.getUnfinishedMessage.toString)
+              throw e
+            case _ => throw e
         case _ => // No error to throw, all good
     }
 
