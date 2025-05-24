@@ -113,7 +113,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
     RDFWriter.create()
       .format(customFormat)
-      .context(parserContext)
+      .context(writerContext)
       .source(model)
       .build()
       .output(new FileOutputStream(tempFile.toFile))
