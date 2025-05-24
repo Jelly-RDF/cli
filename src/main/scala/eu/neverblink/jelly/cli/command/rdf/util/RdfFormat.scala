@@ -1,6 +1,6 @@
 package eu.neverblink.jelly.cli.command.rdf.util
 
-import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
+import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
 import org.apache.jena.riot.{Lang, RDFLanguages}
 
 sealed trait RdfFormat:

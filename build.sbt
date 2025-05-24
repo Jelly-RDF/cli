@@ -6,7 +6,7 @@ resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
 lazy val jenaV = "5.3.0"
-lazy val jellyV = "2.10.3"
+lazy val jellyV = "3.0.0"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
@@ -35,7 +35,8 @@ lazy val root = (project in file("."))
       "org.slf4j" % "slf4j-simple" % "2.0.17",
       "org.apache.jena" % "jena-core" % jenaV,
       "org.apache.jena" % "jena-arq" % jenaV,
-      "eu.ostrzyciel.jelly" %% "jelly-jena" % jellyV,
+      "eu.neverblink.jelly" % "jelly-jena" % jellyV,
+      "eu.neverblink.jelly" % "jelly-core-protos-google" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0-M30",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
       "org.yaml" % "snakeyaml" % "2.4" % Test,

@@ -1,7 +1,7 @@
 package eu.neverblink.jelly.cli.util.jena
 
 import eu.neverblink.jelly.cli.CriticalException
-import eu.ostrzyciel.jelly.core.NamespaceDeclaration
+import eu.neverblink.jelly.core.NamespaceDeclaration
 import org.apache.jena.graph.{NodeFactory, Triple}
 import org.apache.jena.sparql.core.Quad
 import org.scalatest.matchers.should.Matchers

@@ -1,11 +1,13 @@
 package eu.neverblink.jelly.cli.command.rdf
 
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
+import eu.neverblink.jelly.cli.command.helpers.RdfAdapter.*
 import eu.neverblink.jelly.cli.{CriticalException, ExitException}
-import eu.ostrzyciel.jelly.convert.jena.JenaConverterFactory
-import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.proto.v1.*
-import eu.ostrzyciel.jelly.core.{JellyOptions, ProtoEncoder, RdfProtoDeserializationError}
+import eu.neverblink.jelly.convert.jena.JenaConverterFactory
+import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
+import eu.neverblink.jelly.core.memory.RowBuffer
+import eu.neverblink.jelly.core.proto.v1.*
+import eu.neverblink.jelly.core.{JellyOptions, ProtoEncoder, RdfProtoDeserializationError}
 import org.apache.jena.graph.{NodeFactory, Triple}
 import org.apache.jena.riot.Lang
 import org.scalatest.matchers.should.Matchers
@@ -13,6 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream}
 import scala.util.Using
+import scala.jdk.CollectionConverters.*
 
 class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
   protected val testCardinality: Int = 37
@@ -43,10 +46,10 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
     )
 
     "validate delimiting" when {
-      val frame = RdfStreamFrame(
+      val frame = rdfStreamFrame(
         Seq(
-          RdfStreamRow(
-            RdfStreamOptions(
+          rdfStreamRow(
+            rdfStreamOptions(
               physicalType = PhysicalStreamType.QUADS,
               maxNameTableSize = 100,
               maxPrefixTableSize = 100,
@@ -124,8 +127,8 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
 
     "validate basic stream structure" when {
       "first row in stream is not options" in {
-        val f = RdfStreamFrame(
-          Seq(RdfStreamRow(RdfGraphStart())),
+        val f = rdfStreamFrame(
+          Seq(rdfStreamRow(rdfGraphStart())),
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
         val e = intercept[ExitException] {
@@ -138,17 +141,19 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "triple used in a QUADS stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallStrict.withPhysicalType(PhysicalStreamType.QUADS).withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_STRICT.clone.setPhysicalType(PhysicalStreamType.QUADS).setVersion(
+                1,
+              ),
             ),
-            RdfStreamRow(RdfNameEntry(value = "a")),
-            RdfStreamRow(
-              RdfTriple(
-                RdfIri(0, 1),
-                RdfIri(0, 1),
-                RdfIri(0, 1),
+            rdfStreamRow(rdfNameEntry(value = "a")),
+            rdfStreamRow(
+              rdfTriple(
+                rdfIri(0, 1),
+                rdfIri(0, 1),
+                rdfIri(0, 1),
               ),
             ),
           ),
@@ -162,53 +167,55 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       val rdfStarTriple = Seq(
-        RdfStreamRow(RdfNameEntry(value = "a")),
-        RdfStreamRow(
-          RdfTriple(
-            RdfIri(0, 1),
-            RdfIri(0, 1),
-            RdfTriple(RdfIri(0, 1), RdfIri(0, 1), RdfIri(0, 1)),
+        rdfStreamRow(rdfNameEntry(value = "a")),
+        rdfStreamRow(
+          rdfTriple(
+            rdfIri(0, 1),
+            rdfIri(0, 1),
+            rdfTriple(rdfIri(0, 1), rdfIri(0, 1), rdfIri(0, 1)),
           ),
         ),
       )
       val generalizedTriple = Seq(
-        RdfStreamRow(RdfNameEntry(value = "a")),
-        RdfStreamRow(
-          RdfTriple(
-            RdfLiteral("aaaa"),
-            RdfIri(0, 1),
-            RdfIri(0, 1),
+        rdfStreamRow(rdfNameEntry(value = "a")),
+        rdfStreamRow(
+          rdfTriple(
+            rdfLiteral("aaaa"),
+            rdfIri(0, 1),
+            rdfIri(0, 1),
           ),
         ),
       )
       val rdfStarQuad = Seq(
-        RdfStreamRow(RdfNameEntry(value = "a")),
-        RdfStreamRow(
-          RdfQuad(
-            RdfIri(0, 1),
-            RdfIri(0, 1),
-            RdfTriple(RdfIri(0, 1), RdfIri(0, 1), RdfIri(0, 1)),
-            RdfIri(0, 1),
+        rdfStreamRow(rdfNameEntry(value = "a")),
+        rdfStreamRow(
+          rdfQuad(
+            rdfIri(0, 1),
+            rdfIri(0, 1),
+            rdfTriple(rdfIri(0, 1), rdfIri(0, 1), rdfIri(0, 1)),
+            rdfIri(0, 1),
           ),
         ),
       )
       val generalizedQuad = Seq(
-        RdfStreamRow(RdfNameEntry(value = "a")),
-        RdfStreamRow(
-          RdfQuad(
-            RdfIri(0, 1),
-            RdfIri(0, 1),
-            RdfIri(0, 1),
-            RdfLiteral("aaaa"),
+        rdfStreamRow(rdfNameEntry(value = "a")),
+        rdfStreamRow(
+          rdfQuad(
+            rdfIri(0, 1),
+            rdfIri(0, 1),
+            rdfIri(0, 1),
+            rdfLiteral("aaaa"),
           ),
         ),
       )
 
       "RDF-star triple used in an RDF-star stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallRdfStar.withPhysicalType(PhysicalStreamType.TRIPLES).withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_RDF_STAR.clone.setPhysicalType(
+                PhysicalStreamType.TRIPLES,
+              ).setVersion(1),
             ),
           ) ++ rdfStarTriple,
         )
@@ -217,10 +224,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "RDF-star triple used in a non-RDF-star stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallStrict.withPhysicalType(PhysicalStreamType.TRIPLES).withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_STRICT.clone.setPhysicalType(
+                PhysicalStreamType.TRIPLES,
+              ).setVersion(1),
             ),
           ) ++ rdfStarTriple,
         )
@@ -233,12 +242,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "generalized triple used in a generalized stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallGeneralized.withPhysicalType(
+            rdfStreamRow(
+              JellyOptions.SMALL_GENERALIZED.clone.setPhysicalType(
                 PhysicalStreamType.TRIPLES,
-              ).withVersion(1),
+              ).setVersion(1),
             ),
           ) ++ generalizedTriple,
         )
@@ -247,10 +256,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "generalized triple used in a non-generalized stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallStrict.withPhysicalType(PhysicalStreamType.TRIPLES).withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_STRICT.clone.setPhysicalType(
+                PhysicalStreamType.TRIPLES,
+              ).setVersion(1),
             ),
           ) ++ generalizedTriple,
         )
@@ -263,10 +274,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "RDF-star quad used in an RDF-star stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallRdfStar.withPhysicalType(PhysicalStreamType.QUADS).withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_RDF_STAR.clone.setPhysicalType(
+                PhysicalStreamType.QUADS,
+              ).setVersion(1),
             ),
           ) ++ rdfStarQuad,
         )
@@ -275,10 +288,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "RDF-star quad used in a non-RDF-star stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallStrict.withPhysicalType(PhysicalStreamType.QUADS).withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_STRICT.clone.setPhysicalType(PhysicalStreamType.QUADS).setVersion(
+                1,
+              ),
             ),
           ) ++ rdfStarQuad,
         )
@@ -291,12 +306,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "generalized quad used in a generalized stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallGeneralized.withPhysicalType(
+            rdfStreamRow(
+              JellyOptions.SMALL_GENERALIZED.clone.setPhysicalType(
                 PhysicalStreamType.QUADS,
-              ).withVersion(1),
+              ).setVersion(1),
             ),
           ) ++ generalizedQuad,
         )
@@ -305,10 +320,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "generalized quad used in a non-generalized stream" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallStrict.withPhysicalType(PhysicalStreamType.QUADS).withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_STRICT.clone.setPhysicalType(PhysicalStreamType.QUADS).setVersion(
+                1,
+              ),
             ),
           ) ++ generalizedQuad,
         )
@@ -321,11 +338,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "repeated stream options (matching)" in {
-        val o = JellyOptions.smallStrict.withPhysicalType(PhysicalStreamType.QUADS).withVersion(1)
-        val f = RdfStreamFrame(
+        val o =
+          JellyOptions.SMALL_STRICT.clone.setPhysicalType(PhysicalStreamType.QUADS).setVersion(1)
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(o),
-            RdfStreamRow(o),
+            rdfStreamRow(o),
+            rdfStreamRow(o),
           ),
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
@@ -333,11 +351,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "repeated stream options (differing)" in {
-        val o = JellyOptions.smallStrict.withPhysicalType(PhysicalStreamType.QUADS).withVersion(1)
-        val f = RdfStreamFrame(
+        val o =
+          JellyOptions.SMALL_STRICT.clone.setPhysicalType(PhysicalStreamType.QUADS).setVersion(1)
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(o),
-            RdfStreamRow(o.withVersion(2)),
+            rdfStreamRow(o),
+            rdfStreamRow(o.clone.setVersion(2)),
           ),
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
@@ -353,10 +372,10 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
 
     "validate options" when {
       "invalid input options supplied, no validation source" in {
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallStrict.withVersion(2),
+            rdfStreamRow(
+              JellyOptions.SMALL_STRICT.clone.setVersion(2),
             ),
           ),
         )
@@ -365,12 +384,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
           RdfValidate.runTestCommand(List("rdf", "validate"))
         }
         e.cause.get shouldBe a[RdfProtoDeserializationError]
-        e.cause.get.getMessage should include("Incoming physical stream type is not set")
+        e.cause.get.getMessage should include("Incoming physical stream type is not recognized.")
       }
 
       "version in options is set to 0" in {
-        val f = RdfStreamFrame(
-          Seq(RdfStreamRow(JellyOptions.smallStrict)),
+        val f = rdfStreamFrame(
+          Seq(rdfStreamRow(JellyOptions.SMALL_STRICT)),
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
         val e = intercept[ExitException] {
@@ -381,13 +400,14 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "same input options supplied as in the validation source" in withFullJellyFile { j =>
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.smallAllFeatures
-                .withPhysicalType(PhysicalStreamType.TRIPLES)
-                .withLogicalType(LogicalStreamType.FLAT_TRIPLES)
-                .withVersion(1),
+            rdfStreamRow(
+              JellyOptions.SMALL_ALL_FEATURES
+                .clone.setPhysicalType(PhysicalStreamType.TRIPLES)
+                .setLogicalType(LogicalStreamType.FLAT_TRIPLES)
+                .setVersion(1)
+                .setStreamName("Stream"),
             ),
           ),
         )
@@ -396,12 +416,12 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "different input options supplied as in the validation source" in withFullJellyFile { j =>
-        val f = RdfStreamFrame(
+        val f = rdfStreamFrame(
           Seq(
-            RdfStreamRow(
-              JellyOptions.bigStrict
-                .withPhysicalType(PhysicalStreamType.TRIPLES)
-                .withVersion(1),
+            rdfStreamRow(
+              JellyOptions.BIG_STRICT
+                .clone.setPhysicalType(PhysicalStreamType.TRIPLES)
+                .setVersion(1),
             ),
           ),
         )
@@ -477,15 +497,16 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         jenaF =>
           withFullJellyFile { jellyF =>
             val frame1 = Using.resource(FileInputStream(jellyF)) { is =>
-              RdfStreamFrame.parseDelimitedFrom(is).get
+              RdfStreamFrame.parseDelimitedFrom(is)
             }
-            val frame2 = RdfStreamFrame(
+            val frame2 = rdfStreamFrame(
               Seq(
-                RdfStreamRow(RdfTriple(RdfLiteral("aaaa"), RdfLiteral("aaaa"), RdfLiteral("aaaa"))),
+                rdfStreamRow(rdfTriple(rdfLiteral("aaaa"), rdfLiteral("aaaa"), rdfLiteral("aaaa"))),
               ),
             )
-            val frames = Seq(RdfStreamFrame(Seq(frame1.rows.head))) :+ frame2 :+ frame1 :++
-              (1 to 10).map { _ => frame2 }
+            val frames =
+              Seq(rdfStreamFrame(Seq(frame1.getRows.asScala.head))) :+ frame2 :+ frame1 :++
+                (1 to 10).map { _ => frame2 }
 
             val b = {
               val os = ByteArrayOutputStream()
@@ -511,11 +532,11 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       "content does not match the reference RDF file, using slices" in withFullJenaFile { jenaF =>
         withFullJellyFile { jellyF =>
           val frame1 = Using.resource(FileInputStream(jellyF)) { is =>
-            RdfStreamFrame.parseDelimitedFrom(is).get
+            RdfStreamFrame.parseDelimitedFrom(is)
           }
           val frames = frame1 +: (1 to 10).map { i =>
-            RdfStreamFrame(
-              Seq(RdfStreamRow(RdfTriple(RdfIri(0, i), RdfIri(0, i), RdfLiteral("aaaa")))),
+            rdfStreamFrame(
+              Seq(rdfStreamRow(rdfTriple(rdfIri(0, i), rdfIri(0, i), rdfLiteral("aaaa")))),
             )
           }
           val b = {
@@ -614,13 +635,17 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
             ),
           ),
         )
-        val enc = JenaConverterFactory.encoder(
-          ProtoEncoder.Params(
-            JellyOptions.smallRdfStar.withPhysicalType(PhysicalStreamType.TRIPLES),
+
+        val buffer = RowBuffer.newLazyImmutable()
+        val enc = JenaConverterFactory.getInstance().encoder(
+          ProtoEncoder.Params.of(
+            JellyOptions.SMALL_RDF_STAR.clone.setPhysicalType(PhysicalStreamType.TRIPLES),
+            true,
+            buffer,
           ),
         )
-        val rows = enc.addTripleStatement(t)
-        val f = RdfStreamFrame(rows.toSeq)
+        enc.handleTriple(t.getSubject, t.getPredicate, t.getObject)
+        val f = rdfStreamFrame(buffer.asScala.toSeq)
         val is = ByteArrayInputStream(f.toByteArray)
         RdfValidate.setStdIn(is)
         val (out, err) = RdfValidate.runTestCommand(List("rdf", "validate"))
@@ -639,13 +664,17 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
           ),
           NodeFactory.createBlankNode(),
         )
-        val enc = JenaConverterFactory.encoder(
-          ProtoEncoder.Params(
-            JellyOptions.smallRdfStar.withPhysicalType(PhysicalStreamType.TRIPLES),
+        val buffer = RowBuffer.newLazyImmutable()
+        val enc = JenaConverterFactory.getInstance().encoder(
+          ProtoEncoder.Params.of(
+            JellyOptions.SMALL_RDF_STAR.clone.setPhysicalType(PhysicalStreamType.TRIPLES),
+            true,
+            buffer,
           ),
         )
-        val rows = enc.addTripleStatement(t)
-        val f = RdfStreamFrame(rows.toSeq)
+
+        enc.handleTriple(t.getSubject, t.getPredicate, t.getObject)
+        val f = rdfStreamFrame(buffer.asScala.toSeq)
         val is = ByteArrayInputStream(f.toByteArray)
         RdfValidate.setStdIn(is)
         val e = intercept[ExitException] {
@@ -664,13 +693,17 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
           ),
         )
         val t = Triple.create(quoted, quoted, quoted)
-        val enc = JenaConverterFactory.encoder(
-          ProtoEncoder.Params(
-            JellyOptions.smallAllFeatures.withPhysicalType(PhysicalStreamType.TRIPLES),
+
+        val buffer = RowBuffer.newLazyImmutable()
+        val enc = JenaConverterFactory.getInstance().encoder(
+          ProtoEncoder.Params.of(
+            JellyOptions.SMALL_ALL_FEATURES.clone.setPhysicalType(PhysicalStreamType.TRIPLES),
+            true,
+            buffer,
           ),
         )
-        val rows = enc.addTripleStatement(t)
-        val f = RdfStreamFrame(rows.toSeq)
+        enc.handleTriple(t.getSubject, t.getPredicate, t.getObject)
+        val f = rdfStreamFrame(buffer.asScala.toSeq)
         val is = ByteArrayInputStream(f.toByteArray)
         RdfValidate.setStdIn(is)
         val (out, err) = RdfValidate.runTestCommand(List("rdf", "validate"))

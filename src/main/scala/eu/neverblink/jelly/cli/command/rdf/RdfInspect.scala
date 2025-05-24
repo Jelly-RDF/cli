@@ -4,7 +4,9 @@ import caseapp.{ArgsName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.{FrameInfo, JellyUtil, MetricsPrinter}
-import eu.ostrzyciel.jelly.core.proto.v1.*
+import eu.neverblink.jelly.core.proto.v1.*
+
+import scala.jdk.CollectionConverters.*
 
 import java.io.InputStream
 @HelpMessage(
@@ -57,8 +59,11 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
         frame: RdfStreamFrame,
         frameIndex: Int,
     ): FrameInfo =
-      val metrics = new FrameInfo(frameIndex, frame.metadata)
-      frame.rows.foreach(r => metricsForRow(r, metrics))
+      val metrics = new FrameInfo(
+        frameIndex,
+        frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap,
+      )
+      frame.getRows.asScala.foreach(r => metricsForRow(r, metrics))
       metrics
 
     try {
@@ -80,7 +85,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
       row: RdfStreamRow,
       metadata: FrameInfo,
   ): Unit =
-    row.row match {
+    row.getRow match {
       case r: RdfTriple => metadata.tripleCount += 1
       case r: RdfQuad => metadata.quadCount += 1
       case r: RdfNameEntry => metadata.nameCount += 1
@@ -102,9 +107,10 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
     */
   private def checkOptions(headFrame: Option[RdfStreamFrame]): RdfStreamOptions =
     if headFrame.isEmpty then throw new RuntimeException("No frames in the stream.")
-    if headFrame.get.rows.isEmpty then throw new RuntimeException("No rows in the frame.")
-    val frameRows = headFrame.get.rows
-    frameRows.head.row match {
+    if headFrame.get.getRows.asScala.isEmpty then
+      throw new RuntimeException("No rows in the frame.")
+    val frameRows = headFrame.get.getRows.asScala
+    frameRows.head.getRow match {
       case r: RdfStreamOptions => r
       case _ => throw new RuntimeException("First row of the frame is not an options row.")
     }

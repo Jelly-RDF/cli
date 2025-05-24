@@ -5,14 +5,18 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
-import eu.ostrzyciel.jelly.convert.jena.JenaConverterFactory
-import eu.ostrzyciel.jelly.core.proto.v1.RdfStreamFrame
-import org.apache.jena.graph.Triple
+import eu.neverblink.jelly.convert.jena.JenaConverterFactory
+import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
+import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
+import eu.neverblink.jelly.core.proto.google.v1 as google
+import org.apache.jena.graph.{Node, Triple}
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.sparql.core.Quad
 
 import java.io.{InputStream, OutputStream}
+import scala.jdk.CollectionConverters.*
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
@@ -89,12 +93,26 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     val writer = StreamRDFWriter.getWriterStream(outputStream, jenaLang)
     // Whether the output is active at this moment
     var outputEnabled = false
-    val decoder = JenaConverterFactory.anyStatementDecoder(
+    val handler = new AnyStatementHandler[Node] {
+      override def handleNamespace(prefix: String, namespace: Node): Unit = {
+        if outputEnabled then writer.prefix(prefix, namespace.getURI)
+      }
+
+      override def handleTriple(subject: Node, predicate: Node, `object`: Node): Unit = {
+        if outputEnabled then writer.triple(Triple.create(subject, predicate, `object`))
+      }
+
+      override def handleQuad(subject: Node, predicate: Node, `object`: Node, graph: Node): Unit = {
+        if outputEnabled then writer.quad(Quad.create(graph, subject, predicate, `object`))
+      }
+    }
+
+    val decoder = JenaConverterFactory.getInstance().anyStatementDecoder(
       // Only pass on the namespaces to the writer if the output is enabled
-      namespaceHandler = (String, Node) => {
-        if outputEnabled then writer.prefix(String, Node.getURI)
-      },
+      handler,
+      JellyOptions.DEFAULT_SUPPORTED_OPTIONS,
     )
+
     val inputFrames = takeFrames.end match
       case Some(end) => JellyUtil.iterateRdfStream(inputStream).take(end)
       case None => JellyUtil.iterateRdfStream(inputStream)
@@ -102,17 +120,13 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     for (frame, i) <- inputFrames.zipWithIndex do
       // If we are not yet in the output range, still fully parse the frame and update the decoder
       // state. We need this to decode the later frames correctly.
-      if i < startFrom then for row <- frame.rows do decoder.ingestRowFlat(row)
+      if i < startFrom then for row <- frame.getRows.asScala do decoder.ingestRow(row)
       else
         // TODO: write frame index as a comment here
         //   https://github.com/Jelly-RDF/cli/issues/4
         outputEnabled = true
         // We are in the output range, so we can start writing the output
-        for row <- frame.rows do
-          decoder.ingestRowFlat(row) match
-            case null => ()
-            case t: Triple => writer.triple(t)
-            case q: Quad => writer.quad(q)
+        for row <- frame.getRows.asScala do decoder.ingestRow(row)
         writer.finish()
 
   /** This method reads the Jelly file, rewrites it to Jelly text and writes it to some output
@@ -128,7 +142,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       // we want to write a comment to the file before each frame
       val comment = f"# Frame $frameIndex\n"
       outputStream.write(comment.getBytes)
-      val frame = f.toProtoString
+      val frame = google.RdfStreamFrame.parseFrom(f.toByteArray).toString
       // the protoString is basically the jelly-txt format already
       outputStream.write(frame.getBytes)
 

@@ -3,9 +3,10 @@ package eu.neverblink.jelly.cli.command.rdf
 import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.cli.*
-import eu.ostrzyciel.jelly.convert.jena.riot.JellyLanguage
-import eu.ostrzyciel.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
-import eu.ostrzyciel.jelly.core.{IoUtils, JellyOptions}
+import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
+import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
+import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
 import org.apache.jena.sparql.core.DatasetGraphFactory
@@ -33,8 +34,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
   def readJellyFile(inputStream: InputStream): Seq[RdfStreamFrame] =
     Using(inputStream) { content =>
       Iterator.continually(RdfStreamFrame.parseDelimitedFrom(content))
-        .takeWhile(_.nonEmpty)
-        .map(_.get)
+        .takeWhile(_ != null)
         .toSeq
     } match {
       case scala.util.Success(value) => value
@@ -48,7 +48,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
         val bytes = RdfToJelly.getOutBytes
         // Make sure it's written in the delimited format
-        IoUtils.autodetectDelimiting(new ByteArrayInputStream(bytes))._1 should be(true)
+        IoUtils.autodetectDelimiting(new ByteArrayInputStream(bytes)).isDelimited should be(true)
         val content = translateJellyBack(ByteArrayInputStream(bytes))
         content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
       }
@@ -118,8 +118,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         for gn <- ds.listGraphNodes().asScala do ds.getGraph(gn).size() should be(testCardinality)
         // Check the logical stream type -- should be the default one
         val frame = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(bytes))
-          .get
-        frame.rows.head.row.options.logicalType should be(LogicalStreamType.FLAT_QUADS)
+        frame.getRows.asScala.head.getOptions.getLogicalType should be(LogicalStreamType.FLAT_QUADS)
       }
 
       "input stream to output stream, GRAPHS stream type, 5 RDF datasets" in {
@@ -152,8 +151,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         for gn <- ds.listGraphNodes().asScala do ds.getGraph(gn).size() should be(testCardinality)
         // Check the logical stream type -- should be DATASETS
         val frame = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(outBytes))
-          .get
-        frame.rows.head.row.options.logicalType should be(LogicalStreamType.DATASETS)
+        frame.getRows.asScala.head.getOptions.getLogicalType should be(LogicalStreamType.DATASETS)
       }
 
       "an input stream to file" in withEmptyJellyFile { j =>
@@ -187,15 +185,15 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val content = translateJellyBack(new FileInputStream(j))
           content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
           val frames = readJellyFile(new FileInputStream(j))
-          val opts = frames.head.rows.head.row.options
-          opts.streamName should be("testName")
-          opts.generalizedStatements should be(false)
-          opts.rdfStar should be(false)
-          opts.maxNameTableSize should be(100)
-          opts.maxPrefixTableSize should be(100)
-          opts.maxDatatypeTableSize should be(100)
-          opts.logicalType should be(LogicalStreamType.FLAT_QUADS)
-          opts.version should be(1)
+          val opts = frames.head.getRows.asScala.head.getOptions
+          opts.getStreamName should be("testName")
+          opts.getGeneralizedStatements should be(false)
+          opts.getRdfStar should be(false)
+          opts.getMaxNameTableSize should be(100)
+          opts.getMaxPrefixTableSize should be(100)
+          opts.getMaxDatatypeTableSize should be(100)
+          opts.getLogicalType should be(LogicalStreamType.FLAT_QUADS)
+          opts.getVersion should be(1)
         }
       }
 
@@ -215,15 +213,15 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val content = translateJellyBack(new FileInputStream(j))
           content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
           val frames = readJellyFile(new FileInputStream(j))
-          val opts = frames.head.rows.head.row.options
-          opts.streamName should be("")
-          opts.generalizedStatements should be(true)
-          opts.rdfStar should be(true)
-          opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
-          opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
-          opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
-          opts.logicalType should be(LogicalStreamType.FLAT_QUADS)
-          opts.version should be(1)
+          val opts = frames.head.getRows.asScala.head.getOptions
+          opts.getStreamName should be("")
+          opts.getGeneralizedStatements should be(true)
+          opts.getRdfStar should be(true)
+          opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
+          opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
+          opts.getMaxDatatypeTableSize should be(JellyOptions.BIG_STRICT.getMaxDatatypeTableSize)
+          opts.getLogicalType should be(LogicalStreamType.FLAT_QUADS)
+          opts.getVersion should be(1)
         }
       }
 
@@ -245,16 +243,16 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             val content = translateJellyBack(new FileInputStream(j))
             content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
             val frames = readJellyFile(new FileInputStream(j))
-            val opts = frames.head.rows.head.row.options
-            opts.streamName should be("")
-            opts.generalizedStatements should be(true)
-            opts.rdfStar should be(true)
-            opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
-            opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
-            opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
-            opts.physicalType should be(PhysicalStreamType.QUADS)
-            opts.logicalType should be(LogicalStreamType.DATASETS)
-            opts.version should be(1)
+            val opts = frames.head.getRows.asScala.head.getOptions
+            opts.getStreamName should be("")
+            opts.getGeneralizedStatements should be(true)
+            opts.getRdfStar should be(true)
+            opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
+            opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
+            opts.getMaxDatatypeTableSize should be(JellyOptions.BIG_STRICT.getMaxDatatypeTableSize)
+            opts.getPhysicalType should be(PhysicalStreamType.QUADS)
+            opts.getLogicalType should be(LogicalStreamType.DATASETS)
+            opts.getVersion should be(1)
           }
       }
 
@@ -278,7 +276,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           for frame <- frames do
             // The encoder may slightly overshoot the target if it needs to pack the lookup entries
             // together with the triple.
-            frame.rows.size should be <= 15
+            frame.getRows.size should be <= 15
         }
       }
 
@@ -301,8 +299,8 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           // N-Quads.
           // TODO: test if the namespace declarations are preserved with Turtle or RDF/XML input.
           val frames = readJellyFile(new FileInputStream(j))
-          val opts = frames.head.rows.head.row.options
-          opts.version should be(2)
+          val opts = frames.head.getRows.asScala.head.getOptions
+          opts.getVersion should be(2)
         }
       }
 
@@ -319,10 +317,10 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 j,
               ),
             )
-          val (delimited, is) = IoUtils.autodetectDelimiting(new FileInputStream(j))
-          delimited should be(false)
-          val frame = RdfStreamFrame.parseFrom(is)
-          frame.rows.size should be > 0
+          val delimitingResponse = IoUtils.autodetectDelimiting(new FileInputStream(j))
+          delimitingResponse.isDelimited should be(false)
+          val frame = RdfStreamFrame.parseFrom(delimitingResponse.newInput)
+          frame.getRows.size should be > 0
         }
       }
     }
@@ -360,16 +358,18 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 DataGenHelper.generateTripleModel(testCardinality).listStatements(),
               )
               val frames = readJellyFile(new FileInputStream(j))
-              val opts = frames.head.rows.head.row.options
-              opts.streamName should be("")
-              opts.generalizedStatements should be(true)
-              opts.rdfStar should be(true)
-              opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
-              opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
-              opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
-              opts.physicalType should be(PhysicalStreamType.TRIPLES)
-              opts.logicalType should be(LogicalStreamType.GRAPHS)
-              opts.version should be(1)
+              val opts = frames.head.getRows.asScala.head.getOptions
+              opts.getStreamName should be("")
+              opts.getGeneralizedStatements should be(true)
+              opts.getRdfStar should be(true)
+              opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
+              opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
+              opts.getMaxDatatypeTableSize should be(
+                JellyOptions.BIG_STRICT.getMaxDatatypeTableSize,
+              )
+              opts.getPhysicalType should be(PhysicalStreamType.TRIPLES)
+              opts.getLogicalType should be(LogicalStreamType.GRAPHS)
+              opts.getVersion should be(1)
             }
           },
           jenaLang = RDFLanguages.NTRIPLES,
@@ -394,15 +394,17 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 DataGenHelper.generateTripleModel(testCardinality).listStatements(),
               )
               val frames = readJellyFile(new FileInputStream(j))
-              val opts = frames.head.rows.head.row.options
-              opts.streamName should be("")
-              opts.generalizedStatements should be(true)
-              opts.rdfStar should be(true)
-              opts.maxNameTableSize should be(JellyOptions.bigStrict.maxNameTableSize)
-              opts.maxPrefixTableSize should be(JellyOptions.bigStrict.maxPrefixTableSize)
-              opts.maxDatatypeTableSize should be(JellyOptions.bigStrict.maxDatatypeTableSize)
-              opts.logicalType should be(LogicalStreamType.FLAT_TRIPLES)
-              opts.version should be(1)
+              val opts = frames.head.getRows.asScala.head.getOptions
+              opts.getStreamName should be("")
+              opts.getGeneralizedStatements should be(true)
+              opts.getRdfStar should be(true)
+              opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
+              opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
+              opts.getMaxDatatypeTableSize should be(
+                JellyOptions.BIG_STRICT.getMaxDatatypeTableSize,
+              )
+              opts.getLogicalType should be(LogicalStreamType.FLAT_TRIPLES)
+              opts.getVersion should be(1)
               RdfToJelly.getErrString should include(
                 "WARNING: Logical type setting ignored because physical type is not set.",
               )
@@ -545,10 +547,10 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 outFile,
               ),
             )
-          val (delimited, is) = IoUtils.autodetectDelimiting(new FileInputStream(outFile))
-          delimited should be(false)
-          val frame = RdfStreamFrame.parseFrom(is)
-          frame.rows.size should be > 0
+          val delimitingResponse = IoUtils.autodetectDelimiting(new FileInputStream(outFile))
+          delimitingResponse.isDelimited should be(false)
+          val frame = RdfStreamFrame.parseFrom(delimitingResponse.newInput)
+          frame.getRows.size should be > 0
         }
       }
 
@@ -565,11 +567,11 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 outFile,
               ),
             )
-          val (delimited, is) = IoUtils.autodetectDelimiting(new FileInputStream(outFile))
-          delimited should be(true)
+          val delimitingResponse = IoUtils.autodetectDelimiting(new FileInputStream(outFile))
+          delimitingResponse.isDelimited should be(true)
           val frames = readJellyFile(new FileInputStream(outFile))
           frames.size should be > testCardinality
-          for frame <- frames do frame.rows.size should be(1)
+          for frame <- frames do frame.getRows.size should be(1)
         }
       }
     }

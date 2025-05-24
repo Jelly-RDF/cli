@@ -3,8 +3,8 @@ package eu.neverblink.jelly.cli.command.rdf
 import com.google.protobuf.ByteString
 import eu.neverblink.jelly.cli.{ExitException, InvalidJellyFile}
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
-import eu.ostrzyciel.jelly.core.JellyOptions
-import eu.ostrzyciel.jelly.core.proto.v1.{RdfStreamFrame, RdfStreamRow}
+import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.proto.v1.{RdfStreamFrame, RdfStreamRow}
 
 import scala.jdk.CollectionConverters.*
 import org.scalatest.matchers.should.Matchers
@@ -74,10 +74,16 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
     )
 
     "print frame metadata in --per-frame" in {
-      val inFrame = RdfStreamFrame(
-        rows = Seq(RdfStreamRow(JellyOptions.bigGeneralized)),
-        metadata = Map("key" -> ByteString.fromHex("1337ff")),
-      )
+      val inFrame = RdfStreamFrame.newInstance()
+        .addRows(
+          RdfStreamRow.newInstance()
+            .setOptions(JellyOptions.BIG_GENERALIZED),
+        )
+        .addMetadata(
+          RdfStreamFrame.MetadataEntry.newInstance()
+            .setKey("key")
+            .setValue(ByteString.fromHex("1337ff")),
+        )
       val inBytes = inFrame.toByteArray
       RdfInspect.setStdIn(ByteArrayInputStream(inBytes))
       val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame"))
