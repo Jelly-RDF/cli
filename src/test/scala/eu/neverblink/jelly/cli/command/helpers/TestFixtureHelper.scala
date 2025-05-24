@@ -105,7 +105,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
       JellyFormatVariant.builder.frameSize(frameSize).build(),
     )
 
-    val parserContext = RIOT.getContext.copy.set(
+    val writerContext = RIOT.getContext.copy.set(
       JellyLanguage.SYMBOL_STREAM_OPTIONS,
       JellyOptions.SMALL_ALL_FEATURES.clone().setStreamName("Stream"),
     )
