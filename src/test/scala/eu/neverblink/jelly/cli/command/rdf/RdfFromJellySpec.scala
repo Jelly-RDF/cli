@@ -146,6 +146,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         val outString = """# Frame 0
                           |rows {
                           |  options {
+                          |    stream_name: "Stream"
                           |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
                           |    generalized_statements: true
                           |    rdf_star: true
@@ -180,6 +181,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
             """# Frame 0
               |rows {
               |  options {
+              |    stream_name: "Stream"
               |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
               |    generalized_statements: true
               |    rdf_star: true

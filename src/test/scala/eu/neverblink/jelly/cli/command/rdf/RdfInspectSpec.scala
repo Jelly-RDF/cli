@@ -82,7 +82,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         .addMetadata(
           RdfStreamFrame.MetadataEntry.newInstance()
             .setKey("key")
-            .setValue(ByteString.copyFromUtf8("1337ff")),
+            .setValue(ByteString.fromHex("1337ff")),
         )
       val inBytes = inFrame.toByteArray
       RdfInspect.setStdIn(ByteArrayInputStream(inBytes))

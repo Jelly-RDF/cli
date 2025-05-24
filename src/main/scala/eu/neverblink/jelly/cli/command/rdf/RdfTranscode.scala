@@ -69,6 +69,8 @@ object RdfTranscode extends JellyCommand[RdfTranscodeOptions]:
     val transcoder = JellyTranscoderFactory.fastMergingTranscoder(
       JellyOptions.DEFAULT_SUPPORTED_OPTIONS,
       outOpt.clone()
+        // There is no way to specify the physical type with options currently.
+        // Just use the one from the input.
         .setPhysicalType(inOpt.getPhysicalType)
         .setLogicalType(
           if outOpt.getLogicalType == LogicalStreamType.UNSPECIFIED then inOpt.getLogicalType

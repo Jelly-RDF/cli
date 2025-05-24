@@ -406,7 +406,8 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
               JellyOptions.SMALL_ALL_FEATURES
                 .clone.setPhysicalType(PhysicalStreamType.TRIPLES)
                 .setLogicalType(LogicalStreamType.FLAT_TRIPLES)
-                .setVersion(1),
+                .setVersion(1)
+                .setStreamName("Stream"),
             ),
           ),
         )

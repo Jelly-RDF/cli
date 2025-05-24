@@ -130,7 +130,7 @@ object MetricsPrinter:
       Some(
         YamlMap(
           metadata.map { case (k, v) =>
-            k -> YamlString(v.toStringUtf8)
+            k -> YamlString(v.toByteArray.map("%02x" format _).mkString)
           }.toSeq*,
         ),
       )
