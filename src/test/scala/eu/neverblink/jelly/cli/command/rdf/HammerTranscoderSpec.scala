@@ -27,7 +27,9 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
               .setPhysicalType(PhysicalStreamType.TRIPLES),
           )
           val frames = Random.nextInt(40) + 3
-          for _ <- 0 until frames do transcoder.ingestFrame(f1).writeDelimitedTo(os)
+          for _ <- 0 until frames do
+            transcoder.ingestFrame(f1).writeDelimitedTo(os)
+            os.flush()
           val bytes = os.toByteArray
           val input = ByteArrayInputStream(bytes)
           val parsed = Iterator.continually(
