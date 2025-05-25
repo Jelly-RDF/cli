@@ -2,8 +2,13 @@ package eu.neverblink.jelly.cli.command.rdf
 
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.command.helpers.DataGenHelper
+import eu.neverblink.jelly.core.internal.BaseJellyOptions.{
+  BIG_DT_TABLE_SIZE,
+  BIG_NAME_TABLE_SIZE,
+  BIG_PREFIX_TABLE_SIZE,
+}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
-import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
+import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame, RdfStreamOptions}
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,7 +27,13 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
         val j1 = DataGenHelper.generateJellyBytes(Random.nextInt(100) + 2)
         val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1))
         val os = ByteArrayOutputStream()
-        val options = JellyOptions.BIG_GENERALIZED.clone
+//        val options = JellyOptions.BIG_GENERALIZED.clone
+//          .setPhysicalType(PhysicalStreamType.TRIPLES)
+        val options = RdfStreamOptions.newInstance
+          .setMaxNameTableSize(BIG_NAME_TABLE_SIZE)
+          .setMaxPrefixTableSize(BIG_PREFIX_TABLE_SIZE)
+          .setMaxDatatypeTableSize(BIG_DT_TABLE_SIZE)
+          .setGeneralizedStatements(true)
           .setPhysicalType(PhysicalStreamType.TRIPLES)
         val transcoder = JellyTranscoderFactory.fastMergingTranscoderUnsafe(
           options,
