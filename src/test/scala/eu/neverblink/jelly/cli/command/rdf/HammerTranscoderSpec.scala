@@ -22,12 +22,14 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
         val j1 = DataGenHelper.generateJellyBytes(Random.nextInt(100) + 2)
         val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1))
         val os = ByteArrayOutputStream()
+        val options = JellyOptions.BIG_GENERALIZED.clone
+          .setPhysicalType(PhysicalStreamType.TRIPLES)
         val transcoder = JellyTranscoderFactory.fastMergingTranscoderUnsafe(
-          JellyOptions.BIG_GENERALIZED.clone
-            .setPhysicalType(PhysicalStreamType.TRIPLES),
+          options,
         )
         val frames = 1
-        for _ <- 0 until frames do transcoder.ingestFrame(f1).writeDelimitedTo(os)
+        val transcoded =
+          for _ <- 0 until frames yield transcoder.ingestFrame(f1).writeDelimitedTo(os)
         val bytes = os.toByteArray
         val input = ByteArrayInputStream(bytes)
         try
@@ -45,6 +47,11 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
               println(f"Error in transcoding $i: ${e.getMessage}")
               println(f"Original:   ${j1.map(b => f"$b%02x").mkString(" ")}")
               println(f"Transcoded: ${bytes.map(b => f"$b%02x").mkString(" ")}")
+              println(f"preset cached size: ${JellyOptions.BIG_GENERALIZED.getCachedSize}")
+              println(f"modified preset cached size: ${options.getCachedSize}")
+              println(
+                f"transcoded cached size: ${transcoded.head.getRows.iterator().next().getCachedSize}",
+              )
               printed = true
 
       println(f"Errors: ${result.count(_.isRight)} of ${result.size}")
