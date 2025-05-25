@@ -27,13 +27,7 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
         val j1 = DataGenHelper.generateJellyBytes(Random.nextInt(100) + 2)
         val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1))
         val os = ByteArrayOutputStream()
-//        val options = JellyOptions.BIG_GENERALIZED.clone
-//          .setPhysicalType(PhysicalStreamType.TRIPLES)
-        val options = RdfStreamOptions.newInstance
-          .setMaxNameTableSize(BIG_NAME_TABLE_SIZE)
-          .setMaxPrefixTableSize(BIG_PREFIX_TABLE_SIZE)
-          .setMaxDatatypeTableSize(BIG_DT_TABLE_SIZE)
-          .setGeneralizedStatements(true)
+        val options = JellyOptions.BIG_GENERALIZED.clone
           .setPhysicalType(PhysicalStreamType.TRIPLES)
         val transcoder = JellyTranscoderFactory.fastMergingTranscoderUnsafe(
           options,
