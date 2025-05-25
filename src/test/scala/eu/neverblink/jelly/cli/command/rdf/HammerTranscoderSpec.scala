@@ -16,22 +16,21 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
   "hammer" should {
     "transcode" in {
       val result = ArrayBuffer[Either[Unit, Throwable]]()
+      var printed = false
 
       for i <- 1 to 10_000 do
+        val j1 = DataGenHelper.generateJellyBytes(Random.nextInt(100) + 2)
+        val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1))
+        val os = ByteArrayOutputStream()
+        val transcoder = JellyTranscoderFactory.fastMergingTranscoderUnsafe(
+          JellyOptions.BIG_GENERALIZED.clone
+            .setPhysicalType(PhysicalStreamType.TRIPLES),
+        )
+        val frames = 1
+        for _ <- 0 until frames do transcoder.ingestFrame(f1).writeDelimitedTo(os)
+        val bytes = os.toByteArray
+        val input = ByteArrayInputStream(bytes)
         try
-          val j1 = DataGenHelper.generateJellyBytes(Random.nextInt(100) + 2)
-          val f1 = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(j1))
-          val os = ByteArrayOutputStream()
-          val transcoder = JellyTranscoderFactory.fastMergingTranscoderUnsafe(
-            JellyOptions.BIG_GENERALIZED.clone
-              .setPhysicalType(PhysicalStreamType.TRIPLES),
-          )
-          val frames = 1
-          for _ <- 0 until frames do
-            transcoder.ingestFrame(f1).writeDelimitedTo(os)
-            os.flush()
-          val bytes = os.toByteArray
-          val input = ByteArrayInputStream(bytes)
           val parsed = Iterator.continually(
             google.RdfStreamFrame.parseDelimitedFrom(input),
           )
@@ -39,7 +38,14 @@ class HammerTranscoderSpec extends AnyWordSpec, Matchers:
             .toSeq
           parsed.size should be(frames)
           result.append(Left(()))
-        catch case e: Throwable => result.append(Right(e))
+        catch
+          case e: Throwable =>
+            result.append(Right(e))
+            if !printed then
+              println(f"Error in transcoding $i: ${e.getMessage}")
+              println(f"Original:   ${j1.map(b => f"$b%02x").mkString(" ")}")
+              println(f"Transcoded: ${bytes.map(b => f"$b%02x").mkString(" ")}")
+              printed = true
 
       println(f"Errors: ${result.count(_.isRight)} of ${result.size}")
       var regions = 0
