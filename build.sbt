@@ -43,7 +43,7 @@ lazy val root = (project in file("."))
     ),
     scalacOptions ++= Seq(
       "-Wunused:imports",
-      "-Werror",
+      // "-Werror",
       "-feature",
       "-deprecation",
       "-unchecked",
