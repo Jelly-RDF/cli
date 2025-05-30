@@ -432,8 +432,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         e.cause.get shouldBe a[CriticalException]
         e.cause.get.getMessage should include("Stream options do not match the expected options")
         e.cause.get.getMessage should include("Stream options do not match the expected options")
-        e.cause.get.getMessage should include(
-          """Expected: stream_name: "Stream"
+        e.cause.get.getMessage should include("""Expected: stream_name: "Stream"
             |physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
             |generalized_statements: true
             |rdf_star: true
@@ -443,8 +442,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
             |logical_type: LOGICAL_STREAM_TYPE_FLAT_TRIPLES
             |version: 1""".stripMargin)
 
-        e.cause.get.getMessage should include(
-          """Actual: physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
+        e.cause.get.getMessage should include("""Actual: physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
             |max_name_table_size: 4000
             |max_prefix_table_size: 150
             |max_datatype_table_size: 32
