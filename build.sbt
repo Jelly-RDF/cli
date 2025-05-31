@@ -7,6 +7,7 @@ resolvers +=
 
 lazy val jenaV = "5.3.0"
 lazy val jellyV = "3.1.0"
+lazy val graalvmV = "24.1.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
@@ -22,7 +23,9 @@ lazy val graalOptions = Seq(
   // Do a fast build if it's a dev build
   // For the release build, optimize for size and make a build report
   if (isDevBuild) Seq("-Ob") else Seq("-Os", "--emit build-report"),
-).flatten
+).flatten ++ Seq(
+  "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature",
+)
 
 lazy val root = (project in file("."))
   .enablePlugins(
@@ -40,6 +43,9 @@ lazy val root = (project in file("."))
       "com.github.alexarchambault" %% "case-app" % "2.1.0-M30",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
       "org.yaml" % "snakeyaml" % "2.4" % Test,
+      // For native-image reflection compatibility
+      "org.graalvm.sdk" % "graal-sdk" % graalvmV % "provided",
+      "org.reflections" % "reflections" % "0.10.2",
     ),
     scalacOptions ++= Seq(
       "-Wunused:imports",
