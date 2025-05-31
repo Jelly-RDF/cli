@@ -123,8 +123,8 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       if streamOptions != o then
         throw CriticalException(
           s"Stream options do not match the expected options in $optionsFileName\n" +
-            s"Expected: $o\n" +
-            s"Actual: $streamOptions",
+            s"Expected: ${StreamOptionsUtil.prettyPrint(o)}\n" +
+            s"Actual: ${StreamOptionsUtil.prettyPrint(streamOptions)}",
         )
       o
     }
