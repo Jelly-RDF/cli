@@ -10,7 +10,7 @@ class ProtobufFeature extends Feature:
   import Feature.*
 
   override def getDescription: String =
-    "Registers Google-style Protobuf classes for refection. Needed for jelly-text support."
+    "Registers Google-style Protobuf classes for reflection. Needed for jelly-text support."
 
   override def beforeAnalysis(access: BeforeAnalysisAccess): Unit =
     val reflections = Reflections("eu.neverblink.jelly.core.proto.google.v1", Scanners.SubTypes)
