@@ -403,7 +403,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               opts.getMaxDatatypeTableSize should be(
                 JellyOptions.BIG_STRICT.getMaxDatatypeTableSize,
               )
-              opts.getLogicalType should be(LogicalStreamType.FLAT_TRIPLES)
+              opts.getLogicalType should be(LogicalStreamType.GRAPHS)
               opts.getVersion should be(1)
               RdfToJelly.getErrString should include(
                 "WARNING: Logical type setting ignored because physical type is not set.",
