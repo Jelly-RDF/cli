@@ -5,13 +5,14 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
+import eu.neverblink.jelly.cli.util.jena.StreamRdfBatchSink
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
 import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import org.apache.jena.graph.{Node, Triple}
-import org.apache.jena.riot.Lang
+import org.apache.jena.riot.system.StreamRDF
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.sparql.core.Quad
 
@@ -58,7 +59,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
   lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Writeable] = RdfFromJellyPrint
 
   val defaultAction: (InputStream, OutputStream) => Unit =
-    jellyToLang(RdfFormat.NQuads.jenaLang, _, _)
+    (in, out) => jellyToLang(in, StreamRDFWriter.getWriterStream(out, RdfFormat.NQuads.jenaLang))
 
   private def takeFrames: IndexRange = IndexRange(getOptions.takeFrames, "--take-frames")
 
@@ -73,7 +74,10 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       format: RdfFormat.Writeable,
   ): Option[(InputStream, OutputStream) => Unit] =
     format match
-      case j: RdfFormat.Jena.Writeable => Some(jellyToLang(j.jenaLang, _, _))
+      case j: RdfFormat.Jena.Writeable =>
+        Some((in, out) => jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang)))
+      case j: RdfFormat.Jena.BatchWriteable =>
+        Some((in, out) => jellyToLang(in, StreamRdfBatchSink(out, j.jenaLang)))
       case RdfFormat.JellyText => Some(jellyBinaryToText)
 
   /** This method reads the Jelly file, rewrites it to specified format and writes it to some output
@@ -86,11 +90,9 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     *   OutputStream
     */
   private def jellyToLang(
-      jenaLang: Lang,
       inputStream: InputStream,
-      outputStream: OutputStream,
+      writer: StreamRDF,
   ): Unit =
-    val writer = StreamRDFWriter.getWriterStream(outputStream, jenaLang)
     // Whether the output is active at this moment
     var outputEnabled = false
     val handler = new AnyStatementHandler[Node] {

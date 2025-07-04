@@ -18,6 +18,7 @@ object RdfFormat:
   object Jena:
     sealed trait Writeable extends Jena, RdfFormat.Writeable
     sealed trait Readable extends Jena, RdfFormat.Readable
+    sealed trait BatchWriteable extends Jena, RdfFormat.Writeable
 
   case object NQuads extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
     override val fullName: String = "N-Quads"
@@ -49,12 +50,12 @@ object RdfFormat:
     override val cliOptions: List[String] = List("jenathrift", "jena-thrift")
     override val jenaLang: Lang = RDFLanguages.RDFTHRIFT
 
-  case object RdfXml extends RdfFormat.Jena.Readable:
+  case object RdfXml extends RdfFormat.Jena.Readable, RdfFormat.Jena.BatchWriteable:
     override val fullName: String = "RDF/XML"
     override val cliOptions: List[String] = List("rdfxml", "rdf-xml")
     override val jenaLang: Lang = RDFLanguages.RDFXML
 
-  case object JsonLd extends RdfFormat.Jena.Readable:
+  case object JsonLd extends RdfFormat.Jena.Readable, RdfFormat.Jena.BatchWriteable:
     override val fullName: String = "JSON-LD"
     override val cliOptions: List[String] = List("jsonld", "json-ld")
     override val jenaLang: Lang = RDFLanguages.JSONLD
