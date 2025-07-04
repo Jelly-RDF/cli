@@ -15,6 +15,7 @@ object Version extends JellyCommand[VersionOptions]:
   override def names: List[List[String]] = List(
     List("version"),
     List("v"),
+    List("--version"),
   )
 
   override def doRun(options: VersionOptions, remainingArgs: RemainingArgs): Unit =
