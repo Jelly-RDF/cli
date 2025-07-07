@@ -16,36 +16,36 @@ object RdfFormat:
     val jenaLang: Lang
 
   object Jena:
-    sealed trait Writeable extends Jena, RdfFormat.Writeable
+    sealed trait StreamWriteable extends Jena, RdfFormat.Writeable
     sealed trait Readable extends Jena, RdfFormat.Readable
     sealed trait BatchWriteable extends Jena, RdfFormat.Writeable
 
-  case object NQuads extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+  case object NQuads extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "N-Quads"
     override val cliOptions: List[String] = List("nq", "nquads")
     override val jenaLang: Lang = RDFLanguages.NQUADS
 
-  case object NTriples extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+  case object NTriples extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "N-Triples"
     override val cliOptions: List[String] = List("nt", "ntriples")
     override val jenaLang: Lang = RDFLanguages.NTRIPLES
 
-  case object Turtle extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+  case object Turtle extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "Turtle"
     override val cliOptions: List[String] = List("ttl", "turtle")
     override val jenaLang: Lang = RDFLanguages.TURTLE
 
-  case object TriG extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+  case object TriG extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "TriG"
     override val cliOptions: List[String] = List("trig")
     override val jenaLang: Lang = RDFLanguages.TRIG
 
-  case object RdfProto extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+  case object RdfProto extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "RDF Protobuf"
     override val cliOptions: List[String] = List("jenaproto", "jena-proto")
     override val jenaLang: Lang = RDFLanguages.RDFPROTO
 
-  case object Thrift extends RdfFormat.Jena.Writeable, RdfFormat.Jena.Readable:
+  case object Thrift extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "RDF Thrift"
     override val cliOptions: List[String] = List("jenathrift", "jena-thrift")
     override val jenaLang: Lang = RDFLanguages.RDFTHRIFT

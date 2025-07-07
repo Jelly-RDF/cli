@@ -74,7 +74,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       format: RdfFormat.Writeable,
   ): Option[(InputStream, OutputStream) => Unit] =
     format match
-      case j: RdfFormat.Jena.Writeable =>
+      case j: RdfFormat.Jena.StreamWriteable =>
         Some((in, out) => jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang)))
       case j: RdfFormat.Jena.BatchWriteable =>
         Some((in, out) => jellyToLang(in, StreamRdfBatchSink(out, j.jenaLang)))
