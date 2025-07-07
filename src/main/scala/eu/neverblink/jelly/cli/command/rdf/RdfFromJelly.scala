@@ -5,7 +5,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
-import eu.neverblink.jelly.cli.util.jena.StreamRdfBatchSink
+import eu.neverblink.jelly.cli.util.jena.StreamRdfBatchWriter
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
@@ -77,7 +77,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       case j: RdfFormat.Jena.StreamWriteable =>
         Some((in, out) => jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang)))
       case j: RdfFormat.Jena.BatchWriteable =>
-        Some((in, out) => jellyToLang(in, StreamRdfBatchSink(out, j.jenaLang)))
+        Some((in, out) => jellyToLang(in, StreamRdfBatchWriter(out, j.jenaLang)))
       case RdfFormat.JellyText => Some(jellyBinaryToText)
 
   /** This method reads the Jelly file, rewrites it to specified format and writes it to some output

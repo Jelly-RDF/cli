@@ -14,7 +14,7 @@ import org.apache.jena.riot.RDFDataMgr
   * everything according to the lang, and emits it to the outputStream. This is meant to be a
   * fallback for non-streaming RDF formats, as it requires all data to be loaded in memory.
   */
-class StreamRdfBatchSink(val outputStream: OutputStream, val lang: Lang) extends StreamRDF:
+class StreamRdfBatchWriter(val outputStream: OutputStream, val lang: Lang) extends StreamRDF:
   private val model: Model = ModelFactory.createDefaultModel()
   private val modelStream: StreamRDF = StreamRDFLib.graph(model.getGraph)
   override def quad(quad: Quad): Unit = modelStream.quad(quad)
