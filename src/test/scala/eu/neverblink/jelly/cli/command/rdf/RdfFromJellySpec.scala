@@ -15,6 +15,8 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Paths}
 import scala.io.Source
 import scala.util.Using
+import org.apache.jena.riot.RDFDataMgr
+import org.apache.jena.rdf.model.ModelFactory
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
@@ -214,6 +216,21 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         out should include("# Frame 4")
         out should include("# Frame 5")
         "rows".r.findAllIn(out).length should be(3 * testCardinality)
+      }
+    }
+
+    for lang <- Seq(RdfFormat.JsonLd, RdfFormat.RdfXml) do
+      s"handle conversion of Jelly binary to ${lang.fullName}" when {
+        "input stream to output stream" in {
+          val input = DataGenHelper.generateJellyInputStream(testCardinality)
+          RdfFromJelly.setStdIn(input)
+          val model = DataGenHelper.generateTripleModel(testCardinality)
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+          )
+          val newModel = ModelFactory.createDefaultModel()
+          RDFDataMgr.read(newModel, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
+          model.isIsomorphicWith(newModel) shouldBe true
       }
     }
 
