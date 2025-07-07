@@ -6,7 +6,6 @@ import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
-import org.apache.jena.riot.RDFLanguages
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -231,8 +230,8 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           val newModel = ModelFactory.createDefaultModel()
           RDFDataMgr.read(newModel, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
           model.isIsomorphicWith(newModel) shouldBe true
+        }
       }
-    }
 
     "throw proper exception" when {
       "input file is not found" in {
@@ -354,34 +353,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           RdfFromJelly.getErrString should include(msg.getMessage)
           exception.code should be(1)
         }
-      }
-
-      "readable but not writable format supplied" in withFullJellyFile { j =>
-        withEmptyJenaFile(
-          testCode = { q =>
-            val exception =
-              intercept[ExitException] {
-                RdfFromJelly.runTestCommand(
-                  List(
-                    "rdf",
-                    "from-jelly",
-                    j,
-                    "--to",
-                    q,
-                    "--out-format",
-                    RdfFormat.RdfXml.cliOptions.head,
-                  ),
-                )
-              }
-            val msg = InvalidFormatSpecified(
-              RdfFormat.RdfXml.cliOptions.head,
-              RdfFromJellyPrint.validFormatsString,
-            )
-            RdfFromJelly.getErrString should include(msg.getMessage)
-            exception.code should be(1)
-          },
-          jenaLang = RDFLanguages.RDFXML,
-        )
       }
 
       "invalid --take-frames argument provided" in {
