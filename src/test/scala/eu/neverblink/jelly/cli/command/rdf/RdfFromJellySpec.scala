@@ -6,7 +6,7 @@ import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
-import org.apache.jena.riot.RDFLanguages
+import org.apache.jena.query.DatasetFactory
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -15,6 +15,8 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Paths}
 import scala.io.Source
 import scala.util.Using
+import org.apache.jena.riot.RDFDataMgr
+import org.apache.jena.rdf.model.ModelFactory
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
@@ -217,6 +219,58 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
     }
 
+    "handle conversion of Jelly binary to various formats" when {
+      for (lang, header) <- Seq(
+          (RdfFormat.JsonLd, "\\{\n {4}\"@graph\":".r),
+          (RdfFormat.RdfXml, "<rdf:RDF".r),
+        )
+      do
+        s"input stream to output ${lang.fullName} stream" in {
+          val input = DataGenHelper.generateJellyInputStream(testCardinality)
+          RdfFromJelly.setStdIn(input)
+          val model = DataGenHelper.generateTripleModel(testCardinality)
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+          )
+          val newModel = ModelFactory.createDefaultModel()
+          RDFDataMgr.read(newModel, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
+          model.isIsomorphicWith(newModel) shouldBe true
+        }
+
+        s"dataset input stream to output ${lang.fullName} stream" in {
+          val input = DataGenHelper.generateJellyInputStreamDataset(2, testCardinality, "")
+          RdfFromJelly.setStdIn(input)
+          val dataset = DataGenHelper.generateDataset(2, testCardinality, "")
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+          )
+          val newDataset = DatasetFactory.create()
+          RDFDataMgr.read(newDataset, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
+          newDataset.isEmpty shouldBe false
+          dataset.getDefaultModel.isIsomorphicWith(newDataset.getDefaultModel) shouldBe true
+          if lang != RdfFormat.RdfXml then
+            dataset.getNamedModel("http://example.org/graph/2").isIsomorphicWith(
+              newDataset.getNamedModel("http://example.org/graph/2"),
+            ) shouldBe true
+        }
+
+        s"multiple frames input stream to output ${lang.fullName} stream without --combine flag" in {
+          RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+          )
+          header.findAllIn(out).length shouldBe 10
+        }
+
+        s"multiple frames input stream to output ${lang.fullName} stream with --combine flag" in {
+          RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--combine", "--out-format", lang.cliOptions.head),
+          )
+          header.findAllIn(out).length shouldBe 1
+        }
+    }
+
     "throw proper exception" when {
       "input file is not found" in {
         val nonExist = "non-existing-file"
@@ -337,34 +391,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           RdfFromJelly.getErrString should include(msg.getMessage)
           exception.code should be(1)
         }
-      }
-
-      "readable but not writable format supplied" in withFullJellyFile { j =>
-        withEmptyJenaFile(
-          testCode = { q =>
-            val exception =
-              intercept[ExitException] {
-                RdfFromJelly.runTestCommand(
-                  List(
-                    "rdf",
-                    "from-jelly",
-                    j,
-                    "--to",
-                    q,
-                    "--out-format",
-                    RdfFormat.RdfXml.cliOptions.head,
-                  ),
-                )
-              }
-            val msg = InvalidFormatSpecified(
-              RdfFormat.RdfXml.cliOptions.head,
-              RdfFromJellyPrint.validFormatsString,
-            )
-            RdfFromJelly.getErrString should include(msg.getMessage)
-            exception.code should be(1)
-          },
-          jenaLang = RDFLanguages.RDFXML,
-        )
       }
 
       "invalid --take-frames argument provided" in {
