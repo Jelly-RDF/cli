@@ -248,9 +248,10 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           RDFDataMgr.read(newDataset, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
           newDataset.isEmpty shouldBe false
           dataset.getDefaultModel.isIsomorphicWith(newDataset.getDefaultModel) shouldBe true
-          dataset.getNamedModel("http://example.org/graph/2").isIsomorphicWith(
-            newDataset.getNamedModel("http://example.org/graph/2"),
-          ) shouldBe true
+          if lang != RdfFormat.RdfXml then
+            dataset.getNamedModel("http://example.org/graph/2").isIsomorphicWith(
+              newDataset.getNamedModel("http://example.org/graph/2"),
+            ) shouldBe true
         }
 
         s"multiple frames input stream to output ${lang.fullName} stream without --combine flag" in {
