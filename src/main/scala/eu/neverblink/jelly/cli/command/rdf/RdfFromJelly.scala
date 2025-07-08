@@ -18,6 +18,7 @@ import org.apache.jena.sparql.core.Quad
 
 import java.io.{InputStream, OutputStream}
 import scala.jdk.CollectionConverters.*
+import eu.neverblink.jelly.cli.util.jena.StreamRdfCombiningBatchWriter
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
@@ -28,7 +29,10 @@ object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
     "If no output file is specified, the output is written to stdout.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
     "Otherwise, the program will exit with code 0.\n" +
-    "Note: this command works in a streaming manner and scales well to large files",
+    "Note: this command works in a streaming manner where possible and scales well to\n" +
+    "large files. Non-streaming formats (e.g. RDF/XML) by default work on a\n" +
+    "frame-by-frame basis, but they can be combined into one object with the\n" +
+    "--combine option.",
 )
 @ArgsName("<file-to-convert>")
 case class RdfFromJellyOptions(
@@ -48,6 +52,11 @@ case class RdfFromJellyOptions(
         IndexRange.helpText,
     )
     takeFrames: String = "",
+    @HelpMessage(
+      "Add to combine the results into one object, when using a non-streaming output format. " +
+        "Ignored otherwise. Take care with input size, as this option will load everything into memory.",
+    )
+    combine: Boolean = false,
 ) extends HasJellyCommandOptions
 
 object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
@@ -73,12 +82,16 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
   override def matchFormatToAction(
       format: RdfFormat.Writeable,
   ): Option[(InputStream, OutputStream) => Unit] =
-    format match
-      case j: RdfFormat.Jena.StreamWriteable =>
+    (format, getOptions.combine) match
+      case (j: RdfFormat.Jena.StreamWriteable, _) =>
         Some((in, out) => jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang)))
-      case j: RdfFormat.Jena.BatchWriteable =>
+      case (j: RdfFormat.Jena.BatchWriteable, true) =>
+        Some((in, out) =>
+          StreamRdfCombiningBatchWriter(out, j.jenaLang).runAndOutput(x => jellyToLang(in, x)),
+        )
+      case (j: RdfFormat.Jena.BatchWriteable, false) =>
         Some((in, out) => jellyToLang(in, StreamRdfBatchWriter(out, j.jenaLang)))
-      case RdfFormat.JellyText => Some(jellyBinaryToText)
+      case (RdfFormat.JellyText, _) => Some(jellyBinaryToText)
 
   /** This method reads the Jelly file, rewrites it to specified format and writes it to some output
     * stream

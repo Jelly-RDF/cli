@@ -24,7 +24,13 @@ class StreamRdfBatchWriter(val outputStream: OutputStream, val lang: Lang) exten
   override def finish(): Unit = writeOutput()
   override def start(): Unit = ()
   def writeOutput(): Unit =
-    if lang == Lang.RDFXML then
-      RDFDataMgr.write(outputStream, dataset.getDefaultModel, lang)
-    else
-      RDFDataMgr.write(outputStream, dataset, lang)
+    if lang == Lang.RDFXML then RDFDataMgr.write(outputStream, dataset.getDefaultModel, lang)
+    else RDFDataMgr.write(outputStream, dataset, lang)
+  def runAndOutput(runnable: StreamRDF => Unit): Unit = {
+    runnable(this)
+    writeOutput()
+  }
+
+class StreamRdfCombiningBatchWriter(outputStream: OutputStream, lang: Lang)
+    extends StreamRdfBatchWriter(outputStream, lang):
+  override def finish(): Unit = ()
