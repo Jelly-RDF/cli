@@ -31,8 +31,8 @@ object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
     "Otherwise, the program will exit with code 0.\n" +
     "Note: this command works in a streaming manner where possible and scales well to\n" +
     "large files. Non-streaming formats (e.g. RDF/XML) by default work on a\n" +
-    "frame-by-frame basis, but they can be combined into one object with the\n" +
-    "--combine option.",
+    "frame-by-frame basis, but they can be combined into one dataset with the\n" +
+    "--combine option. RDF/XML will only serialize the default model.",
 )
 @ArgsName("<file-to-convert>")
 case class RdfFromJellyOptions(
@@ -53,7 +53,7 @@ case class RdfFromJellyOptions(
     )
     takeFrames: String = "",
     @HelpMessage(
-      "Add to combine the results into one object, when using a non-streaming output format. " +
+      "Add to combine the results into one dataset, when using a non-streaming output format. " +
         "Ignored otherwise. Take care with input size, as this option will load everything into memory.",
     )
     combine: Boolean = false,
