@@ -6,6 +6,7 @@ import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
+import org.apache.jena.query.DatasetFactory
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -218,9 +219,13 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
     }
 
-    for lang <- Seq(RdfFormat.JsonLd, RdfFormat.RdfXml) do
-      s"handle conversion of Jelly binary to ${lang.fullName}" when {
-        "input stream to output stream" in {
+    "handle conversion of Jelly binary to various formats" when {
+      for (lang, header) <- Seq(
+          (RdfFormat.JsonLd, "\\{\n {4}\"@graph\":".r),
+          (RdfFormat.RdfXml, "<rdf:RDF".r),
+        )
+      do
+        s"input stream to output ${lang.fullName} stream" in {
           val input = DataGenHelper.generateJellyInputStream(testCardinality)
           RdfFromJelly.setStdIn(input)
           val model = DataGenHelper.generateTripleModel(testCardinality)
@@ -231,7 +236,39 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           RDFDataMgr.read(newModel, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
           model.isIsomorphicWith(newModel) shouldBe true
         }
-      }
+
+        s"dataset input stream to output ${lang.fullName} stream" in {
+          val input = DataGenHelper.generateJellyInputStreamDataset(2, testCardinality, "")
+          RdfFromJelly.setStdIn(input)
+          val dataset = DataGenHelper.generateDataset(2, testCardinality, "")
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+          )
+          val newDataset = DatasetFactory.create()
+          RDFDataMgr.read(newDataset, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
+          newDataset.isEmpty shouldBe false
+          dataset.getDefaultModel.isIsomorphicWith(newDataset.getDefaultModel) shouldBe true
+          dataset.getNamedModel("http://example.org/graph/2").isIsomorphicWith(
+            newDataset.getNamedModel("http://example.org/graph/2"),
+          ) shouldBe true
+        }
+
+        s"multiple frames input stream to output ${lang.fullName} stream without --combine flag" in {
+          RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+          )
+          header.findAllIn(out).length shouldBe 10
+        }
+
+        s"multiple frames input stream to output ${lang.fullName} stream with --combine flag" in {
+          RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+          val (out, err) = RdfFromJelly.runTestCommand(
+            List("rdf", "from-jelly", "--combine", "--out-format", lang.cliOptions.head),
+          )
+          header.findAllIn(out).length shouldBe 1
+        }
+    }
 
     "throw proper exception" when {
       "input file is not found" in {

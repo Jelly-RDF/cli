@@ -148,3 +148,14 @@ object DataGenHelper:
     RDFDataMgr.write(outputStream, dataset, jenaLang)
     val nQuadStream = new ByteArrayInputStream(outputStream.toByteArray)
     nQuadStream
+
+  def generateJellyInputStreamDataset(
+      nGraphs: Int,
+      nTriplesPerGraph: Int,
+      differentiator: String,
+  ): ByteArrayInputStream =
+    val model = generateDataset(nGraphs, nTriplesPerGraph, differentiator)
+    val outputStream = new ByteArrayOutputStream()
+    RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
+    val jellyStream = new ByteArrayInputStream(outputStream.toByteArray)
+    jellyStream
