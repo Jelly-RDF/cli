@@ -99,6 +99,16 @@ java -jar jelly-cli.jar --help
 
 We recommend using the binary distribution, because it has way faster startup times and doesn't require you to install Java.
 
+## GitHub Action
+If you're using `jelly-cli` in your GitHub Action CI/CD workflows, consider using the `jelly-rdf/setup-cli` action ([Marketplace link](https://github.com/marketplace/actions/setup-jelly-cli)). The action will automatically download and install the appropriate binary. Simply run the action before `jelly-cli` usage:
+
+```
+steps:
+  - uses: Jelly-RDF/setup-cli@v1
+    
+  - run: jelly-cli rdf to-jelly input.ttl > output.jelly
+```
+
 ## Developer notes
 
 Run `sbt fixAll` before committing. Your code should be formatted and free of warnings.
