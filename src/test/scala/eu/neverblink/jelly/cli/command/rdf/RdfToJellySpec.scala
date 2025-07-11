@@ -50,7 +50,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         // Make sure it's written in the delimited format
         IoUtils.autodetectDelimiting(new ByteArrayInputStream(bytes)).isDelimited should be(true)
         val content = translateJellyBack(ByteArrayInputStream(bytes))
-        content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        content.containsAll(
+          DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+        ) shouldBe true
       }
 
       "a file to file" in withFullJenaFile { f =>
@@ -58,7 +60,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val (out, err) =
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j, f))
           val content = translateJellyBack(new FileInputStream(j))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         }
       }
 
@@ -71,7 +75,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         )
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val content = translateJellyBack(newIn)
-        content.containsAll(tripleModel.listStatements())
+        content.containsAll(tripleModel.listStatements()) shouldBe true
       }
 
       "input stream to output stream, generalized RDF (N-Triples)" in {
@@ -160,7 +164,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val tripleModel = DataGenHelper.generateTripleModel(testCardinality)
         val (out, err) = RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j))
         val content = translateJellyBack(new FileInputStream(j))
-        content.containsAll(tripleModel.listStatements())
+        content.containsAll(tripleModel.listStatements()) shouldBe true
       }
 
       "a file to file, modified stream options" in withFullJenaFile { f =>
@@ -183,7 +187,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               ),
             )
           val content = translateJellyBack(new FileInputStream(j))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
           val frames = readJellyFile(new FileInputStream(j))
           val opts = frames.head.getRows.asScala.head.getOptions
           opts.getStreamName should be("testName")
@@ -211,7 +217,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               ),
             )
           val content = translateJellyBack(new FileInputStream(j))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
           val frames = readJellyFile(new FileInputStream(j))
           val opts = frames.head.getRows.asScala.head.getOptions
           opts.getStreamName should be("")
@@ -241,7 +249,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 ),
               )
             val content = translateJellyBack(new FileInputStream(j))
-            content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+            content.containsAll(
+              DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+            ) shouldBe true
             val frames = readJellyFile(new FileInputStream(j))
             val opts = frames.head.getRows.asScala.head.getOptions
             opts.getStreamName should be("")
@@ -270,7 +280,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               ),
             )
           val content = translateJellyBack(new FileInputStream(j))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
           val frames = readJellyFile(new FileInputStream(j))
           frames.size should be > 3
           for frame <- frames do
@@ -294,7 +306,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               ),
             )
           val content = translateJellyBack(new FileInputStream(j))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
           // Note: no actual namespace declarations are present in the test data, because it's
           // N-Quads.
           // TODO: test if the namespace declarations are preserved with Turtle or RDF/XML input.
@@ -336,7 +350,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             )
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         }
         "a file to file, physical type set to TRIPLES, logical type to GRAPHS" in withFullJenaFile(
           testCode = { f =>
@@ -356,7 +372,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               val content = translateJellyBack(new FileInputStream(j))
               content.containsAll(
                 DataGenHelper.generateTripleModel(testCardinality).listStatements(),
-              )
+              ) shouldBe true
               val frames = readJellyFile(new FileInputStream(j))
               val opts = frames.head.getRows.asScala.head.getOptions
               opts.getStreamName should be("")
@@ -392,7 +408,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               val content = translateJellyBack(new FileInputStream(j))
               content.containsAll(
                 DataGenHelper.generateTripleModel(testCardinality).listStatements(),
-              )
+              ) shouldBe true
               val frames = readJellyFile(new FileInputStream(j))
               val opts = frames.head.getRows.asScala.head.getOptions
               opts.getStreamName should be("")
@@ -422,7 +438,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           )
         val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
         val content = translateJellyBack(newIn)
-        content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+        content.containsAll(
+          DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+        ) shouldBe true
       }
       "TriG" in withFullJenaFile(
         testCode = { f =>
@@ -430,7 +448,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         },
         jenaLang = RDFLanguages.TRIG,
       )
@@ -442,7 +462,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             )
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         },
         jenaLang = RDFLanguages.RDFPROTO,
       )
@@ -452,7 +474,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             RdfToJelly.runTestCommand(List("rdf", "to-jelly", f))
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         },
         jenaLang = RDFLanguages.RDFTHRIFT,
       )
@@ -464,7 +488,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             )
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         },
         jenaLang = RDFLanguages.RDFXML,
       )
@@ -476,7 +502,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             )
           val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
           val content = translateJellyBack(newIn)
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         },
         jenaLang = RDFLanguages.JSONLD,
       )
@@ -494,7 +522,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               ),
             )
           val content = translateJellyBack(new FileInputStream(outFile))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
           RdfToJelly.getErrString should include("WARNING: The Jelly text format is not stable")
         }
       }
@@ -530,7 +560,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               ),
             )
           val content = translateJellyBack(new FileInputStream(outFile))
-          content.containsAll(DataGenHelper.generateTripleModel(testCardinality).listStatements())
+          content.containsAll(
+            DataGenHelper.generateTripleModel(testCardinality).listStatements(),
+          ) shouldBe true
         }
       }
 

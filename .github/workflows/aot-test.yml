@@ -42,6 +42,9 @@ jobs:
           target/graalvm-native-image/jelly-cli \
             rdf from-jelly --out-format=jsonld out.jelly > out.json && \
             [ -s out.json ]
+          echo '{"@graph":[{"@id":"http://e.org/r","http://e.org/p":{"@value":"v"}}]}' | \
+            target/graalvm-native-image/jelly-cli rdf to-jelly --in-format "jsonld" > jsonld.jelly && \
+            [ -s jsonld.jelly ]
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
