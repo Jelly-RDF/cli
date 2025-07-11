@@ -26,6 +26,7 @@ lazy val graalOptions = Seq(
 ).flatten ++ Seq(
   "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature",
   "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
+  "-H:+AddAllCharsets", // TODO: only add necessary charsets
 )
 
 lazy val root = (project in file("."))
