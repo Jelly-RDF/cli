@@ -160,6 +160,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           JellyStreamWriter(JenaConverterFactory.getInstance(), variant, outputStream)
 
     RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)
+    jellyWriter.finish()
 
   /** Convert Jelly text to Jelly binary.
     * @param inputStream
