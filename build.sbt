@@ -25,6 +25,7 @@ lazy val graalOptions = Seq(
   if (isDevBuild) Seq("-Ob") else Seq("-Os", "--emit build-report"),
 ).flatten ++ Seq(
   "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature",
+  "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
 )
 
 lazy val root = (project in file("."))
