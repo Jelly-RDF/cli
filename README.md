@@ -89,7 +89,7 @@ $ ./jelly-cli rdf validate --help
 
 And use the `--debug` option to get more information about any exceptions you encounter.
 
-## Alternative: JAR builds
+## Alternative installation: JAR builds
 
 If for some reason the binaries wouldn't work for you, or you want to get better performance for large files (see *Performance considerations* below), you can use the JAR build. This build runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the `jelly-cli.jar` file. Then, run it like so:
 
