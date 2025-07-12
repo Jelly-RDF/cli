@@ -89,17 +89,24 @@ $ ./jelly-cli rdf validate --help
 
 And use the `--debug` option to get more information about any exceptions you encounter.
 
-## Alternative installation
+## Alternative: JAR builds
 
-If for some reason the binaries wouldn't work for you, you can use the JAR build. The build runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the `jelly-cli.jar` file. Then, run it like so:
+If for some reason the binaries wouldn't work for you, or you want to get better performance for large files (see *Performance considerations* below), you can use the JAR build. This build runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the `jelly-cli.jar` file. Then, run it like so:
 
 ```shell
 java -jar jelly-cli.jar --help
 ```
 
-We recommend using the binary distribution, because it has way faster startup times and doesn't require you to install Java.
+For most use cases, we recommend using the binary distribution, because it has way faster startup times and doesn't require you to install Java.
+
+### Performance considerations
+
+If you are bulk-converting large amounts of RDF data (>>10M triples), you may want to use the JAR build instead of the pre-compiled binary. With the JAR, your JVM will perform just-in-time compilation, resulting in a better optimized code. The application will take longer to start, but the overall throughput will be better for large files.
+
+For maximum performance, we recommend using a recent JVM (e.g., GraalVM or OpenJDK). In some cases we saw up to 4x better throughput when running the JAR with GraalVM 24 in JIT mode, as compared to the pre-compiled binary.
 
 ## GitHub Action
+
 If you're using `jelly-cli` in your GitHub Action CI/CD workflows, consider using the `jelly-rdf/setup-cli` action ([Marketplace link](https://github.com/marketplace/actions/setup-jelly-cli)). The action will automatically download and install the appropriate binary. Simply run the action before `jelly-cli` usage:
 
 ```
