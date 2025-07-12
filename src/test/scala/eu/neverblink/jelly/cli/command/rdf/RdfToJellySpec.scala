@@ -78,6 +78,25 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         content.containsAll(tripleModel.listStatements()) shouldBe true
       }
 
+      "preserve the original blank node IDs" in {
+        val inputString =
+          """_:b1 <http://a.com/p> _:b2 .
+            |_:b1 <http://a.com/p> _:b3 .
+            |""".stripMargin
+        val input = ByteArrayInputStream(inputString.getBytes)
+        RdfToJelly.setStdIn(input)
+        val (out, err) = RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format", RdfFormat.NQuads.cliOptions.head),
+        )
+        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val content = translateJellyBack(newIn)
+        content.size() should be(2)
+        val statements = content.listStatements().asScala.toSeq
+        statements.flatMap(s => Seq(s.getSubject, s.getObject)).toSet
+          .map(_.asResource().getId.toString)
+          .toSet should be(Set("b1", "b2", "b3"))
+      }
+
       "input stream to output stream, generalized RDF (N-Triples)" in {
         val inputStream = new FileInputStream(getClass.getResource("/generalized.nt").getPath)
         RdfToJelly.setStdIn(inputStream)

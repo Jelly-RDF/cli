@@ -10,6 +10,7 @@ import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamOptions}
+import org.apache.jena.riot.lang.LabelToNode
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
@@ -159,7 +160,10 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
             .build()
           JellyStreamWriter(JenaConverterFactory.getInstance(), variant, outputStream)
 
-    RDFParser.source(inputStream).lang(jenaLang).parse(jellyWriter)
+    RDFParser.source(inputStream)
+      .lang(jenaLang)
+      .labelToNode(LabelToNode.createUseLabelAsGiven())
+      .parse(jellyWriter)
     jellyWriter.finish()
 
   /** Convert Jelly text to Jelly binary.
