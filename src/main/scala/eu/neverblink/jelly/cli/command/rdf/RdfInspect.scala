@@ -84,18 +84,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   private def metricsForRow(
       row: RdfStreamRow,
       metadata: FrameInfo,
-  ): Unit =
-    row.getRow match {
-      case r: RdfTriple => metadata.tripleCount += 1
-      case r: RdfQuad => metadata.quadCount += 1
-      case r: RdfNameEntry => metadata.nameCount += 1
-      case r: RdfPrefixEntry => metadata.prefixCount += 1
-      case r: RdfNamespaceDeclaration => metadata.namespaceCount += 1
-      case r: RdfDatatypeEntry => metadata.datatypeCount += 1
-      case r: RdfGraphStart => metadata.graphStartCount += 1
-      case r: RdfGraphEnd => metadata.graphEndCount += 1
-      case r: RdfStreamOptions => metadata.optionCount += 1
-    }
+  ): Unit = metadata.processStreamRow(row)
 
   /** Checks whether the first frame in the stream contains options and returns them.
     * @param headFrame

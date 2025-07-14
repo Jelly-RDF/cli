@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf.util
 import com.google.protobuf.ByteString
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
-import eu.neverblink.jelly.core.proto.v1.RdfStreamOptions
+import eu.neverblink.jelly.core.proto.v1.*
 
 import java.io.OutputStream
 import scala.language.postfixOps
@@ -35,6 +35,40 @@ final class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString
     this.graphEndCount += other.graphEndCount
     this
   }
+
+  def processStreamRow(row: RdfStreamRow): Unit = row.getRow match {
+    case r: RdfTriple => handleTriple(r)
+    case r: RdfQuad => handleQuad(r)
+    case r: RdfNameEntry => handleNameEntry(r)
+    case r: RdfPrefixEntry => handlePrefixEntry(r)
+    case r: RdfNamespaceDeclaration => handleNamespaceDeclaration(r)
+    case r: RdfDatatypeEntry => handleDatatypeEntry(r)
+    case r: RdfGraphStart => handleGraphStart(r)
+    case r: RdfGraphEnd => handleGraphEnd(r)
+    case r: RdfStreamOptions => handleOption(r)
+  }
+
+  protected def handleTriple(r: RdfTriple): Unit = tripleCount += 1
+  protected def handleQuad(r: RdfQuad): Unit = quadCount += 1
+  protected def handleNameEntry(r: RdfNameEntry): Unit = nameCount += 1
+  protected def handlePrefixEntry(r: RdfPrefixEntry): Unit = prefixCount += 1
+  protected def handleNamespaceDeclaration(r: RdfNamespaceDeclaration): Unit = namespaceCount += 1
+  protected def handleDatatypeEntry(r: RdfDatatypeEntry): Unit = datatypeCount += 1
+  protected def handleGraphStart(r: RdfGraphStart): Unit = graphStartCount += 1
+  protected def handleGraphEnd(r: RdfGraphEnd): Unit = graphEndCount += 1
+  protected def handleOption(r: RdfStreamOptions): Unit = optionCount += 1
+
+  def format(): Seq[(String, Long)] = Seq(
+    ("option_count", optionCount),
+    ("triple_count", tripleCount),
+    ("quad_count", quadCount),
+    ("graph_start_count", graphStartCount),
+    ("graph_end_count", graphEndCount),
+    ("namespace_count", namespaceCount),
+    ("name_count", nameCount),
+    ("prefix_count", prefixCount),
+    ("datatype_count", datatypeCount),
+  )
 
 end FrameInfo
 
@@ -137,17 +171,6 @@ object MetricsPrinter:
 
   private def formatStats(
       frame: FrameInfo,
-  ): Seq[(String, YamlValue)] =
-    Seq(
-      ("option_count", YamlLong(frame.optionCount)),
-      ("triple_count", YamlLong(frame.tripleCount)),
-      ("quad_count", YamlLong(frame.quadCount)),
-      ("graph_start_count", YamlLong(frame.graphStartCount)),
-      ("graph_end_count", YamlLong(frame.graphEndCount)),
-      ("namespace_count", YamlLong(frame.namespaceCount)),
-      ("name_count", YamlLong(frame.nameCount)),
-      ("prefix_count", YamlLong(frame.prefixCount)),
-      ("datatype_count", YamlLong(frame.datatypeCount)),
-    )
+  ): Seq[(String, YamlValue)] = frame.format().map(_ -> YamlLong(_))
 
 end MetricsPrinter
