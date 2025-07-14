@@ -10,7 +10,7 @@ import scala.language.postfixOps
 
 /** This class is used to store the metrics for a single frame
   */
-final class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
+class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
   var frameCount: Long = 1
   var optionCount: Long = 0
   var nameCount: Long = 0
@@ -71,6 +71,86 @@ final class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString
   )
 
 end FrameInfo
+
+class TermDetailInfo:
+  var iriCount: Long = 0
+  var bNodeCount: Long = 0
+  var literalCount: Long = 0
+  var tripleCount: Long = 0
+  var elseCount: Long = 0
+  def handle(o: Object): Unit = o match {
+    case r: RdfIri => iriCount += 1
+    case r: String => bNodeCount += 1 // bnodes are strings
+    case r: RdfLiteral => literalCount += 1
+    case r: RdfTriple => tripleCount += 1
+    case _ => elseCount += 1
+  }
+  def format(): Seq[(String, Long)] = Seq(
+    ("iri_count", iriCount),
+    ("bnode_count", bNodeCount),
+    ("literal_count", literalCount),
+    ("triple_count", tripleCount)
+  )
+
+class GraphDetailInfo:
+  var iriCount: Long = 0
+  var bNodeCount: Long = 0
+  var literalCount: Long = 0
+  var defaultGraphCount: Long = 0
+
+  def handle(o: Object): Unit = o match {
+    case r: RdfIri => iriCount += 1
+    case r: String => bNodeCount += 1 // bnodes are strings
+    case r: RdfLiteral => literalCount += 1
+    case r: RdfDefaultGraph => defaultGraphCount += 1
+  }
+
+  def format(): Seq[(String, Long)] = Seq(
+    ("iri_count", iriCount),
+    ("bnode_count", bNodeCount),
+    ("literal_count", literalCount),
+    ("default_graph_count", defaultGraphCount)
+  )
+
+class TripleDetailInfo:
+  var subjectInfo = TermDetailInfo()
+  var predicateInfo = TermDetailInfo()
+  var objectInfo = TermDetailInfo()
+  def handleTriple(rdfSubject: Object, rdfPredicate: Object, rdfObject: Object): Unit = {
+    subjectInfo.handle(rdfSubject)
+    predicateInfo.handle(rdfPredicate)
+    objectInfo.handle(rdfObject)
+  }
+
+  def format(): Seq[(String, Long)] = subjectInfo.format().map("subject_" ++ _ -> _) ++
+    predicateInfo.format().map("predicate_" ++ _ -> _) ++
+    objectInfo.format().map("object_" ++ _ -> _)
+
+class QuadDetailInfo extends TripleDetailInfo:
+   var graphInfo = GraphDetailInfo()
+   def handleQuad(rdfSubject: Object, rdfPredicate: Object, rdfObject: Object, rdfGraph: Object): Unit = {
+     handleTriple(rdfSubject, rdfPredicate, rdfObject)
+     graphInfo.handle(rdfGraph)
+   }
+   override def format(): Seq[(String, Long)] = super.format() ++ graphInfo.format().map("graph_" ++ _ -> _)
+
+class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString]) extends FrameInfo(frameIndex, metadata):
+  var tripleDetailInfo = TripleDetailInfo()
+  var quadDetailInfo = QuadDetailInfo()
+
+  override def handleTriple(r: RdfTriple): Unit = {
+    super.handleTriple(r)
+    tripleDetailInfo.handleTriple(r.getSubject, r.getPredicate, r.getObject)
+  }
+
+  override def handleQuad(r: RdfQuad): Unit = {
+    super.handleQuad(r)
+    quadDetailInfo.handleQuad(r.getSubject, r.getPredicate, r.getObject, r.getGraph)
+  }
+
+  override def format(): Seq[(String, Long)] = super.format() ++
+    tripleDetailInfo.format().map("triple_"++_ -> _) ++
+    quadDetailInfo.format().map("quad_"++_->_)
 
 object MetricsPrinter:
 

@@ -104,4 +104,15 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       val msg = InvalidJellyFile(RuntimeException("")).getMessage
       exception.getMessage should include(msg)
     }
+
+    "print detailed aggregated metrics (flat)" in withFullJellyFile { j =>
+      val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", j))
+      val yaml = new Yaml()
+      val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+      parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+      val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+      frames.get("triple_subject_iri_count") shouldBe testCardinality
+      frames.get("triple_subject_bnode_count") shouldBe 0
+      frames.get("quad_subject_iri_count") shouldBe 0
+    }
   }

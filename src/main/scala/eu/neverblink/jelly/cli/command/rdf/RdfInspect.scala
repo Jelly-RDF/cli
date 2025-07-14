@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.{ArgsName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.util.{FrameInfo, JellyUtil, MetricsPrinter}
+import eu.neverblink.jelly.cli.command.rdf.util.{FrameDetailInfo, FrameInfo, JellyUtil, MetricsPrinter}
 import eu.neverblink.jelly.core.proto.v1.*
 
 import scala.jdk.CollectionConverters.*
@@ -34,6 +34,10 @@ case class RdfInspectOptions(
         "If true, the statistics are computed and printed separately for each frame in the stream.",
     )
     perFrame: Boolean = false,
+    @HelpMessage(
+      "Control the detailed output",
+    )
+    detail: Boolean = false // Option[String]
 ) extends HasJellyCommandOptions
 
 object RdfInspect extends JellyCommand[RdfInspectOptions]:
@@ -47,19 +51,23 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   override def doRun(options: RdfInspectOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    val (streamOpts, frameIterator) = inspectJelly(inputStream)
+    val (streamOpts, frameIterator) = inspectJelly(inputStream, options.detail)
     if options.perFrame then MetricsPrinter.printPerFrame(streamOpts, frameIterator, outputStream)
     else MetricsPrinter.printAggregate(streamOpts, frameIterator, outputStream)
 
   private def inspectJelly(
       inputStream: InputStream,
+      detail: Boolean,
   ): (RdfStreamOptions, Iterator[FrameInfo]) =
 
     inline def computeMetrics(
         frame: RdfStreamFrame,
         frameIndex: Int,
     ): FrameInfo =
-      val metrics = new FrameInfo(
+      val metrics = if detail then new FrameDetailInfo(
+        frameIndex,
+        frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap,
+      ) else FrameInfo(
         frameIndex,
         frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap,
       )
