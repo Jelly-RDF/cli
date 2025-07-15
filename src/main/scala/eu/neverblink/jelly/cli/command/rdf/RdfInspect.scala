@@ -35,9 +35,9 @@ case class RdfInspectOptions(
     )
     perFrame: Boolean = false,
     @HelpMessage(
-      "Control the detailed output, disabled if not set: flat, node, term",
+      "Control the detailed output",
     )
-    detail: Option[String] = None
+    detail: Boolean = false // Option[String]
 ) extends HasJellyCommandOptions
 
 object RdfInspect extends JellyCommand[RdfInspectOptions]:
@@ -51,17 +51,9 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   override def doRun(options: RdfInspectOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    val formatter = options.detail match {
-      case Some(value) if value == "flat" => MetricsPrinter.flatFormatter
-      case Some(value) if value == "node" => MetricsPrinter.nodeGroupFormatter
-      case Some(value) if value == "term" => MetricsPrinter.termGroupFormatter
-      case Some(value) => throw InvalidArgument("--detail", value, Some("Must be one of 'flat', 'node', 'term'"))
-      case None => MetricsPrinter.flatFormatter
-    }
-    val (streamOpts, frameIterator) = inspectJelly(inputStream, options.detail.isDefined)
-    val metricsPrinter = new MetricsPrinter(formatter)
-    if options.perFrame then metricsPrinter.printPerFrame(streamOpts, frameIterator, outputStream)
-    else metricsPrinter.printAggregate(streamOpts, frameIterator, outputStream)
+    val (streamOpts, frameIterator) = inspectJelly(inputStream, options.detail)
+    if options.perFrame then MetricsPrinter.printPerFrame(streamOpts, frameIterator, outputStream)
+    else MetricsPrinter.printAggregate(streamOpts, frameIterator, outputStream)
 
   private def inspectJelly(
       inputStream: InputStream,
