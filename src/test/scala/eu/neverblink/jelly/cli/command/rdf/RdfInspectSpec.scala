@@ -105,14 +105,96 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       exception.getMessage should include(msg)
     }
 
-    "print detailed aggregated metrics (flat)" in withFullJellyFile { j =>
-      val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", j))
-      val yaml = new Yaml()
-      val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
-      parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
-      val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
-      frames.get("triple_subject_iri_count") shouldBe testCardinality
-      frames.get("triple_subject_bnode_count") shouldBe 0
-      frames.get("quad_subject_iri_count") shouldBe 0
+    "print detailed metrics" when {
+      "aggregating and flat" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "flat", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+          val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+          frames.get("subject_iri_count") shouldBe testCardinality
+          frames.get("subject_bnode_count") shouldBe 0
+        },
+        frameSize = 15,
+      )
+
+      "per frame and flat" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "flat", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.ArrayList[?]]
+          val frames = parsed.get("frames").asInstanceOf[util.ArrayList[Any]]
+          frames.get(0) shouldBe a[util.LinkedHashMap[?, ?]]
+          val frame1 = frames.get(0).asInstanceOf[util.Map[String, Any]]
+          frame1.get("subject_iri_count") shouldBe 6
+          frame1.get("subject_bnode_count") shouldBe 0
+        },
+        frameSize = 15,
+      )
+
+      "aggregating and grouping by node" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "node", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+          val frames = parsed.get("frames").asInstanceOf[util.LinkedHashMap[String, Any]]
+          frames.get("node_details") shouldBe a[util.LinkedHashMap[?, ?]]
+          val nodeDetails = frames.get("node_details").asInstanceOf[util.LinkedHashMap[String, Any]]
+          nodeDetails.get("iri_count") shouldBe testCardinality * 3
+          nodeDetails.get("bnode_count") shouldBe 0
+        },
+        frameSize = 15,
+      )
+
+      "per frame and grouping by node" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "node", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.ArrayList[?]]
+          val frames = parsed.get("frames").asInstanceOf[util.ArrayList[Any]]
+          frames.get(0) shouldBe a[util.LinkedHashMap[?, ?]]
+          val frame1 = frames.get(0).asInstanceOf[util.Map[String, Any]]
+          val nodeDetails = frame1.get("node_details").asInstanceOf[util.LinkedHashMap[String, Any]]
+          nodeDetails.get("iri_count") shouldBe 6 * 3
+          nodeDetails.get("bnode_count") shouldBe 0
+        },
+        frameSize = 15,
+      )
+
+      "aggregating and grouping by term" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "term", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+          val frames = parsed.get("frames").asInstanceOf[util.LinkedHashMap[String, Any]]
+          frames.get("term_details") shouldBe a[util.LinkedHashMap[?, ?]]
+          val nodeDetails = frames.get("term_details").asInstanceOf[util.LinkedHashMap[String, Any]]
+          nodeDetails.get("subject_count") shouldBe testCardinality
+        },
+        frameSize = 15,
+      )
+
+      "per frame and grouping by term" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "term", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.ArrayList[?]]
+          val frames = parsed.get("frames").asInstanceOf[util.ArrayList[Any]]
+          frames.get(0) shouldBe a[util.LinkedHashMap[?, ?]]
+          val frame1 = frames.get(0).asInstanceOf[util.Map[String, Any]]
+          val nodeDetails = frame1.get("term_details").asInstanceOf[util.LinkedHashMap[String, Any]]
+          nodeDetails.get("subject_count") shouldBe 6
+        },
+        frameSize = 15,
+      )
     }
   }

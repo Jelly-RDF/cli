@@ -72,36 +72,18 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
 
 end FrameInfo
 
-class TermDetailInfo:
+class NodeDetailInfo:
   var iriCount: Long = 0
   var bNodeCount: Long = 0
   var literalCount: Long = 0
   var tripleCount: Long = 0
-  var elseCount: Long = 0
-  def handle(o: Object): Unit = o match {
-    case r: RdfIri => iriCount += 1
-    case r: String => bNodeCount += 1 // bnodes are strings
-    case r: RdfLiteral => literalCount += 1
-    case r: RdfTriple => tripleCount += 1
-    case _ => elseCount += 1
-  }
-  def format(): Seq[(String, Long)] = Seq(
-    ("iri_count", iriCount),
-    ("bnode_count", bNodeCount),
-    ("literal_count", literalCount),
-    ("triple_count", tripleCount)
-  )
-
-class GraphDetailInfo:
-  var iriCount: Long = 0
-  var bNodeCount: Long = 0
-  var literalCount: Long = 0
   var defaultGraphCount: Long = 0
 
   def handle(o: Object): Unit = o match {
     case r: RdfIri => iriCount += 1
     case r: String => bNodeCount += 1 // bnodes are strings
     case r: RdfLiteral => literalCount += 1
+    case r: RdfTriple => tripleCount += 1
     case r: RdfDefaultGraph => defaultGraphCount += 1
   }
 
@@ -109,51 +91,104 @@ class GraphDetailInfo:
     ("iri_count", iriCount),
     ("bnode_count", bNodeCount),
     ("literal_count", literalCount),
-    ("default_graph_count", defaultGraphCount)
+    ("triple_count", tripleCount),
+    ("default_graph_count", defaultGraphCount),
   )
 
-class TripleDetailInfo:
-  var subjectInfo = TermDetailInfo()
-  var predicateInfo = TermDetailInfo()
-  var objectInfo = TermDetailInfo()
-  def handleTriple(rdfSubject: Object, rdfPredicate: Object, rdfObject: Object): Unit = {
-    subjectInfo.handle(rdfSubject)
-    predicateInfo.handle(rdfPredicate)
-    objectInfo.handle(rdfObject)
+  def +=(other: NodeDetailInfo): NodeDetailInfo = {
+    this.iriCount += other.iriCount
+    this.bNodeCount += other.bNodeCount
+    this.literalCount += other.literalCount
+    this.tripleCount += other.tripleCount
+    this.defaultGraphCount += other.defaultGraphCount
+    this
   }
 
-  def format(): Seq[(String, Long)] = subjectInfo.format().map("subject_" ++ _ -> _) ++
-    predicateInfo.format().map("predicate_" ++ _ -> _) ++
-    objectInfo.format().map("object_" ++ _ -> _)
-
-class QuadDetailInfo extends TripleDetailInfo:
-   var graphInfo = GraphDetailInfo()
-   def handleQuad(rdfSubject: Object, rdfPredicate: Object, rdfObject: Object, rdfGraph: Object): Unit = {
-     handleTriple(rdfSubject, rdfPredicate, rdfObject)
-     graphInfo.handle(rdfGraph)
-   }
-   override def format(): Seq[(String, Long)] = super.format() ++ graphInfo.format().map("graph_" ++ _ -> _)
+  def total(): Long = iriCount
+    + bNodeCount
+    + literalCount
+    + tripleCount
+    + defaultGraphCount
 
 class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString]) extends FrameInfo(frameIndex, metadata):
-  var tripleDetailInfo = TripleDetailInfo()
-  var quadDetailInfo = QuadDetailInfo()
+  var subjectInfo = new NodeDetailInfo()
+  var predicateInfo = new NodeDetailInfo()
+  var objectInfo = new NodeDetailInfo()
+  var graphInfo = new NodeDetailInfo()
+
+  override def +=(other: FrameInfo): FrameInfo = {
+    super.+=(other)
+    (this, other) match {
+      case (tthis: FrameDetailInfo, oother: FrameDetailInfo) =>
+        tthis.subjectInfo += oother.subjectInfo
+        tthis.predicateInfo += oother.predicateInfo
+        tthis.objectInfo += oother.objectInfo
+        tthis.graphInfo += oother.graphInfo
+      case _ =>
+    }
+    this
+  }
 
   override def handleTriple(r: RdfTriple): Unit = {
     super.handleTriple(r)
-    tripleDetailInfo.handleTriple(r.getSubject, r.getPredicate, r.getObject)
+    if r.hasSubject then subjectInfo.handle(r.getSubject)
+    if r.hasPredicate then predicateInfo.handle(r.getPredicate)
+    if r.hasObject then objectInfo.handle(r.getObject)
   }
 
   override def handleQuad(r: RdfQuad): Unit = {
     super.handleQuad(r)
-    quadDetailInfo.handleQuad(r.getSubject, r.getPredicate, r.getObject, r.getGraph)
+    if r.hasSubject then subjectInfo.handle(r.getSubject)
+    if r.hasPredicate then predicateInfo.handle(r.getPredicate)
+    if r.hasObject then objectInfo.handle(r.getObject)
+    if r.hasGraph then graphInfo.handle(r.getGraph)
   }
 
-  override def format(): Seq[(String, Long)] = super.format() ++
-    tripleDetailInfo.format().map("triple_"++_ -> _) ++
-    quadDetailInfo.format().map("quad_"++_->_)
+  def formatFlat(): Seq[(String, Long)] =
+    subjectInfo.format().map("subject_"++_->_) ++
+    predicateInfo.format().map("predicate_"++_->_) ++
+    objectInfo.format().map("object_"++_->_) ++
+    graphInfo.format().map("graph_"++_->_)
+
+  def formatGroupByNode(): Seq[(String, Long)] =
+    val out = new NodeDetailInfo()
+    out += subjectInfo
+    out += predicateInfo
+    out += objectInfo
+    out += graphInfo
+    out.format()
+
+  def formatGroupByTerm(): Seq[(String, Long)] = Seq(
+    "subject_count" -> subjectInfo.total(),
+    "predicate_count" -> predicateInfo.total(),
+    "object_count" -> objectInfo.total(),
+    "graph_count" -> graphInfo.total()
+  )
+
+type Formatter = FrameInfo => Seq[(String, YamlValue)]
+type DetailFormatter = FrameDetailInfo => Seq[(String, YamlValue)]
 
 object MetricsPrinter:
+  private def withFallback(formatter: DetailFormatter): Formatter =
+    {
+      case frame@(detailInfo: FrameDetailInfo) =>
+        frame.format().map(_ -> YamlLong(_)) ++ formatter(detailInfo)
+      case frame@(frameInfo: FrameInfo) => frame.format().map(_ -> YamlLong(_))
+    }
 
+  val flatFormatter: Formatter = withFallback(detailInfo => {
+    detailInfo.formatFlat().map(_ -> YamlLong(_))
+  })
+
+  val termGroupFormatter: Formatter = withFallback(detailInfo => {
+    Seq("term_details" -> YamlMap(detailInfo.formatGroupByTerm().map(_ -> YamlLong(_))*))
+  })
+
+  val nodeGroupFormatter: Formatter = withFallback(detailInfo => {
+    Seq("node_details" -> YamlMap(detailInfo.formatGroupByNode().map(_ -> YamlLong(_))*))
+  })
+
+class MetricsPrinter(val formatter: Formatter):
   def printPerFrame(
       options: RdfStreamOptions,
       iterator: Iterator[FrameInfo],
@@ -251,6 +286,6 @@ object MetricsPrinter:
 
   private def formatStats(
       frame: FrameInfo,
-  ): Seq[(String, YamlValue)] = frame.format().map(_ -> YamlLong(_))
+  ): Seq[(String, YamlValue)] = this.formatter(frame)
 
 end MetricsPrinter
