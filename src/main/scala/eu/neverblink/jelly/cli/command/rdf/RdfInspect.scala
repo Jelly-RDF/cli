@@ -57,9 +57,9 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     val formatter = options.detail match {
-      case Some(value) if value == "flat" => MetricsPrinter.flatFormatter
-      case Some(value) if value == "node" => MetricsPrinter.nodeGroupFormatter
-      case Some(value) if value == "term" => MetricsPrinter.termGroupFormatter
+      case Some("flat") => MetricsPrinter.flatFormatter
+      case Some("node") => MetricsPrinter.nodeGroupFormatter
+      case Some("term") => MetricsPrinter.termGroupFormatter
       case Some(value) =>
         throw InvalidArgument("--detail", value, Some("Must be one of 'flat', 'node', 'term'"))
       case None => MetricsPrinter.flatFormatter
@@ -78,17 +78,10 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
         frame: RdfStreamFrame,
         frameIndex: Int,
     ): FrameInfo =
+      val metadata = frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap
       val metrics =
-        if detail then
-          new FrameDetailInfo(
-            frameIndex,
-            frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap,
-          )
-        else
-          FrameInfo(
-            frameIndex,
-            frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap,
-          )
+        if detail then new FrameDetailInfo(frameIndex, metadata)
+        else FrameInfo(frameIndex, metadata)
       frame.getRows.asScala.foreach(r => metricsForRow(r, metrics))
       metrics
 
