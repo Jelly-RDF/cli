@@ -3,7 +3,12 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.{ArgsName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.util.{FrameDetailInfo, FrameInfo, JellyUtil, MetricsPrinter}
+import eu.neverblink.jelly.cli.command.rdf.util.{
+  FrameDetailInfo,
+  FrameInfo,
+  JellyUtil,
+  MetricsPrinter,
+}
 import eu.neverblink.jelly.core.proto.v1.*
 
 import scala.jdk.CollectionConverters.*
@@ -37,7 +42,7 @@ case class RdfInspectOptions(
     @HelpMessage(
       "Control the detailed output, disabled if not set: flat, node, term",
     )
-    detail: Option[String] = None
+    detail: Option[String] = None,
 ) extends HasJellyCommandOptions
 
 object RdfInspect extends JellyCommand[RdfInspectOptions]:

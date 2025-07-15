@@ -110,7 +110,8 @@ class NodeDetailInfo:
     + tripleCount
     + defaultGraphCount
 
-class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString]) extends FrameInfo(frameIndex, metadata):
+class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString])
+    extends FrameInfo(frameIndex, metadata):
   var subjectInfo = new NodeDetailInfo()
   var predicateInfo = new NodeDetailInfo()
   var objectInfo = new NodeDetailInfo()
@@ -145,10 +146,10 @@ class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString]) exten
   }
 
   def formatFlat(): Seq[(String, Long)] =
-    subjectInfo.format().map("subject_"++_->_) ++
-    predicateInfo.format().map("predicate_"++_->_) ++
-    objectInfo.format().map("object_"++_->_) ++
-    graphInfo.format().map("graph_"++_->_)
+    subjectInfo.format().map("subject_" ++ _ -> _) ++
+      predicateInfo.format().map("predicate_" ++ _ -> _) ++
+      objectInfo.format().map("object_" ++ _ -> _) ++
+      graphInfo.format().map("graph_" ++ _ -> _)
 
   def formatGroupByNode(): Seq[(String, Long)] =
     val out = new NodeDetailInfo()
@@ -162,19 +163,18 @@ class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString]) exten
     "subject_count" -> subjectInfo.total(),
     "predicate_count" -> predicateInfo.total(),
     "object_count" -> objectInfo.total(),
-    "graph_count" -> graphInfo.total()
+    "graph_count" -> graphInfo.total(),
   )
 
 type Formatter = FrameInfo => Seq[(String, YamlValue)]
 type DetailFormatter = FrameDetailInfo => Seq[(String, YamlValue)]
 
 object MetricsPrinter:
-  private def withFallback(formatter: DetailFormatter): Formatter =
-    {
-      case frame@(detailInfo: FrameDetailInfo) =>
-        frame.format().map(_ -> YamlLong(_)) ++ formatter(detailInfo)
-      case frame@(frameInfo: FrameInfo) => frame.format().map(_ -> YamlLong(_))
-    }
+  private def withFallback(formatter: DetailFormatter): Formatter = {
+    case frame @ (detailInfo: FrameDetailInfo) =>
+      frame.format().map(_ -> YamlLong(_)) ++ formatter(detailInfo)
+    case frame @ (frameInfo: FrameInfo) => frame.format().map(_ -> YamlLong(_))
+  }
 
   val flatFormatter: Formatter = withFallback(detailInfo => {
     detailInfo.formatFlat().map(_ -> YamlLong(_))
