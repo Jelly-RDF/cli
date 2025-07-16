@@ -13,7 +13,6 @@ import scala.language.postfixOps
 class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
   var frameCount: Long = 1
   private object count:
-    var a: Long = 0
     var option: Long = 0
     var name: Long = 0
     var namespace: Long = 0
