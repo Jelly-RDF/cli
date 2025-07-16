@@ -195,7 +195,8 @@ object MetricsPrinter:
     val groupedByTerm =
       splitToTriples.groupMap((term, _, _) => term)((_, node, value) => (node, YamlLong(value)))
     val mapOfYamlMaps = groupedByTerm.map(_ -> YamlMap(_*))
-    mapOfYamlMaps.toSeq
+    val order = IndexedSeq("subject", "predicate", "object", "graph")
+    mapOfYamlMaps.toSeq.sorted(using Ordering.by[(String, Any), Int](x => order.indexOf(x._1)))
   })
 
   val termGroupFormatter: Formatter = withFallback(detailInfo => {
