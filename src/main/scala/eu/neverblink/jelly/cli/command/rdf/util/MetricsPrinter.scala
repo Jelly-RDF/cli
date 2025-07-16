@@ -33,6 +33,8 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString])(usi
 ):
   var frameCount: Long = 1
   private object stat:
+    var frame: Long = 0
+    var row: Long = 0
     var option: Long = 0
     var name: Long = 0
     var namespace: Long = 0
@@ -45,6 +47,8 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString])(usi
 
   def +=(other: FrameInfo): FrameInfo = {
     this.frameCount += 1
+    this.stat.frame += other.stat.frame
+    this.stat.row += other.stat.row
     this.stat.option += other.stat.option
     this.stat.name += other.stat.name
     this.stat.namespace += other.stat.namespace
@@ -57,16 +61,24 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString])(usi
     this
   }
 
-  def processStreamRow(row: RdfStreamRow): Unit = row.getRow match {
-    case r: RdfTriple => handleTriple(r)
-    case r: RdfQuad => handleQuad(r)
-    case r: RdfNameEntry => handleNameEntry(r)
-    case r: RdfPrefixEntry => handlePrefixEntry(r)
-    case r: RdfNamespaceDeclaration => handleNamespaceDeclaration(r)
-    case r: RdfDatatypeEntry => handleDatatypeEntry(r)
-    case r: RdfGraphStart => handleGraphStart(r)
-    case r: RdfGraphEnd => handleGraphEnd(r)
-    case r: RdfStreamOptions => handleOption(r)
+  def processFrame(frame: RdfStreamFrame): Unit = {
+    stat.frame += statCollector.measure(frame)
+    frame.getRows.asScala.foreach(r => processStreamRow(r))
+  }
+
+  def processStreamRow(row: RdfStreamRow): Unit = {
+    stat.row += statCollector.measure(row)
+    row.getRow match {
+      case r: RdfTriple => handleTriple(r)
+      case r: RdfQuad => handleQuad(r)
+      case r: RdfNameEntry => handleNameEntry(r)
+      case r: RdfPrefixEntry => handlePrefixEntry(r)
+      case r: RdfNamespaceDeclaration => handleNamespaceDeclaration(r)
+      case r: RdfDatatypeEntry => handleDatatypeEntry(r)
+      case r: RdfGraphStart => handleGraphStart(r)
+      case r: RdfGraphEnd => handleGraphEnd(r)
+      case r: RdfStreamOptions => handleOption(r)
+    }
   }
 
   protected def handleTriple(r: RdfTriple): Unit = stat.triple += statCollector.measure(r)
@@ -85,6 +97,8 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString])(usi
   def format(): Seq[(String, Long)] = {
     val name = statCollector.name()
     Seq(
+      ("frame_" + name, stat.frame),
+      ("row_" + name, stat.frame),
       ("option_" + name, stat.option),
       ("triple_" + name, stat.triple),
       ("quad_" + name, stat.quad),
