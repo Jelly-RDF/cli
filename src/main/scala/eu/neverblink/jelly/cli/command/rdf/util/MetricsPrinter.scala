@@ -1,6 +1,7 @@
 package eu.neverblink.jelly.cli.command.rdf.util
 
-import com.google.protobuf.ByteString
+import com.google.protobuf.{ByteString, CodedOutputStream}
+import scala.jdk.CollectionConverters.*
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
 import eu.neverblink.jelly.core.proto.v1.*
@@ -22,7 +23,7 @@ object FrameInfo:
 
   case object SizeStatistic extends StatisticCollector:
     override def measure(r: ProtoMessage[?]): Long = r.getSerializedSize
-    override def measure(r: String): Long = r.getBytes.length + 1 // Encoded string size + tag
+    override def measure(r: String): Long = CodedOutputStream.computeStringSizeNoTag(r)
     override def name(): String = "size"
 
 /** This class is used to store the metrics for a single frame
