@@ -16,6 +16,8 @@ import java.util
 
 class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
   protected val testCardinality: Int = 33
+  protected val tripleTerms: Seq[String] = Seq("subject", "predicate", "object")
+  protected val tripleNodes: Seq[String] = Seq("iri", "bnode", "literal", "triple")
 
   "rdf inspect command" should {
     "be able to return aggregate of all frames as a valid Yaml" in withFullJellyFile { j =>
@@ -200,9 +202,6 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      val tripleTerms = Seq("subject", "predicate", "object")
-      val tripleNodes = Seq("iri", "bnode", "literal", "triple")
-
       "given complex jelly file (triples)" in withSpecificJellyFile(
         testCode = { jellyF =>
           val (out, err) =
@@ -250,6 +249,132 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           for term <- tripleTerms do
             frames.get(term).get("default_graph_count") == null shouldBe true
           for term <- tripleTerms do frames.get("graph").get("triple_count") == null shouldBe true
+        },
+        fileName = "everythingQuad.jelly",
+      )
+    }
+
+    "print size statistics" when {
+      "aggregating multiple frames" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--size", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+          parsed.get("stream_options") should not be None
+          val options = parsed.get("stream_options").asInstanceOf[java.util.Map[String, Any]]
+          options.get("max_name_table_size") should be(128)
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+          val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+          frames.get("triple_size") should be(16 * testCardinality)
+          frames.get("frame_count") should be(5)
+        },
+        frameSize = 15,
+      )
+
+      "per frame" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--size", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.ArrayList[?]]
+          val frames = parsed.get("frames").asInstanceOf[util.ArrayList[Any]]
+          frames.get(0) shouldBe a[util.LinkedHashMap[String, util.LinkedHashMap[String, ?]]]
+          val frame1 =
+            frames.get(0).asInstanceOf[util.LinkedHashMap[String, Any]]
+          frame1 shouldBe a[util.LinkedHashMap[?, ?]]
+          frame1.get("triple_size") should be(16 * 6)
+        },
+        frameSize = 15,
+      )
+    }
+
+    "print detailed size statistics" when {
+      "aggregating multiple frames" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--size", "--detail", "all", j))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[String, util.LinkedHashMap[String, ?]]]
+          val frames = parsed.get("frames").asInstanceOf[
+            util.LinkedHashMap[String, util.LinkedHashMap[String, Any]],
+          ]
+          frames.get("subject").get("iri_size").asInstanceOf[Int] should be > testCardinality
+          frames.get("subject").get("bnode_size") == null shouldBe true
+        },
+        frameSize = 15,
+      )
+
+      "per frame" in withFullJellyFile(
+        testCode = { j =>
+          val (out, err) =
+            RdfInspect.runTestCommand(
+              List("rdf", "inspect", "--size", "--per-frame", "--detail", "all", j),
+            )
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.ArrayList[?]]
+          val frames = parsed.get("frames").asInstanceOf[util.ArrayList[Any]]
+          frames.get(0) shouldBe a[util.LinkedHashMap[String, util.LinkedHashMap[String, ?]]]
+          val frame1 =
+            frames.get(0).asInstanceOf[util.LinkedHashMap[String, util.LinkedHashMap[String, Any]]]
+          frame1.get("subject").get("iri_size").asInstanceOf[Int] should be > 6
+          frame1.get("subject").get("iri_size").asInstanceOf[Int] should be < 15
+          frame1.get("subject").get("bnode_size") == null shouldBe true
+        },
+        frameSize = 15,
+      )
+
+      "given complex jelly file (triples)" in withSpecificJellyFile(
+        testCode = { jellyF =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--size", "--detail", "all", jellyF))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[String, util.LinkedHashMap[String, ?]]]
+          val frames = parsed.get("frames").asInstanceOf[
+            util.LinkedHashMap[String, util.LinkedHashMap[String, Any]],
+          ]
+          for
+            term <- tripleTerms
+            node <- tripleNodes
+          do frames.get(term).get(s"${node}_size").asInstanceOf[Int] should be > 0
+
+          // Graphs == 0 when doing triples
+          for node <- "default_graph" +: tripleNodes do frames.get("graph") == null shouldBe true
+          // These are illegal
+          for term <- tripleTerms do
+            frames.get(term).get("default_graph_size") == null shouldBe true
+        },
+        fileName = "everythingTriple.jelly",
+      )
+
+      "given complex jelly file (quads)" in withSpecificJellyFile(
+        testCode = { jellyF =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--size", "--detail", "all", jellyF))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[
+            util.LinkedHashMap[String, java.util.LinkedHashMap[String, ?]],
+          ]
+          val frames = parsed.get("frames").asInstanceOf[
+            java.util.LinkedHashMap[String, java.util.LinkedHashMap[String, Any]],
+          ]
+          for
+            term <- tripleTerms
+            node <- tripleNodes
+          do frames.get(term).get(s"${node}_size").asInstanceOf[Int] should be > 0
+          for node <- Seq("iri", "bnode", "literal") do
+            frames.get("graph").get(s"${node}_size").asInstanceOf[Int] should be > 0
+
+          // Default graph is 0 bytes, so it gets omitted in size statistics
+          frames.get("graph").get("default_graph_size") == null shouldBe true
+          // These are illegal
+          for term <- tripleTerms do
+            frames.get(term).get("default_graph_size") == null shouldBe true
+          for term <- tripleTerms do frames.get("graph").get("triple_size") == null shouldBe true
         },
         fileName = "everythingQuad.jelly",
       )

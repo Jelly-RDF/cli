@@ -4,15 +4,34 @@ import com.google.protobuf.ByteString
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
 import eu.neverblink.jelly.core.proto.v1.*
+import eu.neverblink.protoc.java.runtime.ProtoMessage
 
 import java.io.OutputStream
 import scala.language.postfixOps
 
+object FrameInfo:
+  trait StatisticCollector:
+    def measure(r: ProtoMessage[?]): Long
+    def measure(r: String): Long // Needed as bnodes are plain strings
+    def name(): String
+
+  case object CountStatistic extends StatisticCollector:
+    override def measure(r: ProtoMessage[?]): Long = 1
+    override def measure(r: String): Long = 1
+    override def name(): String = "count"
+
+  case object SizeStatistic extends StatisticCollector:
+    override def measure(r: ProtoMessage[?]): Long = r.getSerializedSize
+    override def measure(r: String): Long = r.getBytes.length + 1 // Encoded string size + tag
+    override def name(): String = "size"
+
 /** This class is used to store the metrics for a single frame
   */
-class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
+class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString])(using
+    statCollector: FrameInfo.StatisticCollector,
+):
   var frameCount: Long = 1
-  private object count:
+  private object stat:
     var option: Long = 0
     var name: Long = 0
     var namespace: Long = 0
@@ -25,15 +44,15 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
 
   def +=(other: FrameInfo): FrameInfo = {
     this.frameCount += 1
-    this.count.option += other.count.option
-    this.count.name += other.count.name
-    this.count.namespace += other.count.namespace
-    this.count.triple += other.count.triple
-    this.count.quad += other.count.quad
-    this.count.prefix += other.count.prefix
-    this.count.datatype += other.count.datatype
-    this.count.graphStart += other.count.graphStart
-    this.count.graphEnd += other.count.graphEnd
+    this.stat.option += other.stat.option
+    this.stat.name += other.stat.name
+    this.stat.namespace += other.stat.namespace
+    this.stat.triple += other.stat.triple
+    this.stat.quad += other.stat.quad
+    this.stat.prefix += other.stat.prefix
+    this.stat.datatype += other.stat.datatype
+    this.stat.graphStart += other.stat.graphStart
+    this.stat.graphEnd += other.stat.graphEnd
     this
   }
 
@@ -49,27 +68,33 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
     case r: RdfStreamOptions => handleOption(r)
   }
 
-  protected def handleTriple(r: RdfTriple): Unit = count.triple += 1
-  protected def handleQuad(r: RdfQuad): Unit = count.quad += 1
-  protected def handleNameEntry(r: RdfNameEntry): Unit = count.name += 1
-  protected def handlePrefixEntry(r: RdfPrefixEntry): Unit = count.prefix += 1
-  protected def handleNamespaceDeclaration(r: RdfNamespaceDeclaration): Unit = count.namespace += 1
-  protected def handleDatatypeEntry(r: RdfDatatypeEntry): Unit = count.datatype += 1
-  protected def handleGraphStart(r: RdfGraphStart): Unit = count.graphStart += 1
-  protected def handleGraphEnd(r: RdfGraphEnd): Unit = count.graphEnd += 1
-  protected def handleOption(r: RdfStreamOptions): Unit = count.option += 1
+  protected def handleTriple(r: RdfTriple): Unit = stat.triple += statCollector.measure(r)
+  protected def handleQuad(r: RdfQuad): Unit = stat.quad += statCollector.measure(r)
+  protected def handleNameEntry(r: RdfNameEntry): Unit = stat.name += statCollector.measure(r)
+  protected def handlePrefixEntry(r: RdfPrefixEntry): Unit = stat.prefix += statCollector.measure(r)
+  protected def handleNamespaceDeclaration(r: RdfNamespaceDeclaration): Unit =
+    stat.namespace += statCollector.measure(r)
+  protected def handleDatatypeEntry(r: RdfDatatypeEntry): Unit =
+    stat.datatype += statCollector.measure(r)
+  protected def handleGraphStart(r: RdfGraphStart): Unit =
+    stat.graphStart += statCollector.measure(r)
+  protected def handleGraphEnd(r: RdfGraphEnd): Unit = stat.graphEnd += statCollector.measure(r)
+  protected def handleOption(r: RdfStreamOptions): Unit = stat.option += statCollector.measure(r)
 
-  def format(): Seq[(String, Long)] = Seq(
-    ("option_count", count.option),
-    ("triple_count", count.triple),
-    ("quad_count", count.quad),
-    ("graph_start_count", count.graphStart),
-    ("graph_end_count", count.graphEnd),
-    ("namespace_count", count.namespace),
-    ("name_count", count.name),
-    ("prefix_count", count.prefix),
-    ("datatype_count", count.datatype),
-  )
+  def format(): Seq[(String, Long)] = {
+    val name = statCollector.name()
+    Seq(
+      ("option_" + name, stat.option),
+      ("triple_" + name, stat.triple),
+      ("quad_" + name, stat.quad),
+      ("graph_start_" + name, stat.graphStart),
+      ("graph_end_" + name, stat.graphEnd),
+      ("namespace_" + name, stat.namespace),
+      ("name_" + name, stat.name),
+      ("prefix_" + name, stat.prefix),
+      ("datatype_" + name, stat.datatype),
+    )
+  }
 
 end FrameInfo
 
@@ -77,8 +102,8 @@ end FrameInfo
   * blank node, literal, triple) and graph term in quads (IRI, blank node, literal, default graph).
   * For simplicity, this class does not validate these constraints.
   */
-class NodeDetailInfo:
-  private object count:
+class NodeDetailInfo(using statCollector: FrameInfo.StatisticCollector):
+  private object stat:
     var iri: Long = 0
     var bnode: Long = 0
     var literal: Long = 0
@@ -86,40 +111,44 @@ class NodeDetailInfo:
     var defaultGraph: Long = 0
 
   def handle(o: Object): Unit = o match {
-    case r: RdfIri => count.iri += 1
-    case r: String => count.bnode += 1 // bnodes are strings
-    case r: RdfLiteral => count.literal += 1
-    case r: RdfTriple => count.triple += 1
-    case r: RdfDefaultGraph => count.defaultGraph += 1
+    case r: RdfIri => stat.iri += statCollector.measure(r)
+    case r: String => stat.bnode += statCollector.measure(r) // bnodes are strings
+    case r: RdfLiteral => stat.literal += statCollector.measure(r)
+    case r: RdfTriple => stat.triple += statCollector.measure(r)
+    case r: RdfDefaultGraph => stat.defaultGraph += statCollector.measure(r)
   }
 
-  def format(): Seq[(String, Long)] = Seq(
-    ("iri_count", count.iri),
-    ("bnode_count", count.bnode),
-    ("literal_count", count.literal),
-    ("triple_count", count.triple),
-    ("default_graph_count", count.defaultGraph),
-  ).filter(_._2 > 0)
+  def format(): Seq[(String, Long)] = {
+    val name = statCollector.name()
+    Seq(
+      ("iri_" + name, stat.iri),
+      ("bnode_" + name, stat.bnode),
+      ("literal_" + name, stat.literal),
+      ("triple_" + name, stat.triple),
+      ("default_graph_" + name, stat.defaultGraph),
+    ).filter(_._2 > 0)
+  }
 
   def +=(other: NodeDetailInfo): NodeDetailInfo = {
-    this.count.iri += other.count.iri
-    this.count.bnode += other.count.bnode
-    this.count.literal += other.count.literal
-    this.count.triple += other.count.triple
-    this.count.defaultGraph += other.count.defaultGraph
+    this.stat.iri += other.stat.iri
+    this.stat.bnode += other.stat.bnode
+    this.stat.literal += other.stat.literal
+    this.stat.triple += other.stat.triple
+    this.stat.defaultGraph += other.stat.defaultGraph
     this
   }
 
-  def total(): Long = count.iri
-    + count.bnode
-    + count.literal
-    + count.triple
-    + count.defaultGraph
+  def total(): Long = stat.iri
+    + stat.bnode
+    + stat.literal
+    + stat.triple
+    + stat.defaultGraph
 
 end NodeDetailInfo
 
-class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString])
-    extends FrameInfo(frameIndex, metadata):
+class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString])(using
+    statCollector: FrameInfo.StatisticCollector,
+) extends FrameInfo(frameIndex, metadata):
   private object term:
     val subjectInfo = new NodeDetailInfo()
     val predicateInfo = new NodeDetailInfo()
@@ -168,12 +197,15 @@ class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString])
     out += term.graphInfo
     out.format()
 
-  def formatGroupByTerm(): Seq[(String, Long)] = Seq(
-    "subject_count" -> term.subjectInfo.total(),
-    "predicate_count" -> term.predicateInfo.total(),
-    "object_count" -> term.objectInfo.total(),
-    "graph_count" -> term.graphInfo.total(),
-  )
+  def formatGroupByTerm(): Seq[(String, Long)] = {
+    val name = statCollector.name()
+    Seq(
+      "subject_" + name -> term.subjectInfo.total(),
+      "predicate_" + name -> term.predicateInfo.total(),
+      "object_" + name -> term.objectInfo.total(),
+      "graph_" + name -> term.graphInfo.total(),
+    )
+  }
 
 end FrameDetailInfo
 
