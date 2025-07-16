@@ -74,6 +74,10 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString]):
 
 end FrameInfo
 
+/** Class containing statistics for each node type. Combines nodes allowed in triple terms (IRI,
+  * blank node, literal, triple) and graph term in quads (IRI, blank node, literal, default graph).
+  * For simplicity, this class does not validate these constraints.
+  */
 class NodeDetailInfo:
   private object count:
     var iri: Long = 0

@@ -40,7 +40,8 @@ case class RdfInspectOptions(
     )
     perFrame: Boolean = false,
     @HelpMessage(
-      "Control the detailed output, disabled if not set: flat, node, term",
+      "Control the detailed output. One of 'node', 'term', 'flat'. " +
+        "Groups output by node type, term, or doesn't aggregate ('flat').",
     )
     detail: Option[String] = None,
 ) extends HasJellyCommandOptions
