@@ -1,21 +1,21 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import com.google.protobuf.InvalidProtocolBufferException
-import org.apache.jena.riot.RiotException
-import eu.neverblink.jelly.cli.*
 import caseapp.*
+import com.google.protobuf.InvalidProtocolBufferException
+import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.{RdfCommandPrintUtil, RdfFormat}
-
-import scala.reflect.TypeTest
 import eu.neverblink.jelly.core.{RdfProtoDeserializationError, RdfProtoSerializationError}
+import org.apache.jena.riot.RiotException
 
 import java.io.{InputStream, OutputStream}
+import scala.reflect.Typeable
 
 /** This abstract class is responsible for the common logic in both RDF parsing commands
   */
-abstract class RdfSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}, F <: RdfFormat](using
-    tt: TypeTest[RdfFormat, F],
-) extends JellyCommand[T]:
+abstract class RdfSerDesCommand[
+    T <: HasJellyCommandOptions: {Parser, Help},
+    F <: RdfFormat: Typeable,
+] extends JellyCommand[T]:
 
   override final def group = "rdf"
 
