@@ -196,5 +196,51 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         },
         frameSize = 15,
       )
+
+      val tripleTerms = Seq("subject", "predicate", "object")
+      val tripleNodes = Seq("iri", "bnode", "literal", "triple")
+
+      "given complex jelly file (triples)" in withSpecificJellyFile(
+        testCode = { jellyF =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "flat", jellyF))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+          val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+          for
+            term <- tripleTerms
+            node <- tripleNodes
+          do frames.get(s"${term}_${node}_count") should not be 0
+
+          // Graphs == 0 when doing triples
+          for node <- tripleNodes do frames.get(s"graph_${node}_count") shouldBe 0
+          // These are illegal
+          for term <- tripleTerms do frames.get(s"${term}_default_graph_count") shouldBe 0
+        },
+        fileName = "everythingTriple.jelly",
+      )
+
+      "given complex jelly file (quads)" in withSpecificJellyFile(
+        testCode = { jellyF =>
+          val (out, err) =
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "flat", jellyF))
+          val yaml = new Yaml()
+          val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
+          val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+          for
+            term <- tripleTerms
+            node <- tripleNodes
+          do frames.get(s"${term}_${node}_count") should not be 0
+          for node <- Seq("iri", "bnode", "literal", "default_graph") do
+            frames.get(s"graph_${node}_count") should not be 0
+
+          // These are illegal
+          for term <- tripleTerms do frames.get(s"${term}_default_graph_count") shouldBe 0
+          for term <- tripleTerms do frames.get("graph_triple_count") shouldBe 0
+        },
+        fileName = "everythingQuad.jelly",
+      )
     }
   }
