@@ -35,9 +35,9 @@ case class RdfInspectOptions(
     )
     perFrame: Boolean = false,
     @HelpMessage(
-      "Control the detailed output. One of 'node', 'term', 'flat'. " +
+      "Control the detailed output. One of 'node', 'term', 'all'. " +
         "Groups output by node type ('node'), subject/predicate/object " +
-        "term position ('term'), or doesn't aggregate ('flat').",
+        "term position ('term'), or doesn't aggregate ('all').",
     )
     detail: Option[String] = None,
 ) extends HasJellyCommandOptions
@@ -54,12 +54,12 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
     val formatter = options.detail match {
-      case Some("flat") => MetricsPrinter.flatFormatter
+      case Some("all") => MetricsPrinter.allFormatter
       case Some("node") => MetricsPrinter.nodeGroupFormatter
       case Some("term") => MetricsPrinter.termGroupFormatter
       case Some(value) =>
-        throw InvalidArgument("--detail", value, Some("Must be one of 'flat', 'node', 'term'"))
-      case None => MetricsPrinter.flatFormatter
+        throw InvalidArgument("--detail", value, Some("Must be one of 'all', 'node', 'term'"))
+      case None => MetricsPrinter.allFormatter
     }
     val (streamOpts, frameIterator) = inspectJelly(inputStream, options.detail.isDefined)
     val metricsPrinter = new MetricsPrinter(formatter)

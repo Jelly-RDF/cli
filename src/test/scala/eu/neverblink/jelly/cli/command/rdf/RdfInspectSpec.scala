@@ -108,13 +108,15 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
     "print detailed metrics" when {
       "aggregating and flat" in withFullJellyFile(
         testCode = { j =>
-          val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "flat", j))
+          val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "all", j))
           val yaml = new Yaml()
           val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
-          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
-          val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
-          frames.get("subject_iri_count") shouldBe testCardinality
-          frames.get("subject_bnode_count") shouldBe 0
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[String, util.LinkedHashMap[String, ?]]]
+          val frames = parsed.get("frames").asInstanceOf[
+            util.LinkedHashMap[String, util.LinkedHashMap[String, Any]],
+          ]
+          frames.get("subject").get("iri_count") shouldBe testCardinality
+          frames.get("subject").get("bnode_count") shouldBe 0
         },
         frameSize = 15,
       )
@@ -122,15 +124,16 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       "per frame and flat" in withFullJellyFile(
         testCode = { j =>
           val (out, err) =
-            RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "flat", j))
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "all", j))
           val yaml = new Yaml()
           val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
           parsed.get("frames") shouldBe a[util.ArrayList[?]]
           val frames = parsed.get("frames").asInstanceOf[util.ArrayList[Any]]
-          frames.get(0) shouldBe a[util.LinkedHashMap[?, ?]]
-          val frame1 = frames.get(0).asInstanceOf[util.Map[String, Any]]
-          frame1.get("subject_iri_count") shouldBe 6
-          frame1.get("subject_bnode_count") shouldBe 0
+          frames.get(0) shouldBe a[util.LinkedHashMap[String, util.LinkedHashMap[String, ?]]]
+          val frame1 =
+            frames.get(0).asInstanceOf[util.LinkedHashMap[String, util.LinkedHashMap[String, Any]]]
+          frame1.get("subject").get("iri_count") shouldBe 6
+          frame1.get("subject").get("bnode_count") shouldBe 0
         },
         frameSize = 15,
       )
@@ -203,20 +206,23 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       "given complex jelly file (triples)" in withSpecificJellyFile(
         testCode = { jellyF =>
           val (out, err) =
-            RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "flat", jellyF))
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "all", jellyF))
           val yaml = new Yaml()
-          val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
-          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
-          val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+          val parsed = yaml.load(out).asInstanceOf[util.Map[String, Any]]
+          parsed.get("frames") shouldBe a[util.LinkedHashMap[String, util.LinkedHashMap[String, ?]]]
+          val frames = parsed.get("frames").asInstanceOf[
+            util.LinkedHashMap[String, util.LinkedHashMap[String, Any]],
+          ]
           for
             term <- tripleTerms
             node <- tripleNodes
-          do frames.get(s"${term}_${node}_count") should not be 0
+          do frames.get(term).get(s"${node}_count") should not be 0
 
           // Graphs == 0 when doing triples
-          for node <- tripleNodes do frames.get(s"graph_${node}_count") shouldBe 0
+          for node <- "default_graph" +: tripleNodes do
+            frames.get("graph").get(s"${node}_count") shouldBe 0
           // These are illegal
-          for term <- tripleTerms do frames.get(s"${term}_default_graph_count") shouldBe 0
+          for term <- tripleTerms do frames.get(term).get("default_graph_count") shouldBe 0
         },
         fileName = "everythingTriple.jelly",
       )
@@ -224,21 +230,25 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       "given complex jelly file (quads)" in withSpecificJellyFile(
         testCode = { jellyF =>
           val (out, err) =
-            RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "flat", jellyF))
+            RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "all", jellyF))
           val yaml = new Yaml()
           val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
-          parsed.get("frames") shouldBe a[util.LinkedHashMap[?, ?]]
-          val frames = parsed.get("frames").asInstanceOf[java.util.LinkedHashMap[String, Any]]
+          parsed.get("frames") shouldBe a[
+            util.LinkedHashMap[String, java.util.LinkedHashMap[String, ?]],
+          ]
+          val frames = parsed.get("frames").asInstanceOf[
+            java.util.LinkedHashMap[String, java.util.LinkedHashMap[String, Any]],
+          ]
           for
             term <- tripleTerms
             node <- tripleNodes
-          do frames.get(s"${term}_${node}_count") should not be 0
+          do frames.get(term).get(s"${node}_count") should not be 0
           for node <- Seq("iri", "bnode", "literal", "default_graph") do
-            frames.get(s"graph_${node}_count") should not be 0
+            frames.get("graph").get(s"${node}_count") should not be 0
 
           // These are illegal
-          for term <- tripleTerms do frames.get(s"${term}_default_graph_count") shouldBe 0
-          for term <- tripleTerms do frames.get("graph_triple_count") shouldBe 0
+          for term <- tripleTerms do frames.get(term).get("default_graph_count") shouldBe 0
+          for term <- tripleTerms do frames.get("graph").get("triple_count") shouldBe 0
         },
         fileName = "everythingQuad.jelly",
       )

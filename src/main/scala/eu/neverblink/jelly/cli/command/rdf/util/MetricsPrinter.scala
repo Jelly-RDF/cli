@@ -154,7 +154,7 @@ class FrameDetailInfo(frameIndex: Long, metadata: Map[String, ByteString])
     if r.hasGraph then term.graphInfo.handle(r.getGraph)
   }
 
-  def formatFlat(): Seq[(String, Long)] =
+  def formatAll(): Seq[(String, Long)] =
     term.subjectInfo.format().map("subject_" ++ _ -> _) ++
       term.predicateInfo.format().map("predicate_" ++ _ -> _) ++
       term.objectInfo.format().map("object_" ++ _ -> _) ++
@@ -187,8 +187,15 @@ object MetricsPrinter:
     case frame @ (frameInfo: FrameInfo) => frame.format().map(_ -> YamlLong(_))
   }
 
-  val flatFormatter: Formatter = withFallback(detailInfo => {
-    detailInfo.formatFlat().map(_ -> YamlLong(_))
+  val allFormatter: Formatter = withFallback(detailInfo => {
+    val splitToTriples = detailInfo.formatAll().map((k, v) => {
+      val split = k.split("_", 2)
+      (split(0), split(1), v)
+    })
+    val groupedByTerm =
+      splitToTriples.groupMap((term, _, _) => term)((_, node, value) => (node, YamlLong(value)))
+    val mapOfYamlMaps = groupedByTerm.map(_ -> YamlMap(_*))
+    mapOfYamlMaps.toSeq
   })
 
   val termGroupFormatter: Formatter = withFallback(detailInfo => {
