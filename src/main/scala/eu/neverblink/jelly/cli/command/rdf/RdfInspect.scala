@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.{ArgsName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.util.{FrameInfo, JellyUtil, MetricsPrinter}
+import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.core.proto.v1.*
 
 import scala.jdk.CollectionConverters.*
@@ -34,6 +34,12 @@ case class RdfInspectOptions(
         "If true, the statistics are computed and printed separately for each frame in the stream.",
     )
     perFrame: Boolean = false,
+    @HelpMessage(
+      "Control the detailed output. One of 'node', 'term', 'all'. " +
+        "Groups output by node type ('node'), subject/predicate/object " +
+        "term position ('term'), or doesn't aggregate ('all').",
+    )
+    detail: Option[String] = None,
 ) extends HasJellyCommandOptions
 
 object RdfInspect extends JellyCommand[RdfInspectOptions]:
@@ -47,22 +53,32 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   override def doRun(options: RdfInspectOptions, remainingArgs: RemainingArgs): Unit =
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    val (streamOpts, frameIterator) = inspectJelly(inputStream)
-    if options.perFrame then MetricsPrinter.printPerFrame(streamOpts, frameIterator, outputStream)
-    else MetricsPrinter.printAggregate(streamOpts, frameIterator, outputStream)
+    val formatter = options.detail match {
+      case Some("all") => MetricsPrinter.allFormatter
+      case Some("node") => MetricsPrinter.nodeGroupFormatter
+      case Some("term") => MetricsPrinter.termGroupFormatter
+      case Some(value) =>
+        throw InvalidArgument("--detail", value, Some("Must be one of 'all', 'node', 'term'"))
+      case None => MetricsPrinter.allFormatter
+    }
+    val (streamOpts, frameIterator) = inspectJelly(inputStream, options.detail.isDefined)
+    val metricsPrinter = new MetricsPrinter(formatter)
+    if options.perFrame then metricsPrinter.printPerFrame(streamOpts, frameIterator, outputStream)
+    else metricsPrinter.printAggregate(streamOpts, frameIterator, outputStream)
 
   private def inspectJelly(
       inputStream: InputStream,
+      detail: Boolean,
   ): (RdfStreamOptions, Iterator[FrameInfo]) =
 
     inline def computeMetrics(
         frame: RdfStreamFrame,
         frameIndex: Int,
     ): FrameInfo =
-      val metrics = new FrameInfo(
-        frameIndex,
-        frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap,
-      )
+      val metadata = frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap
+      val metrics =
+        if detail then new FrameDetailInfo(frameIndex, metadata)
+        else FrameInfo(frameIndex, metadata)
       frame.getRows.asScala.foreach(r => metricsForRow(r, metrics))
       metrics
 
@@ -84,18 +100,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   private def metricsForRow(
       row: RdfStreamRow,
       metadata: FrameInfo,
-  ): Unit =
-    row.getRow match {
-      case r: RdfTriple => metadata.tripleCount += 1
-      case r: RdfQuad => metadata.quadCount += 1
-      case r: RdfNameEntry => metadata.nameCount += 1
-      case r: RdfPrefixEntry => metadata.prefixCount += 1
-      case r: RdfNamespaceDeclaration => metadata.namespaceCount += 1
-      case r: RdfDatatypeEntry => metadata.datatypeCount += 1
-      case r: RdfGraphStart => metadata.graphStartCount += 1
-      case r: RdfGraphEnd => metadata.graphEndCount += 1
-      case r: RdfStreamOptions => metadata.optionCount += 1
-    }
+  ): Unit = metadata.processStreamRow(row)
 
   /** Checks whether the first frame in the stream contains options and returns them.
     * @param headFrame
