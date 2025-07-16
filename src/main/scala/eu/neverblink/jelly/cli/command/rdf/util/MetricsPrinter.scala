@@ -99,7 +99,7 @@ class NodeDetailInfo:
     ("literal_count", count.literal),
     ("triple_count", count.triple),
     ("default_graph_count", count.defaultGraph),
-  )
+  ).filter(_._2 > 0)
 
   def +=(other: NodeDetailInfo): NodeDetailInfo = {
     this.count.iri += other.count.iri

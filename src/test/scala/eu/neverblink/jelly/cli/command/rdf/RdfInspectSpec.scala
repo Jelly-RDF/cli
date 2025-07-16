@@ -116,7 +116,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
             util.LinkedHashMap[String, util.LinkedHashMap[String, Any]],
           ]
           frames.get("subject").get("iri_count") shouldBe testCardinality
-          frames.get("subject").get("bnode_count") shouldBe 0
+          frames.get("subject").get("bnode_count")  == null shouldBe true
         },
         frameSize = 15,
       )
@@ -133,7 +133,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           val frame1 =
             frames.get(0).asInstanceOf[util.LinkedHashMap[String, util.LinkedHashMap[String, Any]]]
           frame1.get("subject").get("iri_count") shouldBe 6
-          frame1.get("subject").get("bnode_count") shouldBe 0
+          frame1.get("subject").get("bnode_count")  == null shouldBe true
         },
         frameSize = 15,
       )
@@ -148,7 +148,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           frames.get("node_details") shouldBe a[util.LinkedHashMap[?, ?]]
           val nodeDetails = frames.get("node_details").asInstanceOf[util.LinkedHashMap[String, Any]]
           nodeDetails.get("iri_count") shouldBe testCardinality * 3
-          nodeDetails.get("bnode_count") shouldBe 0
+          nodeDetails.get("bnode_count")  == null shouldBe true
         },
         frameSize = 15,
       )
@@ -165,7 +165,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           val frame1 = frames.get(0).asInstanceOf[util.Map[String, Any]]
           val nodeDetails = frame1.get("node_details").asInstanceOf[util.LinkedHashMap[String, Any]]
           nodeDetails.get("iri_count") shouldBe 6 * 3
-          nodeDetails.get("bnode_count") shouldBe 0
+          nodeDetails.get("bnode_count")  == null shouldBe true
         },
         frameSize = 15,
       )
@@ -216,13 +216,13 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           for
             term <- tripleTerms
             node <- tripleNodes
-          do frames.get(term).get(s"${node}_count") should not be 0
+          do frames.get(term).get(s"${node}_count").asInstanceOf[Int] should be > 0
 
           // Graphs == 0 when doing triples
           for node <- "default_graph" +: tripleNodes do
-            frames.get("graph").get(s"${node}_count") shouldBe 0
+            frames.get("graph") == null shouldBe true
           // These are illegal
-          for term <- tripleTerms do frames.get(term).get("default_graph_count") shouldBe 0
+          for term <- tripleTerms do frames.get(term).get("default_graph_count") == null shouldBe true
         },
         fileName = "everythingTriple.jelly",
       )
@@ -242,13 +242,13 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           for
             term <- tripleTerms
             node <- tripleNodes
-          do frames.get(term).get(s"${node}_count") should not be 0
+          do frames.get(term).get(s"${node}_count").asInstanceOf[Int] should be > 0
           for node <- Seq("iri", "bnode", "literal", "default_graph") do
-            frames.get("graph").get(s"${node}_count") should not be 0
+            frames.get("graph").get(s"${node}_count").asInstanceOf[Int] should be > 0
 
           // These are illegal
-          for term <- tripleTerms do frames.get(term).get("default_graph_count") shouldBe 0
-          for term <- tripleTerms do frames.get("graph").get("triple_count") shouldBe 0
+          for term <- tripleTerms do frames.get(term).get("default_graph_count")  == null shouldBe true
+          for term <- tripleTerms do frames.get("graph").get("triple_count")  == null shouldBe true
         },
         fileName = "everythingQuad.jelly",
       )
