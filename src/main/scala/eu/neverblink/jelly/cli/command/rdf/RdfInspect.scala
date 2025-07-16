@@ -11,7 +11,7 @@ import scala.jdk.CollectionConverters.*
 import java.io.InputStream
 @HelpMessage(
   "Prints statistics about a Jelly-RDF stream.\n" +
-    "Statistics include: Jelly stream options and counts of various row types, " +
+    "Statistics include: Jelly stream options and counts/sizes of various row types, " +
     "including triples, quads, names, prefixes, " +
     "namespaces, datatypes, and graphs.\n" +
     "Output statistics are returned as a valid YAML. \n" +
@@ -40,6 +40,10 @@ case class RdfInspectOptions(
         "term position ('term'), or doesn't aggregate ('all').",
     )
     detail: Option[String] = None,
+    @HelpMessage(
+      "Report the size (in bytes) of rows and other elements, rather than their counts.",
+    )
+    size: Boolean = false,
 ) extends HasJellyCommandOptions
 
 object RdfInspect extends JellyCommand[RdfInspectOptions]:
@@ -61,6 +65,8 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
         throw InvalidArgument("--detail", value, Some("Must be one of 'all', 'node', 'term'"))
       case None => MetricsPrinter.allFormatter
     }
+    val statCollector = if options.size then FrameInfo.SizeStatistic else FrameInfo.CountStatistic
+    given FrameInfo.StatisticCollector = statCollector
     val (streamOpts, frameIterator) = inspectJelly(inputStream, options.detail.isDefined)
     val metricsPrinter = new MetricsPrinter(formatter)
     if options.perFrame then metricsPrinter.printPerFrame(streamOpts, frameIterator, outputStream)
@@ -69,7 +75,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
   private def inspectJelly(
       inputStream: InputStream,
       detail: Boolean,
-  ): (RdfStreamOptions, Iterator[FrameInfo]) =
+  )(using FrameInfo.StatisticCollector): (RdfStreamOptions, Iterator[FrameInfo]) =
 
     inline def computeMetrics(
         frame: RdfStreamFrame,
@@ -79,7 +85,7 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
       val metrics =
         if detail then new FrameDetailInfo(frameIndex, metadata)
         else FrameInfo(frameIndex, metadata)
-      frame.getRows.asScala.foreach(r => metricsForRow(r, metrics))
+      metrics.processFrame(frame)
       metrics
 
     try {
@@ -96,11 +102,6 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
       case e: Exception =>
         throw InvalidJellyFile(e)
     }
-
-  private def metricsForRow(
-      row: RdfStreamRow,
-      metadata: FrameInfo,
-  ): Unit = metadata.processStreamRow(row)
 
   /** Checks whether the first frame in the stream contains options and returns them.
     * @param headFrame
