@@ -3,12 +3,7 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.{ArgsName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.RemainingArgs
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.util.{
-  FrameDetailInfo,
-  FrameInfo,
-  JellyUtil,
-  MetricsPrinter,
-}
+import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.core.proto.v1.*
 
 import scala.jdk.CollectionConverters.*
@@ -41,7 +36,8 @@ case class RdfInspectOptions(
     perFrame: Boolean = false,
     @HelpMessage(
       "Control the detailed output. One of 'node', 'term', 'flat'. " +
-        "Groups output by node type, term, or doesn't aggregate ('flat').",
+        "Groups output by node type ('node'), subject/predicate/object " +
+        "term position ('term'), or doesn't aggregate ('flat').",
     )
     detail: Option[String] = None,
 ) extends HasJellyCommandOptions
