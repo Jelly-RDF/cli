@@ -98,7 +98,7 @@ class FrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString])(usi
     val name = statCollector.name()
     Seq(
       ("frame_" + name, stat.frame),
-      ("row_" + name, stat.frame),
+      ("row_" + name, stat.row),
       ("option_" + name, stat.option),
       ("triple_" + name, stat.triple),
       ("quad_" + name, stat.quad),
