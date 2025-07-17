@@ -685,4 +685,46 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         e.code should be(1)
       }
     }
+
+    "emit a warning" when {
+      "requesting an unsupported logical / physical combination" in withFullJenaFile { f =>
+        val (out, err) =
+          RdfToJelly.runTestCommand(
+            List(
+              "rdf",
+              "to-jelly",
+              "--opt.logical-type=SUBJECT_GRAPHS",
+              "--opt.physical-type=QUADS",
+              f,
+            ),
+          )
+        err should (
+          include("WARNING") and
+            include("unsupported") and
+            include("SUBJECT_GRAPHS/QUADS")
+        )
+      }
+    }
+
+    "not emit a warning" when {
+      "requesting an unsupported logical / physical combination with --quiet flag" in withFullJenaFile {
+        f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                "--quiet",
+                "--opt.logical-type=SUBJECT_GRAPHS",
+                "--opt.physical-type=QUADS",
+                f,
+              ),
+            )
+          err should not(
+            include("WARNING") and
+              include("unsupported") and
+              include("SUBJECT_GRAPHS/QUADS"),
+          )
+      }
+    }
   }
