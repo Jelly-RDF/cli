@@ -8,6 +8,7 @@ import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
+import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamOptions}
 import org.apache.jena.riot.lang.LabelToNode
@@ -193,26 +194,23 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
     }
 
   private def checkAndWarnTypeCombination(): Unit = {
+
     val rdfStreamOptions = getOptions.jellySerializationOptions.asRdfStreamOptions
-
     val physicalType = rdfStreamOptions.getPhysicalType
-    val isPhysicalTriple = physicalType == PhysicalStreamType.TRIPLES
-
     val logicalType = rdfStreamOptions.getLogicalType
-    val logicalTripleTypes = Seq(
-      LogicalStreamType.GRAPHS,
-      LogicalStreamType.SUBJECT_GRAPHS,
-      LogicalStreamType.FLAT_TRIPLES,
-    )
-    val isLogicalTriple = logicalTripleTypes.contains(logicalType)
 
-    if isPhysicalTriple != isLogicalTriple then
-      printLine(
-        s"WARNING: Selected combination of logical/physical stream types ($logicalType/$physicalType) is unsupported. " +
-          "Use --quiet to silence this warning.",
-        true,
-      )
-
+    try {
+      // This check will find physical/logical clashes, since all other fields are checked with <=,
+      // so they pass when compared against themselves
+      JellyOptions.checkCompatibility(rdfStreamOptions, rdfStreamOptions)
+    } catch {
+      case _: RdfProtoDeserializationError =>
+        printLine(
+          s"WARNING: Selected combination of logical/physical stream types ($logicalType/$physicalType) is unsupported. " +
+            "Use --quiet to silence this warning.",
+          true,
+        )
+    }
   }
 
   /** Check if the logical type is defined and grouped.
