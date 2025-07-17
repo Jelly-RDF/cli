@@ -82,6 +82,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       options.inputFormat,
       remainingArgs.remaining.headOption,
     )
+    if !isQuietMode then checkAndWarnTypeCombination()
 
   override def matchFormatToAction(
       format: RdfFormat.Readable,
@@ -190,6 +191,29 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           })
       }
     }
+
+  private def checkAndWarnTypeCombination(): Unit = {
+    val rdfStreamOptions = getOptions.jellySerializationOptions.asRdfStreamOptions
+
+    val physicalType = rdfStreamOptions.getPhysicalType
+    val isPhysicalTriple = physicalType == PhysicalStreamType.TRIPLES
+
+    val logicalType = rdfStreamOptions.getLogicalType
+    val logicalTripleTypes = Seq(
+      LogicalStreamType.GRAPHS,
+      LogicalStreamType.SUBJECT_GRAPHS,
+      LogicalStreamType.FLAT_TRIPLES,
+    )
+    val isLogicalTriple = logicalTripleTypes.contains(logicalType)
+
+    if isPhysicalTriple != isLogicalTriple then
+      printLine(
+        s"WARNING: Selected combination of logical/physical stream types ($logicalType/$physicalType) is unsupported. " +
+          "Use --quiet to silence this warning.",
+        true,
+      )
+
+  }
 
   /** Check if the logical type is defined and grouped.
     * @param jellyOpt
