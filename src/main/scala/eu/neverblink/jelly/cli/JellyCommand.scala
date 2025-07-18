@@ -30,7 +30,7 @@ abstract class JellyCommand[T <: HasJellyCommandOptions: {Parser, Help}] extends
     * @param test
     *   true to enable, false to disable
     */
-  private def testMode(test: Boolean): Unit =
+  def testMode(test: Boolean): Unit =
     this.isTest = test
     if test then
       in = ByteArrayInputStream(Array())

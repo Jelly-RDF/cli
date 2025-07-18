@@ -11,9 +11,9 @@ case class RdfJellySerializationOptions(
     @HelpMessage("Name of the output stream (in metadata). Default: (empty)")
     `opt.streamName`: String = "",
     @HelpMessage(
-      "Whether the stream may contain generalized triples, quads, or datasets. Default: true",
+      "Whether the stream may contain generalized triples, quads, or datasets. Default: (infer from input)",
     )
-    `opt.generalizedStatements`: Boolean = true,
+    `opt.generalizedStatements`: Option[Boolean] = None,
     @HelpMessage("Whether the stream may contain RDF-star statements. Default: true")
     `opt.rdfStar`: Boolean = true,
     @HelpMessage(
@@ -40,6 +40,18 @@ case class RdfJellySerializationOptions(
     )
     `opt.logicalType`: Option[String] = None,
 ):
+  private object inferred:
+    var generalized: Boolean = false
+
+  def inferGeneralized(inputFormat: Option[String], filename: Option[String]): Unit =
+    val explicitFormat = inputFormat.flatMap(RdfFormat.find)
+    val implicitFormat = filename.flatMap(RdfFormat.inferFormat)
+    inferred.generalized = (explicitFormat, implicitFormat) match {
+      case (Some(f: RdfFormat.SupportsGeneralizedStatement), _) => true
+      case (_, Some(f: RdfFormat.SupportsGeneralizedStatement)) => true
+      case _ => false
+    }
+
   lazy val asRdfStreamOptions: RdfStreamOptions =
     val logicalIri = `opt.logicalType`
       .map(_.trim).filter(_.nonEmpty)
@@ -73,7 +85,7 @@ case class RdfJellySerializationOptions(
       case None => PhysicalStreamType.UNSPECIFIED
     RdfStreamOptions.newInstance()
       .setStreamName(`opt.streamName`)
-      .setGeneralizedStatements(`opt.generalizedStatements`)
+      .setGeneralizedStatements(`opt.generalizedStatements`.getOrElse(inferred.generalized))
       .setRdfStar(`opt.rdfStar`)
       .setMaxNameTableSize(`opt.maxNameTableSize`)
       .setMaxPrefixTableSize(`opt.maxPrefixTableSize`)

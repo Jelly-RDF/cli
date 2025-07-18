@@ -6,6 +6,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
 import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
@@ -103,9 +104,12 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format=nt"),
         )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-        val content = translateJellyBack(newIn)
+        val bytes = RdfToJelly.getOutBytes
+        val content = translateJellyBack(new ByteArrayInputStream(bytes))
         content.size() should be(4)
+        val frames = readJellyFile(new ByteArrayInputStream(bytes))
+        val opts = frames.head.getRows.asScala.head.getOptions
+        opts.getGeneralizedStatements should be(true)
       }
 
       "input stream to output stream, generalized RDF (N-Quads)" in {
@@ -114,11 +118,14 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format=nq"),
         )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val bytes = RdfToJelly.getOutBytes
         val ds = DatasetGraphFactory.create()
-        RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
+        RDFParser.source(new ByteArrayInputStream(bytes)).lang(JellyLanguage.JELLY).parse(ds)
         ds.size() should be(4) // 4 named graphs
         ds.getDefaultGraph.size() should be(4) // 4 triples in the default graph
+        val frames = readJellyFile(new ByteArrayInputStream(bytes))
+        val opts = frames.head.getRows.asScala.head.getOptions
+        opts.getGeneralizedStatements should be(true)
       }
 
       "input stream to output stream, GRAPHS stream type, RDF dataset" in {
@@ -625,6 +632,77 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           for frame <- frames do frame.getRows.size should be(1)
         }
       }
+    }
+
+    "infer stream options" when {
+      "format is RDF Protobuf" in withEmptyJellyFile(j =>
+        withFullJenaFile(
+          testCode = { f =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "to-jelly",
+                  f,
+                  "--in-format",
+                  RdfFormat.RdfProto.cliOptions.head,
+                  "--to",
+                  j,
+                ),
+              )
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.getRows.asScala.head.getOptions
+            opts.getGeneralizedStatements should be(true)
+          },
+          jenaLang = RDFLanguages.RDFPROTO,
+        ),
+      )
+      "format is RDF Thrift" in withEmptyJellyFile(j =>
+        withFullJenaFile(
+          testCode = { f =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List("rdf", "to-jelly", f, "--to", j),
+              )
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.getRows.asScala.head.getOptions
+            opts.getGeneralizedStatements should be(true)
+          },
+          jenaLang = RDFLanguages.RDFTHRIFT,
+        ),
+      )
+      "format is Jelly Text" in withEmptyJellyFile(j =>
+        withFullJellyTextFile(testCode = { f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--to", j),
+            )
+          val frames = readJellyFile(new FileInputStream(j))
+          val opts = frames.head.getRows.asScala.head.getOptions
+          opts.getGeneralizedStatements should be(true)
+        }),
+      )
+      "format is Jelly Text and options present" in withSpecificJellyFile(
+        initialJellyFile => {
+          val initialFrames = readJellyFile(new FileInputStream(initialJellyFile))
+          val initialOpts = initialFrames.head.getRows.asScala.head.getOptions
+          val jellyText = google.RdfStreamFrame.parseDelimitedFrom(
+            new FileInputStream(initialJellyFile),
+          ).toString
+          val bytes = ByteArrayInputStream(jellyText.getBytes())
+          RdfToJelly.testMode(true)
+          RdfToJelly.setStdIn(bytes)
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", "--in-format", "jelly-text"),
+            )
+
+          val newFrames = readJellyFile(new ByteArrayInputStream(RdfToJelly.getOutBytes))
+          val newOpts = newFrames.head.getRows.asScala.head.getOptions
+          initialOpts should equal(newOpts)
+        },
+        fileName = "options.jelly",
+      )
     }
 
     "throw proper exception" when {
