@@ -6,6 +6,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
 import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
@@ -677,6 +678,27 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val opts = frames.head.getRows.asScala.head.getOptions
           opts.getGeneralizedStatements should be(true)
         }),
+      )
+      "format is Jelly Text and options present" in withSpecificJellyFile(
+        initialJellyFile => {
+          val initialFrames = readJellyFile(new FileInputStream(initialJellyFile))
+          val initialOpts = initialFrames.head.getRows.asScala.head.getOptions
+          val jellyText = google.RdfStreamFrame.parseDelimitedFrom(
+            new FileInputStream(initialJellyFile),
+          ).toString
+          val bytes = ByteArrayInputStream(jellyText.getBytes())
+          RdfToJelly.testMode(true)
+          RdfToJelly.setStdIn(bytes)
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", "--in-format", "jelly-text"),
+            )
+
+          val newFrames = readJellyFile(new ByteArrayInputStream(RdfToJelly.getOutBytes))
+          val newOpts = newFrames.head.getRows.asScala.head.getOptions
+          initialOpts should equal(newOpts)
+        },
+        fileName = "options.jelly",
       )
     }
 
