@@ -114,11 +114,14 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format=nq"),
         )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+        val bytes = RdfToJelly.getOutBytes
         val ds = DatasetGraphFactory.create()
-        RDFParser.source(newIn).lang(JellyLanguage.JELLY).parse(ds)
+        RDFParser.source(new ByteArrayInputStream(bytes)).lang(JellyLanguage.JELLY).parse(ds)
         ds.size() should be(4) // 4 named graphs
         ds.getDefaultGraph.size() should be(4) // 4 triples in the default graph
+        val frames = readJellyFile(new ByteArrayInputStream(bytes))
+        val opts = frames.head.getRows.asScala.head.getOptions
+        opts.getGeneralizedStatements should be(true)
       }
 
       "input stream to output stream, GRAPHS stream type, RDF dataset" in {
@@ -242,7 +245,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val frames = readJellyFile(new FileInputStream(j))
           val opts = frames.head.getRows.asScala.head.getOptions
           opts.getStreamName should be("")
-          opts.getGeneralizedStatements should be(true)
+          opts.getGeneralizedStatements should be(false)
           opts.getRdfStar should be(true)
           opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
           opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
@@ -274,7 +277,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             val frames = readJellyFile(new FileInputStream(j))
             val opts = frames.head.getRows.asScala.head.getOptions
             opts.getStreamName should be("")
-            opts.getGeneralizedStatements should be(true)
+            opts.getGeneralizedStatements should be(false)
             opts.getRdfStar should be(true)
             opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
             opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
@@ -395,7 +398,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               val frames = readJellyFile(new FileInputStream(j))
               val opts = frames.head.getRows.asScala.head.getOptions
               opts.getStreamName should be("")
-              opts.getGeneralizedStatements should be(true)
+              opts.getGeneralizedStatements should be(false)
               opts.getRdfStar should be(true)
               opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
               opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
@@ -431,7 +434,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               val frames = readJellyFile(new FileInputStream(j))
               val opts = frames.head.getRows.asScala.head.getOptions
               opts.getStreamName should be("")
-              opts.getGeneralizedStatements should be(true)
+              opts.getGeneralizedStatements should be(false)
               opts.getRdfStar should be(true)
               opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
               opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
@@ -625,6 +628,56 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           for frame <- frames do frame.getRows.size should be(1)
         }
       }
+    }
+
+    "infer stream options" when {
+      "format is RDF Protobuf" in withEmptyJellyFile(j =>
+        withFullJenaFile(
+          testCode = { f =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "to-jelly",
+                  f,
+                  "--in-format",
+                  RdfFormat.RdfProto.cliOptions.head,
+                  "--to",
+                  j,
+                ),
+              )
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.getRows.asScala.head.getOptions
+            opts.getGeneralizedStatements should be(true)
+          },
+          jenaLang = RDFLanguages.RDFPROTO,
+        ),
+      )
+      "format is RDF Thrift" in withEmptyJellyFile(j =>
+        withFullJenaFile(
+          testCode = { f =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List("rdf", "to-jelly", f, "--to", j),
+              )
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.getRows.asScala.head.getOptions
+            opts.getGeneralizedStatements should be(true)
+          },
+          jenaLang = RDFLanguages.RDFTHRIFT,
+        ),
+      )
+      "format is Jelly Text" in withEmptyJellyFile(j =>
+        withFullJellyTextFile(testCode = { f =>
+          val (out, err) =
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--to", j),
+            )
+          val frames = readJellyFile(new FileInputStream(j))
+          val opts = frames.head.getRows.asScala.head.getOptions
+          opts.getGeneralizedStatements should be(true)
+        }),
+      )
     }
 
     "throw proper exception" when {
