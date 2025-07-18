@@ -40,7 +40,12 @@ case class RdfJellySerializationOptions(
     )
     `opt.logicalType`: Option[String] = None,
 ):
-  lazy val asRdfStreamOptions: RdfStreamOptions =
+  private object inferred:
+    var options: Option[RdfStreamOptions] = None
+
+  def setOptions(rdfStreamOptions: RdfStreamOptions): Unit = inferred.options = Some(rdfStreamOptions)
+
+  private def makeStreamOptions(): RdfStreamOptions =
     val logicalIri = `opt.logicalType`
       .map(_.trim).filter(_.nonEmpty)
       .map {
@@ -80,3 +85,5 @@ case class RdfJellySerializationOptions(
       .setMaxDatatypeTableSize(`opt.maxDatatypeTableSize`)
       .setPhysicalType(physicalType)
       .setLogicalType(logicalType.getOrElse(LogicalStreamType.UNSPECIFIED))
+
+  lazy val asRdfStreamOptions: RdfStreamOptions = inferred.options.getOrElse(makeStreamOptions())
