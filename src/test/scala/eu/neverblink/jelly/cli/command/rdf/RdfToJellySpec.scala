@@ -104,9 +104,12 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format=nt"),
         )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-        val content = translateJellyBack(newIn)
+        val bytes = RdfToJelly.getOutBytes
+        val content = translateJellyBack(new ByteArrayInputStream(bytes))
         content.size() should be(4)
+        val frames = readJellyFile(new ByteArrayInputStream(bytes))
+        val opts = frames.head.getRows.asScala.head.getOptions
+        opts.getGeneralizedStatements should be(true)
       }
 
       "input stream to output stream, generalized RDF (N-Quads)" in {
@@ -246,7 +249,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val frames = readJellyFile(new FileInputStream(j))
           val opts = frames.head.getRows.asScala.head.getOptions
           opts.getStreamName should be("")
-          opts.getGeneralizedStatements should be(false)
+          opts.getGeneralizedStatements should be(true)
           opts.getRdfStar should be(true)
           opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
           opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
@@ -278,7 +281,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             val frames = readJellyFile(new FileInputStream(j))
             val opts = frames.head.getRows.asScala.head.getOptions
             opts.getStreamName should be("")
-            opts.getGeneralizedStatements should be(false)
+            opts.getGeneralizedStatements should be(true)
             opts.getRdfStar should be(true)
             opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
             opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
@@ -399,7 +402,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               val frames = readJellyFile(new FileInputStream(j))
               val opts = frames.head.getRows.asScala.head.getOptions
               opts.getStreamName should be("")
-              opts.getGeneralizedStatements should be(false)
+              opts.getGeneralizedStatements should be(true)
               opts.getRdfStar should be(true)
               opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
               opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)
@@ -435,7 +438,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               val frames = readJellyFile(new FileInputStream(j))
               val opts = frames.head.getRows.asScala.head.getOptions
               opts.getStreamName should be("")
-              opts.getGeneralizedStatements should be(false)
+              opts.getGeneralizedStatements should be(true)
               opts.getRdfStar should be(true)
               opts.getMaxNameTableSize should be(JellyOptions.BIG_STRICT.getMaxNameTableSize)
               opts.getMaxPrefixTableSize should be(JellyOptions.BIG_STRICT.getMaxPrefixTableSize)

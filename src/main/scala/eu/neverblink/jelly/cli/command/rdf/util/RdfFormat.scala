@@ -22,12 +22,18 @@ object RdfFormat:
     sealed trait Readable extends Jena, RdfFormat.Readable
     sealed trait BatchWriteable extends Jena, RdfFormat.Writeable
 
-  case object NQuads extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
+  case object NQuads
+      extends RdfFormat.Jena.StreamWriteable,
+        RdfFormat.Jena.Readable,
+        RdfFormat.SupportsGeneralizedStatement:
     override val fullName: String = "N-Quads"
     override val cliOptions: List[String] = List("nq", "nquads")
     override val jenaLang: Lang = RDFLanguages.NQUADS
 
-  case object NTriples extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
+  case object NTriples
+      extends RdfFormat.Jena.StreamWriteable,
+        RdfFormat.Jena.Readable,
+        RdfFormat.SupportsGeneralizedStatement:
     override val fullName: String = "N-Triples"
     override val cliOptions: List[String] = List("nt", "ntriples")
     override val jenaLang: Lang = RDFLanguages.NTRIPLES
