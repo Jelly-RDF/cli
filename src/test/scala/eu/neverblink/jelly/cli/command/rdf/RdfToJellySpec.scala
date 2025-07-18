@@ -454,6 +454,25 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           },
           jenaLang = RDFLanguages.NTRIPLES,
         )
+
+        "loading options from another file" in withSpecificJellyFile( optionsFile => withFullJenaFile(jenaFile => {
+          RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                "--options-from",
+                optionsFile,
+                jenaFile,
+              ),
+            )
+          val frames = readJellyFile(new FileInputStream(optionsFile))
+          val opts = frames.head.getRows.asScala.head.getOptions
+          val newFrames = readJellyFile(new ByteArrayInputStream(RdfToJelly.getOutBytes))
+          val newOpts = newFrames.head.getRows.asScala.head.getOptions
+          opts should equal(newOpts)
+
+        }, jenaLang = RDFLanguages.NTRIPLES),
+          fileName = "options2.jelly")
       }
       "Turtle" in {
         val input = DataGenHelper.generateJenaInputStream(testCardinality, RDFLanguages.TURTLE)
