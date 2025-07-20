@@ -76,9 +76,9 @@ fi
 
 # Check if zsh or bash is being used and source the appropriate file
 if [[ "$SHELL" == *"zsh"* ]]; then
-  echo  'Run source "$HOME/.zshrc" or restart your terminal to apply changes.'
+  echo  "Run source ""$HOME/.zshrc"" or restart your terminal to apply changes."
 elif [[ "$SHELL" == *"bash"* ]]; then
-  echo  'Run source "$HOME/.bashrc" or restart your terminal to apply changes.'
+  echo  "Run source ""$HOME/.bashrc"" or restart your terminal to apply changes."
 fi
 
 

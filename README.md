@@ -8,8 +8,8 @@ If you are using Linux (x86_64, ARM64), macOS (ARM64), or WSL on Windows, the re
 To do so, run:
 
 ```shell
-$ curl -sSfL https://raw.githubusercontent.com/Jelly-RDF/cli/main/install.sh | bash
-$ jelly-cli --help
+$ curl -sSfL https://raw.githubusercontent.com/Jelly-RDF/cli/main/install.sh | .
+$ jelly-cli
 ```
 
 
@@ -19,7 +19,7 @@ You can then run it like so:
 
 ```shell
 $ chmod +x jelly-cli
-$ ./jelly-cli --help
+$ ./jelly-cli
 ```
 
 ## Usage
