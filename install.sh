@@ -24,13 +24,13 @@ case $OS in
 esac
 # Append the architecture to the binary name but yell for cases we don't support
 case $ARCH in
-  x86_64) BINARY_NAME+="-x86_64" ;;
+  x86_64) BINARY_NAME+="-x86_64"
+        # check that os not darwin here
+        if [[ "$OS" = "darwin" ]]; then
+          echo "Unsupported architecture: $ARCH on macOS"
+          exit 1
+        fi;;
   aarch64)
-    # check that os not darwin here
-    if [[ "$OS" = "darwin" ]]; then
-      echo "Unsupported architecture: $ARCH on macOS"
-      exit 1
-    fi
     BINARY_NAME+="-arm64" ;;
   *) echo "Unsupported architecture: $ARCH"
     exit 1
