@@ -2,8 +2,8 @@
 
 # This script installs the latest cli release from the GitHub repository
 # Let's start by fetching the latest release information
-REPO_BASE="https://api.github.com/repos/Jelly-RDF/cli"
-REPO="$REPO_BASE/releases/latest"
+REPO_BASE="Jelly-RDF/cli"
+REPO="https://api.github.com/repos/$REPO_BASE/releases/latest"
 RELEASE_INFO=$(curl -s $REPO)
 
 # And let's get the tag name of the latest release
@@ -24,7 +24,7 @@ case $OS in
 esac
 # Append the architecture to the binary name but yell for cases we don't support
 case $ARCH in
-  x86_64) BINARY_NAME+="-amd64" ;;
+  x86_64) BINARY_NAME+="-x86_64" ;;
   aarch64)
     # check that os not darwin here
     if [[ "$OS" = "darwin" ]]; then
@@ -55,12 +55,16 @@ if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
   fi
 fi
 
+# Add the binary to the PATH for the current session
+export PATH="$PATH:$INSTALL_DIR"
+
 
 # Download the binary
-DOWNLOAD_URL="$REPO_BASE/releases/download/$TAG_NAME/$BINARY_NAME"
+DOWNLOAD_URL="https://github.com/$REPO_BASE/releases/download/$TAG_NAME/$BINARY_NAME"
 echo "Downloading $BINARY_NAME from $DOWNLOAD_URL"
 curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/jelly-cli"
 chmod +x "$INSTALL_DIR/jelly-cli"
+
 
 # Link the binary to the installation directory
 if [[ -f "$INSTALL_DIR/jelly-cli" ]]; then
