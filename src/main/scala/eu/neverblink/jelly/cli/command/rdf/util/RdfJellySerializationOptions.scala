@@ -44,9 +44,9 @@ case class RdfJellySerializationOptions(
     var options: Option[RdfStreamOptions] = None
     var generalized: Boolean = false
 
-  def setOptions(rdfStreamOptions: RdfStreamOptions): Unit = inferred.options = Some(rdfStreamOptions)
-
-
+  def setOptions(rdfStreamOptions: RdfStreamOptions): Unit = inferred.options = Some(
+    rdfStreamOptions,
+  )
 
   def inferGeneralized(inputFormat: Option[String], filename: Option[String]): Unit =
     val explicitFormat = inputFormat.flatMap(RdfFormat.find)

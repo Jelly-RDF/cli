@@ -10,7 +10,7 @@ import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
 import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
 import eu.neverblink.jelly.core.proto.google.v1 as google
-import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame, RdfStreamOptions}
+import eu.neverblink.jelly.core.proto.v1.*
 import org.apache.jena.riot.lang.LabelToNode
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
@@ -46,7 +46,7 @@ case class RdfToJellyOptions(
     @Recurse
     jellySerializationOptions: RdfJellySerializationOptions = RdfJellySerializationOptions(),
     @HelpMessage(
-      "Jelly file to load and copy serialization options from."
+      "Jelly file to load and copy serialization options from.",
     )
     optionsFrom: Option[String] = None,
     @HelpMessage(
@@ -78,14 +78,16 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
 
   def loadOptionsFromFile(filename: String): RdfStreamOptions =
     val inputStream = new FileInputStream(filename)
-    val frame = Using(inputStream) {content =>
+    val frame = Using(inputStream) { content =>
       RdfStreamFrame.parseDelimitedFrom(content)
     }
     frame.get.getRows.iterator().next().getOptions
 
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
     // Infer before touching options
-    options.optionsFrom.map(loadOptionsFromFile).foreach(options.jellySerializationOptions.setOptions)
+    options.optionsFrom.map(loadOptionsFromFile).foreach(
+      options.jellySerializationOptions.setOptions,
+    )
     options.jellySerializationOptions.inferGeneralized(
       options.inputFormat,
       remainingArgs.remaining.headOption,
