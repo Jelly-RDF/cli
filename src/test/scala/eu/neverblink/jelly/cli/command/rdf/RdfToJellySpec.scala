@@ -477,7 +477,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               },
               jenaLang = RDFLanguages.NTRIPLES,
             ),
-          fileName = "options2.jelly",
+          fileName = "options.jelly",
         )
       }
       "Turtle" in {
