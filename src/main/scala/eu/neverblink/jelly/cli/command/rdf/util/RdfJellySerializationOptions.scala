@@ -11,7 +11,7 @@ case class RdfJellySerializationOptions(
     @HelpMessage("Name of the output stream (in metadata). Default: (empty)")
     `opt.streamName`: String = "",
     @HelpMessage(
-      "Whether the stream may contain generalized triples, quads, or datasets. Default: (infer from input)",
+      "Whether the stream may contain generalized triples, quads, or datasets. Default: (true for N-Triples/N-Quads and Jena binary formats, false otherwise)",
     )
     `opt.generalizedStatements`: Option[Boolean] = None,
     @HelpMessage("Whether the stream may contain RDF-star statements. Default: true")
@@ -47,8 +47,8 @@ case class RdfJellySerializationOptions(
     val explicitFormat = inputFormat.flatMap(RdfFormat.find)
     val implicitFormat = filename.flatMap(RdfFormat.inferFormat)
     inferred.generalized = (explicitFormat, implicitFormat) match {
-      case (Some(f: RdfFormat.SupportsGeneralizedStatement), _) => true
-      case (_, Some(f: RdfFormat.SupportsGeneralizedStatement)) => true
+      case (Some(f: RdfFormat.SupportsGeneralizedRdf), _) => true
+      case (_, Some(f: RdfFormat.SupportsGeneralizedRdf)) => true
       case _ => false
     }
 
