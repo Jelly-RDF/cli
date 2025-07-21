@@ -73,6 +73,11 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
     langToJelly(RdfFormat.NQuads.jenaLang, _, _)
 
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
+    // Infer before touching options
+    options.jellySerializationOptions.inferGeneralized(
+      options.inputFormat,
+      remainingArgs.remaining.headOption,
+    )
     // Touch the options to make sure they are valid
     options.jellySerializationOptions.asRdfStreamOptions
     val (inputStream, outputStream) =
