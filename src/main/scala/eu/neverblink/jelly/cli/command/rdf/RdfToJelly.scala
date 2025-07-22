@@ -11,6 +11,7 @@ import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage,
 import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.proto.v1.*
+import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.riot.lang.LabelToNode
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
@@ -76,11 +77,13 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
   val defaultAction: (InputStream, OutputStream) => Unit =
     langToJelly(RdfFormat.NQuads.jenaLang, _, _)
 
-  def loadOptionsFromFile(filename: String): RdfStreamOptions =
+  private def loadOptionsFromFile(filename: String): RdfStreamOptions =
     val inputStream = new FileInputStream(filename)
-    val frame = Using(inputStream) { content =>
-      RdfStreamFrame.parseDelimitedFrom(content)
-    }
+    val response = IoUtils.autodetectDelimiting(inputStream)
+    val frame =
+      if response.isDelimited then Using(response.newInput())(RdfStreamFrame.parseDelimitedFrom)
+      else Using(response.newInput())(RdfStreamFrame.parseFrom)
+
     frame.get.getRows.iterator().next().getOptions
 
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
