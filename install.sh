@@ -51,7 +51,7 @@ fi
 
 
 # Download the binary
-DOWNLOAD_URL="https://github.com/$REPO_BASE/releases/download22/$TAG_NAME/$BINARY_NAME$ARCH_NAME"
+DOWNLOAD_URL="https://github.com/$REPO_BASE/releases/download/$TAG_NAME/$BINARY_NAME$ARCH_NAME"
 echo "Downloading $BINARY_NAME from $DOWNLOAD_URL"
 curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/jelly-cli"
 CONTENT=$(wc -c "$INSTALL_DIR/jelly-cli"  | awk '{print $1}')
