@@ -32,6 +32,8 @@ case $ARCH in
         fi;;
   aarch64)
     BINARY_NAME+="-arm64" ;;
+  arm64)
+      BINARY_NAME+="-arm64" ;;
   *) echo "Unsupported architecture: $ARCH"
     exit 1
     ;;
