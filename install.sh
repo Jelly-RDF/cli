@@ -10,6 +10,7 @@ RELEASE_INFO=$(curl -s $REPO)
 TAG_NAME=$(echo $RELEASE_INFO | grep -o '"tag_name": "[^"]*' | sed 's/"tag_name": "//')
 if [ -z "$TAG_NAME" ]; then
   echo "Error: Could not fetch the latest release tag name."
+  return 1
   exit 1
 fi
 
@@ -28,6 +29,7 @@ case $ARCH in
         # check that os not darwin here
         if [ "$OS" = "darwin" ]; then
           echo "Unsupported architecture: $ARCH on macOS"
+          return 1
           exit 1
         fi;;
   aarch64)
@@ -35,6 +37,7 @@ case $ARCH in
   arm64)
       ARCH_NAME="-arm64" ;;
   *) echo "Unsupported architecture: $ARCH"
+    return 1
     exit 1
     ;;
 esac
@@ -45,6 +48,19 @@ if [ ! -d "$INSTALL_DIR" ]; then
   echo "Creating installation directory: $INSTALL_DIR"
   mkdir -p "$INSTALL_DIR"
 fi
+
+
+# Download the binary
+DOWNLOAD_URL="https://github.com/$REPO_BASE/releases/download22/$TAG_NAME/$BINARY_NAME$ARCH_NAME"
+echo "Downloading $BINARY_NAME from $DOWNLOAD_URL"
+curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/jelly-cli"
+CONTENT=$(wc -c "$INSTALL_DIR/jelly-cli"  | awk '{print $1}')
+if [ $CONTENT -lt 500 ]; then
+  echo "Error: Failed to download the binary from $DOWNLOAD_URL"
+  return 1
+  exit 1
+fi
+chmod +x "$INSTALL_DIR/jelly-cli"
 
 # Ensure that the installation directory is in the PATH
 if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
@@ -59,14 +75,6 @@ fi
 
 # Add the binary to the PATH for the current session
 export PATH="$PATH:$INSTALL_DIR"
-
-
-# Download the binary
-DOWNLOAD_URL="https://github.com/$REPO_BASE/releases/download/$TAG_NAME/$BINARY_NAME$ARCH_NAME"
-echo "Downloading $BINARY_NAME from $DOWNLOAD_URL"
-curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/jelly-cli"
-chmod +x "$INSTALL_DIR/jelly-cli"
-
 
 # Link the binary to the installation directory
 if [ -f "$INSTALL_DIR/jelly-cli" ]; then
