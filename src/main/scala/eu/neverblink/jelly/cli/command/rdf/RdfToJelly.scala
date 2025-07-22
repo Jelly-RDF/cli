@@ -47,7 +47,7 @@ case class RdfToJellyOptions(
     @Recurse
     jellySerializationOptions: RdfJellySerializationOptions = RdfJellySerializationOptions(),
     @HelpMessage(
-      "Jelly file to load and copy serialization options from.",
+      "Jelly file to copy serialization options from. Options can be overridden with command line --opt.* options. Default: (unset)",
     )
     optionsFrom: Option[String] = None,
     @HelpMessage(
