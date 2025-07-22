@@ -69,7 +69,7 @@ chmod +x "$INSTALL_DIR/jelly-cli"
 
 
 # Link the binary to the installation directory
-if [[ -f "$INSTALL_DIR/jelly-cli" ]]; then
+if [ -f "$INSTALL_DIR/jelly-cli" ]; then
   echo "Installation successful! You can now use Jelly CLI by running 'jelly-cli'."
 else
   echo "Error: Installation failed. The binary was not found in the installation directory."
