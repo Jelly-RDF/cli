@@ -19,7 +19,7 @@ ARCH=$(uname -m)
 # Map the architecture to the appropriate binary name
 case $OS in
   linux) BINARY_NAME="jelly-cli-linux" ;;
-  darwin) BINARY_NAME="jelly-cli-macos" ;;
+  darwin) BINARY_NAME="jelly-cli-mac" ;;
   *) echo "Unsupported operating system: $OS"; exit 1 ;;
 esac
 # Append the architecture to the binary name but yell for cases we don't support
