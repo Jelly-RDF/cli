@@ -10,12 +10,13 @@ import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
 import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
 import eu.neverblink.jelly.core.proto.google.v1 as google
-import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamOptions}
+import eu.neverblink.jelly.core.proto.v1.*
+import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.riot.lang.LabelToNode
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.{Lang, RDFParser, RIOT}
 
-import java.io.{BufferedReader, InputStream, InputStreamReader, OutputStream}
+import java.io.{BufferedReader, FileInputStream, InputStream, InputStreamReader, OutputStream}
 import scala.util.Using
 
 object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
@@ -46,6 +47,10 @@ case class RdfToJellyOptions(
     @Recurse
     jellySerializationOptions: RdfJellySerializationOptions = RdfJellySerializationOptions(),
     @HelpMessage(
+      "Jelly file to copy serialization options from. Options can be overridden with command line --opt.* options. Default: (unset)",
+    )
+    optionsFrom: Option[String] = None,
+    @HelpMessage(
       "Target number of rows per frame – the writer may slightly exceed that. Default: 256",
     )
     rowsPerFrame: Int = 256,
@@ -72,8 +77,20 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
   val defaultAction: (InputStream, OutputStream) => Unit =
     langToJelly(RdfFormat.NQuads.jenaLang, _, _)
 
+  private def loadOptionsFromFile(filename: String): RdfStreamOptions =
+    val inputStream = new FileInputStream(filename)
+    val response = IoUtils.autodetectDelimiting(inputStream)
+    val frame =
+      if response.isDelimited then Using(response.newInput())(RdfStreamFrame.parseDelimitedFrom)
+      else Using(response.newInput())(RdfStreamFrame.parseFrom)
+
+    frame.get.getRows.iterator().next().getOptions
+
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
     // Infer before touching options
+    options.optionsFrom.map(loadOptionsFromFile).foreach(
+      options.jellySerializationOptions.setOptions,
+    )
     options.jellySerializationOptions.inferGeneralized(
       options.inputFormat,
       remainingArgs.remaining.headOption,
