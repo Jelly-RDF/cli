@@ -65,6 +65,8 @@ chmod +x "$INSTALL_DIR/jelly-cli"
 # Ensure that the installation directory is in the PATH
 if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
   echo "Adding $INSTALL_DIR to PATH"
+  # Add the binary to the PATH for the current session
+  export PATH="$PATH:$INSTALL_DIR"
   # Check shell config file from bash and zsh
   if expr "$SHELL" : '.*zsh' >/dev/null; then
     echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$HOME/.zshrc"
@@ -72,9 +74,6 @@ if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
     echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$HOME/.bashrc"
   fi
 fi
-
-# Add the binary to the PATH for the current session
-export PATH="$PATH:$INSTALL_DIR"
 
 # Link the binary to the installation directory
 if [ -f "$INSTALL_DIR/jelly-cli" ]; then
