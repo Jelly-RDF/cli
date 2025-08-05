@@ -11,6 +11,8 @@ lazy val graalvmV = "24.2.2"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
+lazy val wErrorIfCI = if (sys.env.contains("CI")) Seq("-Werror") else Seq()
+
 def isDevBuild: Boolean =
   sys.env.get("DEV_BUILD").exists(s => s != "0" && s != "false")
 
@@ -51,12 +53,11 @@ lazy val root = (project in file("."))
     ),
     scalacOptions ++= Seq(
       "-Wunused:imports",
-      "-Werror",
       "-feature",
       "-deprecation",
       "-unchecked",
       "-explain",
-    ),
+    ) ++ wErrorIfCI,
     buildInfoKeys := Seq[BuildInfoKey](
       version,
       scalaVersion,
