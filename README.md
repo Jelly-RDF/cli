@@ -1,3 +1,5 @@
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Discord](https://img.shields.io/discord/1333391881404420179?label=Discord%20chat)](https://discord.gg/A8sN5XwVa5) [![Scala build and test](https://github.com/Jelly-RDF/cli/actions/workflows/scala.yml/badge.svg)](https://github.com/Jelly-RDF/cli/actions/workflows/scala.yml) [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Jelly-RDF/cli/total)](https://github.com/Jelly-RDF/cli/releases)
+
 # jelly-cli
 
 Fast and convenient CLI utility for working with the [Jelly](https://jelly-rdf.github.io/dev/) knowledge graph streaming protocol.
