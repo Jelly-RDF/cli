@@ -83,12 +83,5 @@ else
   exit 1
 fi
 
-# Check if zsh or bash is being used and source the appropriate file
-if expr "$SHELL" : '.*zsh' >/dev/null; then
-  echo  "Run source ""$HOME/.zshrc"" or restart your terminal to permanently link the jelly-cli command."
-elif expr "$SHELL" : '.*bash' >/dev/null; then
-  echo  "Run source ""$HOME/.bashrc"" or restart your terminal to permanently link the jelly-cli command."
-fi
-
 jelly-cli completions install > /dev/null
 eval "$(jelly-cli completions install --env)"
