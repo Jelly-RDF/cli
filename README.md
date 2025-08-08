@@ -10,8 +10,8 @@ If you are using Linux (x86_64, ARM64), macOS (ARM64), or WSL on Windows, the re
 To do so, run:
 
 ```shell
-$ . <(curl -sSfL https://raw.githubusercontent.com/Jelly-RDF/cli/main/install.sh)
-$ jelly-cli
+. <(curl -sSfL https://raw.githubusercontent.com/Jelly-RDF/cli/main/install.sh)
+jelly-cli
 ```
 
 
@@ -20,8 +20,8 @@ For Windows (x86_64), the recommended way run `jelly-cli` is to use a pre-built 
 You can then run it like so:
 
 ```shell
-$ chmod +x jelly-cli
-$ ./jelly-cli
+chmod +x jelly-cli
+./jelly-cli
 ```
 
 ## Usage
@@ -31,7 +31,7 @@ $ ./jelly-cli
 To convert an RDF file (e.g., Turtle) to Jelly, simply run:
 
 ```shell
-$ jelly-cli rdf to-jelly input.ttl > output.jelly
+jelly-cli rdf to-jelly input.ttl > output.jelly
 ```
 
 ### Convert Jelly to RDF
@@ -39,14 +39,14 @@ $ jelly-cli rdf to-jelly input.ttl > output.jelly
 To convert from Jelly to RDF run:
 
 ```shell
-$ jelly-cli rdf from-jelly input.jelly > output.nq
+jelly-cli rdf from-jelly input.jelly > output.nq
 ```
 
 By default, `jelly-cli` will translate files to NQuads. 
 But you can also specify the output format with `--out-format`, for example:
 
 ```shell
-$ jelly-cli rdf from-jelly input.jelly --out-format=ttl > output.ttl
+jelly-cli rdf from-jelly input.jelly --out-format=ttl > output.ttl
 ```
 
 You can specify most well-known formats supported by Apache Jena, but also a custom Jelly-Text format. 
@@ -57,7 +57,7 @@ Jelly-Text is a human-readable translation of Jelly binary. It's not meant for m
 The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm. However, the numerical values for each of the options in the output stream must be greater than or equal to those in the input stream(s).
 
 ```shell
-$ jelly-cli rdf transcode input.jelly > output.jelly
+jelly-cli rdf transcode input.jelly > output.jelly
 ```
 
 ### Inspect Jelly files
@@ -65,13 +65,13 @@ $ jelly-cli rdf transcode input.jelly > output.jelly
 To inspect a Jelly file and get basic information describing its contents, such as stream options or number of triples in the file, run
 
 ```shell
-$ jelly-cli rdf inspect input.jelly
+jelly-cli rdf inspect input.jelly
 ```
 
 You can also compute the statistics separately for each stream frame with the `--per-frame` option:
 
 ```shell
-$ jelly-cli rdf inspect input.jelly --per-frame
+jelly-cli rdf inspect input.jelly --per-frame
 ```
 
 In both cases, you will get the output as a valid YAML.
@@ -81,7 +81,7 @@ In both cases, you will get the output as a valid YAML.
 To validate a Jelly file, run
 
 ```shell
-$ jelly-cli rdf validate input.jelly
+jelly-cli rdf validate input.jelly
 ```
 
 You can also check whether the Jelly file has been encoded using specific stream options or is equivalent to another RDF file, with the use of additional options to this command.
@@ -91,11 +91,11 @@ You can also check whether the Jelly file has been encoded using specific stream
 Use the `--help` option to learn more about all the available settings:
 
 ```shell
-$ jelly-cli rdf to-jelly --help
-$ jelly-cli rdf from-jelly --help
-$ jelly-cli rdf transcode --help
-$ jelly-cli rdf inspect --help
-$ jelly-cli rdf validate --help
+jelly-cli rdf to-jelly --help
+jelly-cli rdf from-jelly --help
+jelly-cli rdf transcode --help
+jelly-cli rdf inspect --help
+jelly-cli rdf validate --help
 ```
 
 And use the `--debug` option to get more information about any exceptions you encounter.
@@ -120,7 +120,7 @@ For maximum performance, we recommend using a recent JVM (e.g., GraalVM or OpenJ
 
 If you're using `jelly-cli` in your GitHub Action CI/CD workflows, consider using the `jelly-rdf/setup-cli` action ([Marketplace link](https://github.com/marketplace/actions/setup-jelly-cli)). The action will automatically download and install the appropriate binary. Simply run the action before `jelly-cli` usage:
 
-```
+```yaml
 steps:
   - uses: Jelly-RDF/setup-cli@v1
     
