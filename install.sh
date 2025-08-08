@@ -90,4 +90,5 @@ elif expr "$SHELL" : '.*bash' >/dev/null; then
   echo  "Run source ""$HOME/.bashrc"" or restart your terminal to permanently link the jelly-cli command."
 fi
 
-
+jelly-cli completions install
+eval "$(jelly-cli completions install --env)"
