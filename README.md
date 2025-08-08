@@ -118,6 +118,10 @@ steps:
   - run: jelly-cli rdf to-jelly input.ttl > output.jelly
 ```
 
+## RDF-star/RDF 1.2 compatibility
+
+`jelly-cli` is based on [Apache Jena](https://jena.apache.org/) 5.3.0, which is the last version of Jena that supports RDF-star. Later versions removed RDF-star support in favor of draft support for RDF 1.2, which is not directly compatible with RDF-star. Because RDF 1.2 is not yet a W3C Recommendation, we stick to RDF-star for now and will update to RDF 1.2 once it is finalized.
+
 ## Developer notes
 
 Run `sbt fixAll` before committing. Your code should be formatted and free of warnings.
