@@ -77,6 +77,14 @@ jobs:
           mv jelly-cli-ubuntu-22.04-arm/jelly-cli jelly-cli-linux-arm64
           mv jelly-cli-windows-2022/jelly-cli.exe jelly-cli-windows-x86_64.exe
 
+      - name: Create gzipped versions
+        run: |
+          gzip -9 -k jelly-cli-mac-arm64 &
+          gzip -9 -k jelly-cli-linux-x86_64 &
+          gzip -9 -k jelly-cli-linux-arm64 &
+          gzip -9 -k jelly-cli-windows-x86_64.exe &
+          wait
+
       - name: Upload binaries (pre-release)
         if: github.ref == 'refs/heads/main'
         uses: ncipollo/release-action@v1.14.0
