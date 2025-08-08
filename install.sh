@@ -91,4 +91,3 @@ elif expr "$SHELL" : '.*bash' >/dev/null; then
 fi
 
 jelly-cli completions install
-eval "$(jelly-cli completions install --env)"

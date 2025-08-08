@@ -10,7 +10,7 @@ If you are using Linux (x86_64, ARM64), macOS (ARM64), or WSL on Windows, the re
 To do so, run:
 
 ```shell
-. <(curl -sSfL https://raw.githubusercontent.com/Jelly-RDF/cli/main/install.sh)
+. <(curl -sSfL https://w3id.org/jelly/setup-cli.sh)
 jelly-cli
 ```
 
