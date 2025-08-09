@@ -51,9 +51,10 @@ fi
 
 
 # Download the binary
-DOWNLOAD_URL="https://github.com/$REPO_BASE/releases/download/$TAG_NAME/$BINARY_NAME$ARCH_NAME"
+DOWNLOAD_URL="https://github.com/$REPO_BASE/releases/download/$TAG_NAME/$BINARY_NAME$ARCH_NAME.gz"
 echo "Downloading $BINARY_NAME from $DOWNLOAD_URL"
-curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/jelly-cli"
+curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/jelly-cli.gz"
+gzip -d "$INSTALL_DIR/jelly-cli.gz"
 CONTENT=$(wc -c "$INSTALL_DIR/jelly-cli"  | awk '{print $1}')
 if [ $CONTENT -lt 500 ]; then
   echo "Error: Failed to download the binary from $DOWNLOAD_URL"
