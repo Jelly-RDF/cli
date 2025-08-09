@@ -10,7 +10,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-14, windows-2022, ubuntu-22.04, ubuntu-22.04-arm]
+        os:
+          - macos-14
+          - windows-2022
+          - windows-11-arm
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -76,6 +81,7 @@ jobs:
           mv jelly-cli-ubuntu-22.04/jelly-cli jelly-cli-linux-x86_64
           mv jelly-cli-ubuntu-22.04-arm/jelly-cli jelly-cli-linux-arm64
           mv jelly-cli-windows-2022/jelly-cli.exe jelly-cli-windows-x86_64.exe
+          mv jelly-cli-windows-11-arm/jelly-cli.exe jelly-cli-windows-arm64.exe
 
       - name: Create gzipped versions
         run: |
@@ -83,6 +89,7 @@ jobs:
           gzip -9 -k jelly-cli-linux-x86_64 &
           gzip -9 -k jelly-cli-linux-arm64 &
           gzip -9 -k jelly-cli-windows-x86_64.exe &
+          gzip -9 -k jelly-cli-windows-arm64.exe &
           wait
 
       - name: Upload binaries (pre-release)
