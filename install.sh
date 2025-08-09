@@ -84,5 +84,4 @@ else
   exit 1
 fi
 
-jelly-cli completions install > /dev/null
-eval "$(jelly-cli completions install --env)"
+jelly-cli completions install
