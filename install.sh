@@ -76,6 +76,10 @@ if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
   fi
 fi
 
+# Silently install completions
+nohup jelly-cli completions install > /dev/null 2>&1
+eval "$(jelly-cli completions install --env)"
+
 # Link the binary to the installation directory
 if [ -f "$INSTALL_DIR/jelly-cli" ]; then
   echo "Installation successful! You can now use Jelly CLI by running 'jelly-cli'."
@@ -83,5 +87,3 @@ else
   echo "Error: Installation failed. The binary was not found in the installation directory."
   exit 1
 fi
-
-jelly-cli completions install
