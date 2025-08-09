@@ -4,9 +4,9 @@
 
 Fast and convenient CLI utility for working with the [Jelly](https://jelly-rdf.github.io/dev/) knowledge graph streaming protocol.
 
-## Quick start
+## ⚡ Quick start
 
-If you are using Linux (x86_64, ARM64), macOS (ARM64), or WSL on Windows, the recommended way is to use the `install.sh` script, which will automatically install the newest release.
+If you are using Linux (x86_64, ARM64), macOS (ARM64), or WSL on Windows, the recommended way is to use the [`setup-cli.sh`](https://github.com/Jelly-RDF/cli/blob/main/install.sh) script, which will automatically install the newest release.
 To do so, run:
 
 ```shell
@@ -14,8 +14,7 @@ To do so, run:
 jelly-cli
 ```
 
-
-For Windows (x86_64), the recommended way run `jelly-cli` is to use a pre-built binary. Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the binary built for your platform.
+Alternatively, you can download the binary manually (this the only option for Windows users without WSL). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the binary built for your platform.
 
 You can then run it like so:
 
@@ -130,6 +129,14 @@ steps:
 ## RDF-star/RDF 1.2 compatibility
 
 `jelly-cli` is based on [Apache Jena](https://jena.apache.org/) 5.3.0, which is the last version of Jena that supports RDF-star. Later versions removed RDF-star support in favor of draft support for RDF 1.2, which is not directly compatible with RDF-star. Because RDF 1.2 is not yet a W3C Recommendation, we stick to RDF-star for now and will update to RDF 1.2 once it is finalized.
+
+## Contributing
+
+We welcome contributions! Feel free to [open an issue](https://github.com/Jelly-RDF/cli/issues/new), suggest new features, or submit pull requests.
+
+💬 [**Chat with us on Discord**](https://discord.gg/A8sN5XwVa5) to ask questions or discuss ideas.
+
+⭐ **Consider starring this repository** – this really helps the project!
 
 ## Developer notes
 
