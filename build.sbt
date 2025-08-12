@@ -46,7 +46,7 @@ lazy val root = (project in file("."))
       // we use Jena 5.3.0.
       ("eu.neverblink.jelly" % "jelly-jena" % jellyV).excludeAll(ExclusionRule("org.apache.jena")),
       "eu.neverblink.jelly" % "jelly-core-protos-google" % jellyV,
-      "com.github.alexarchambault" %% "case-app" % "2.1.0-M30",
+      "com.github.alexarchambault" %% "case-app" % "2.1.0",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test,
       "org.yaml" % "snakeyaml" % "2.4" % Test,
       // For native-image reflection compatibility
