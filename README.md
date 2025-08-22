@@ -6,6 +6,8 @@ Fast and convenient CLI utility for working with the [Jelly](https://jelly-rdf.g
 
 ## ⚡ Quick start
 
+### Install script
+
 If you are using Linux (x86_64, ARM64), macOS (ARM64), or WSL on Windows, the recommended way is to use the [`setup-cli.sh`](https://github.com/Jelly-RDF/cli/blob/main/install.sh) script, which will automatically install the newest release.
 To do so, run:
 
@@ -13,6 +15,17 @@ To do so, run:
 . <(curl -sSfL https://w3id.org/jelly/setup-cli.sh)
 jelly-cli
 ```
+
+### [mise](https://mise.jdx.dev/getting-started.html)
+
+You can install `jelly-cli` on any platform (including Windows) using [mise](https://mise.jdx.dev/getting-started.html). Simply run:
+
+```shell
+mise use -g 'ubi:Jelly-RDF/cli[exe=jelly-cli]'
+jelly-cli
+```
+
+### Manual download
 
 Alternatively, you can download the binary manually (this the only option for Windows users without WSL). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the binary built for your platform.
 
