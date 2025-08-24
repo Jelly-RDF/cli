@@ -28,7 +28,9 @@ lazy val graalOptions = Seq(
 ).flatten ++ Seq(
   "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature",
   "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
-  "-H:+AddAllCharsets", // TODO: only add necessary charsets github.com/Jelly-RDF/cli/issues/154
+  // Needed to skip initializing all charsets.
+  // See: https://github.com/Jelly-RDF/cli/issues/154
+  "--initialize-at-build-time=org.glassfish.json.UnicodeDetectingInputStream",
   "-H:+TrackPrimitiveValues", // SkipFlow optimization -- will be default in GraalVM 25
   "-H:+UsePredicates", // SkipFlow optimization -- will be default in GraalVM 25
 )

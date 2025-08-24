@@ -3,10 +3,12 @@ package eu.neverblink.jelly.cli.graal;
 import com.apicatalog.jsonld.JsonLdError;
 import com.apicatalog.jsonld.http.HttpClient;
 import com.apicatalog.jsonld.http.HttpResponse;
+import com.oracle.svm.core.annotate.Delete;
 import com.oracle.svm.core.annotate.Substitute;
 import com.oracle.svm.core.annotate.TargetClass;
 
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.security.Provider;
 import java.util.List;
 
@@ -60,4 +62,15 @@ final class ProviderListSubstitute {
     public List<Provider> providers() {
         return List.of();
     }
+}
+
+/**
+ * Disable UTF-32LE support in JSON parsers, which we don't need.
+ * This allows us to avoid including all charsets in the native image, which saves quite a bit of space.
+ * See: https://github.com/Jelly-RDF/cli/issues/154
+ */
+@TargetClass(className = "org.glassfish.json.UnicodeDetectingInputStream")
+final class UnicodeDetectingInputStreamSubstitute {
+    @Delete
+    private static Charset UTF_32LE;
 }
