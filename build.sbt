@@ -29,6 +29,8 @@ lazy val graalOptions = Seq(
   "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature",
   "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
   "-H:+AddAllCharsets", // TODO: only add necessary charsets github.com/Jelly-RDF/cli/issues/154
+  "-H:+TrackPrimitiveValues", // SkipFlow optimization -- will be default in GraalVM 25
+  "-H:+UsePredicates", // SkipFlow optimization -- will be default in GraalVM 25
 )
 
 lazy val root = (project in file("."))
