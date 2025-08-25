@@ -1,7 +1,8 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
+import eu.neverblink.jelly.cli.command.helpers.{RdfAdapter, TestFixtureHelper}
 import eu.neverblink.jelly.cli.command.helpers.RdfAdapter.*
+import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
 import eu.neverblink.jelly.cli.{CriticalException, ExitException}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
@@ -10,6 +11,7 @@ import eu.neverblink.jelly.core.proto.v1.*
 import eu.neverblink.jelly.core.{JellyOptions, ProtoEncoder, RdfProtoDeserializationError}
 import org.apache.jena.graph.{NodeFactory, Triple}
 import org.apache.jena.riot.Lang
+import org.apache.jena.shared.impl.JenaParameters
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -723,6 +725,63 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         val is = ByteArrayInputStream(f.toByteArray)
         RdfValidate.setStdIn(is)
         val (out, err) = RdfValidate.runTestCommand(List("rdf", "validate"))
+        err shouldBe empty
+      }
+    }
+
+    "handle term validation" when {
+      import RdfAdapter.*
+      val frame = rdfStreamFrame(
+        Seq(
+          rdfStreamRow(
+            JellyOptions.BIG_GENERALIZED.clone()
+              .setPhysicalType(PhysicalStreamType.TRIPLES)
+              .setVersion(1),
+          ),
+          rdfStreamRow(rdfNameEntry(0, "notgood://malformed iri")),
+          rdfStreamRow(rdfDatatypeEntry(0, "http://www.w3.org/2001/XMLSchema#date")),
+          rdfStreamRow(
+            rdfTriple(
+              "b1",
+              rdfIri(0, 0), // malformed IRI
+              rdfLiteral("2025-02-31", 1), // invalid date
+            ),
+          ),
+        ),
+      )
+      val frameBytes = frame.toByteArray
+
+      "term validation enabled (default)" in {
+        JenaSystemOptions.resetTermValidation()
+        JenaParameters.enableEagerLiteralValidation = true
+        RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
+        val e = intercept[ExitException] {
+          RdfValidate.runTestCommand(List("rdf", "validate"))
+        }
+        e.cause.get shouldBe a[RdfProtoDeserializationError]
+        e.cause.get.getMessage should include("datatype")
+      }
+
+      "term validation enabled (explicit)" in {
+        JenaSystemOptions.resetTermValidation()
+        JenaParameters.enableEagerLiteralValidation = true
+        RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
+        val e = intercept[ExitException] {
+          RdfValidate.runTestCommand(List("rdf", "validate", "--validate-terms=true"))
+        }
+        e.cause.get shouldBe a[RdfProtoDeserializationError]
+        e.cause.get.getMessage should include("datatype")
+      }
+
+      "term validation disabled" in {
+        JenaSystemOptions.resetTermValidation()
+        // This is normally not set. We use it to make sure the invalid date literal is actually detected.
+        JenaParameters.enableEagerLiteralValidation = true
+        RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
+        val (out, err) = RdfValidate.runTestCommand(
+          List("rdf", "validate", "--validate-terms=false"),
+        )
+        out shouldBe empty
         err shouldBe empty
       }
     }

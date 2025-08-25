@@ -1,10 +1,12 @@
 package eu.neverblink.jelly.cli.command.helpers
 
+import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
 import eu.neverblink.jelly.cli.util.jena.riot.CliRiot
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
 import eu.neverblink.jelly.core.JellyOptions
 import org.apache.jena.graph.Triple
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFFormat, RDFLanguages, RDFWriter, RIOT}
+import org.apache.jena.shared.impl.JenaParameters
 import org.apache.jena.sparql.graph.GraphFactory
 import org.apache.jena.sys.JenaSystem
 import org.scalatest.BeforeAndAfterAll
@@ -130,3 +132,6 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
   override def afterAll(): Unit =
     Files.deleteIfExists(tmpDir)
+    // Reset any Jena system options we might have changed during tests
+    JenaSystemOptions.resetTermValidation()
+    JenaParameters.enableEagerLiteralValidation = false

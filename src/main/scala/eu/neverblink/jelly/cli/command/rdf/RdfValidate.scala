@@ -6,12 +6,12 @@ import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
 import eu.neverblink.jelly.cli.util.io.IoUtil
 import eu.neverblink.jelly.cli.util.jena.*
+import eu.neverblink.jelly.cli.util.jena.riot.RiotParserUtil
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
 import eu.neverblink.jelly.core.proto.v1.{RdfStreamFrame, RdfStreamOptions}
 import org.apache.jena.graph.{Node, Triple}
-import org.apache.jena.riot.RDFParser
 import org.apache.jena.riot.system.StreamRDFLib
 import org.apache.jena.sparql.core.Quad
 
@@ -63,6 +63,8 @@ case class RdfValidateOptions(
         "Possible values: 'either', 'true', 'false'. Default: 'either'.",
     )
     delimited: String = "either",
+    @Recurse
+    rdfPerformanceOptions: RdfPerformanceOptions = RdfPerformanceOptions(),
 ) extends HasJellyCommandOptions
 
 object RdfValidate extends JellyCommand[RdfValidateOptions]:
@@ -90,6 +92,8 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       options.compareToRdfFile.map(n => getRdfForComparison(n, options.compareToFormat))
     val (inputStream, _) = getIoStreamsFromOptions(remainingArgs.remaining.headOption, None)
     val (delimited, frameIterator) = JellyUtil.iterateRdfStreamWithDelimitingInfo(inputStream)
+    if !options.rdfPerformanceOptions.validateTerms.getOrElse(true) then
+      JenaSystemOptions.disableTermValidation()
 
     // Step 1: Validate delimiting
     validateDelimiting(delimiting, delimited)
@@ -245,8 +249,11 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
     }
     val output = StreamRdfCollector()
     Using.resource(IoUtil.inputStream(fileName)) { is =>
-      RDFParser.source(is)
-        .lang(format.jenaLang)
-        .parse(output)
+      RiotParserUtil.parse(
+        getOptions.rdfPerformanceOptions.validateTerms.getOrElse(true),
+        format.jenaLang,
+        is,
+        output,
+      )
     }
     output

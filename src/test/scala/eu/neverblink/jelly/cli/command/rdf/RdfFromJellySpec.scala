@@ -4,6 +4,7 @@ import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
+import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
 import org.apache.jena.query.DatasetFactory
@@ -17,6 +18,7 @@ import scala.io.Source
 import scala.util.Using
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.rdf.model.ModelFactory
+import org.apache.jena.shared.impl.JenaParameters
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 
@@ -402,6 +404,79 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         val cause = e.getCause.asInstanceOf[InvalidArgument]
         cause.argument should be("--take-frames")
         cause.argumentValue should be("invalid")
+      }
+    }
+
+    "handle term validation" when {
+      import RdfAdapter.*
+      val frame = rdfStreamFrame(
+        Seq(
+          rdfStreamRow(
+            JellyOptions.BIG_GENERALIZED.clone()
+              .setPhysicalType(PhysicalStreamType.TRIPLES)
+              .setVersion(1),
+          ),
+          rdfStreamRow(rdfNameEntry(0, "notgood://malformed iri")),
+          rdfStreamRow(rdfDatatypeEntry(0, "http://www.w3.org/2001/XMLSchema#date")),
+          rdfStreamRow(
+            rdfTriple(
+              "b1",
+              rdfIri(0, 0), // malformed IRI
+              rdfLiteral("2025-02-31", 1), // invalid date
+            ),
+          ),
+        ),
+      )
+      val frameBytes = frame.toByteArray
+
+      "term validation disabled (default)" in {
+        JenaSystemOptions.resetTermValidation()
+        JenaParameters.enableEagerLiteralValidation = true
+        RdfFromJelly.setStdIn(ByteArrayInputStream(frameBytes))
+        val (out, err) = RdfFromJelly.runTestCommand(
+          List("rdf", "from-jelly", "--out-format", RdfFormat.NQuads.cliOptions.head),
+        )
+        out.length should be > 0
+        out should include("<notgood://malformed")
+        err.isEmpty shouldBe true
+      }
+
+      "term validation disabled (explicit)" in {
+        JenaSystemOptions.resetTermValidation()
+        JenaParameters.enableEagerLiteralValidation = true
+        RdfFromJelly.setStdIn(ByteArrayInputStream(frameBytes))
+        val (out, err) = RdfFromJelly.runTestCommand(
+          List(
+            "rdf",
+            "from-jelly",
+            "--out-format",
+            RdfFormat.NQuads.cliOptions.head,
+            "--validate-terms=false",
+          ),
+        )
+        out.length should be > 0
+        out should include("<notgood://malformed")
+        err.isEmpty shouldBe true
+      }
+
+      "term validation enabled" in {
+        JenaSystemOptions.resetTermValidation()
+        // This is normally not set. We use it to make sure the invalid date literal is actually detected.
+        JenaParameters.enableEagerLiteralValidation = true
+        RdfFromJelly.setStdIn(ByteArrayInputStream(frameBytes))
+        val ex = intercept[ExitException] {
+          RdfFromJelly.runTestCommand(
+            List(
+              "rdf",
+              "from-jelly",
+              "--out-format",
+              RdfFormat.NQuads.cliOptions.head,
+              "--validate-terms=true",
+            ),
+          )
+        }
+        ex.cause.get shouldBe a[JellyDeserializationError]
+        ex.cause.get.getMessage should include("datatype")
       }
     }
   }

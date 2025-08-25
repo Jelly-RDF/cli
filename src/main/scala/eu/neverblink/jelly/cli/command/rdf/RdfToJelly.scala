@@ -5,16 +5,16 @@ import com.google.protobuf.TextFormat
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
-import eu.neverblink.jelly.cli.util.jena.riot.JellyStreamWriterGraphs
+import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
+import eu.neverblink.jelly.cli.util.jena.riot.{JellyStreamWriterGraphs, RiotParserUtil}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
 import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.proto.v1.*
 import eu.neverblink.jelly.core.utils.IoUtils
-import org.apache.jena.riot.lang.LabelToNode
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{Lang, RDFParser, RIOT}
+import org.apache.jena.riot.{Lang, RIOT}
 
 import java.io.{BufferedReader, FileInputStream, InputStream, InputStreamReader, OutputStream}
 import scala.util.Using
@@ -64,6 +64,8 @@ case class RdfToJellyOptions(
         "frame – make sure you know what you are doing. Default: true",
     )
     delimited: Boolean = true,
+    @Recurse
+    rdfPerformanceOptions: RdfPerformanceOptions = RdfPerformanceOptions(),
 ) extends HasJellyCommandOptions
 
 object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable]:
@@ -87,6 +89,8 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
     frame.get.getRows.iterator().next().getOptions
 
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
+    if !options.rdfPerformanceOptions.validateTerms.getOrElse(false) then
+      JenaSystemOptions.disableTermValidation()
     // Infer before touching options
     options.optionsFrom.map(loadOptionsFromFile).foreach(
       options.jellySerializationOptions.setOptions,
@@ -184,10 +188,12 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
             .build()
           JellyStreamWriter(JenaConverterFactory.getInstance(), variant, outputStream)
 
-    RDFParser.source(inputStream)
-      .lang(jenaLang)
-      .labelToNode(LabelToNode.createUseLabelAsGiven())
-      .parse(jellyWriter)
+    RiotParserUtil.parse(
+      getOptions.rdfPerformanceOptions.validateTerms.getOrElse(false),
+      jenaLang,
+      inputStream,
+      jellyWriter,
+    )
     jellyWriter.finish()
 
   /** Convert Jelly text to Jelly binary.
