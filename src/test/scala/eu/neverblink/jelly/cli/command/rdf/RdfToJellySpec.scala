@@ -891,45 +891,52 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           .getBytes
 
       "term validation disabled (default)" in {
-        JenaSystemOptions.resetTermValidation()
-        JenaParameters.enableEagerLiteralValidation = true
-        RdfToJelly.setStdIn(new ByteArrayInputStream(input))
-        val (out, err) = RdfToJelly.runTestCommand(
-          List("rdf", "to-jelly", "--in-format=nt"),
-        )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-        val frame = readJellyFile(newIn)
-        frame.size should be(1)
-        frame.head.getRows.size() should be > 3
-        err shouldBe empty
+        // Run in synchronized block to avoid interference with other tests
+        JenaSystemOptions.synchronized {
+          JenaSystemOptions.resetTermValidation()
+          JenaParameters.enableEagerLiteralValidation = true
+          RdfToJelly.setStdIn(new ByteArrayInputStream(input))
+          val (out, err) = RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", "--in-format=nt"),
+          )
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val frame = readJellyFile(newIn)
+          frame.size should be(1)
+          frame.head.getRows.size() should be > 3
+          err shouldBe empty
+        }
       }
 
       "term validation disabled (explicit)" in {
-        JenaSystemOptions.resetTermValidation()
-        JenaParameters.enableEagerLiteralValidation = true
-        RdfToJelly.setStdIn(new ByteArrayInputStream(input))
-        val (out, err) = RdfToJelly.runTestCommand(
-          List("rdf", "to-jelly", "--in-format=nt", "--validate-terms=false"),
-        )
-        val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-        val frame = readJellyFile(newIn)
-        frame.size should be(1)
-        frame.head.getRows.size() should be > 3
-        err shouldBe empty
+        JenaSystemOptions.synchronized {
+          JenaSystemOptions.resetTermValidation()
+          JenaParameters.enableEagerLiteralValidation = true
+          RdfToJelly.setStdIn(new ByteArrayInputStream(input))
+          val (out, err) = RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", "--in-format=nt", "--validate-terms=false"),
+          )
+          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
+          val frame = readJellyFile(newIn)
+          frame.size should be(1)
+          frame.head.getRows.size() should be > 3
+          err shouldBe empty
+        }
       }
 
       "term validation enabled (explicit)" in {
-        JenaSystemOptions.resetTermValidation()
-        // This is normally not set. We use it to make sure the invalid date literal is actually detected.
-        JenaParameters.enableEagerLiteralValidation = true
-        RdfToJelly.setStdIn(new ByteArrayInputStream(input))
-        val e = intercept[ExitException] {
-          RdfToJelly.runTestCommand(
-            List("rdf", "to-jelly", "--in-format=nt", "--validate-terms=true"),
-          )
+        JenaSystemOptions.synchronized {
+          JenaSystemOptions.resetTermValidation()
+          // This is normally not set. We use it to make sure the invalid date literal is actually detected.
+          JenaParameters.enableEagerLiteralValidation = true
+          RdfToJelly.setStdIn(new ByteArrayInputStream(input))
+          val e = intercept[ExitException] {
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", "--in-format=nt", "--validate-terms=true"),
+            )
+          }
+          e.code should be(1)
+          e.cause.get shouldBe a[DatatypeFormatException]
         }
-        e.code should be(1)
-        e.cause.get shouldBe a[DatatypeFormatException]
       }
     }
   }

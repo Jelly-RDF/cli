@@ -752,37 +752,44 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       val frameBytes = frame.toByteArray
 
       "term validation enabled (default)" in {
-        JenaSystemOptions.resetTermValidation()
-        JenaParameters.enableEagerLiteralValidation = true
-        RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
-        val e = intercept[ExitException] {
-          RdfValidate.runTestCommand(List("rdf", "validate"))
+        // Run in synchronized block to avoid interference with other tests
+        JenaSystemOptions.synchronized {
+          JenaSystemOptions.resetTermValidation()
+          JenaParameters.enableEagerLiteralValidation = true
+          RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
+          val e = intercept[ExitException] {
+            RdfValidate.runTestCommand(List("rdf", "validate"))
+          }
+          e.cause.get shouldBe a[RdfProtoDeserializationError]
+          e.cause.get.getMessage should include("datatype")
         }
-        e.cause.get shouldBe a[RdfProtoDeserializationError]
-        e.cause.get.getMessage should include("datatype")
       }
 
       "term validation enabled (explicit)" in {
-        JenaSystemOptions.resetTermValidation()
-        JenaParameters.enableEagerLiteralValidation = true
-        RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
-        val e = intercept[ExitException] {
-          RdfValidate.runTestCommand(List("rdf", "validate", "--validate-terms=true"))
+        JenaSystemOptions.synchronized {
+          JenaSystemOptions.resetTermValidation()
+          JenaParameters.enableEagerLiteralValidation = true
+          RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
+          val e = intercept[ExitException] {
+            RdfValidate.runTestCommand(List("rdf", "validate", "--validate-terms=true"))
+          }
+          e.cause.get shouldBe a[RdfProtoDeserializationError]
+          e.cause.get.getMessage should include("datatype")
         }
-        e.cause.get shouldBe a[RdfProtoDeserializationError]
-        e.cause.get.getMessage should include("datatype")
       }
 
       "term validation disabled" in {
-        JenaSystemOptions.resetTermValidation()
-        // This is normally not set. We use it to make sure the invalid date literal is actually detected.
-        JenaParameters.enableEagerLiteralValidation = true
-        RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
-        val (out, err) = RdfValidate.runTestCommand(
-          List("rdf", "validate", "--validate-terms=false"),
-        )
-        out shouldBe empty
-        err shouldBe empty
+        JenaSystemOptions.synchronized {
+          JenaSystemOptions.resetTermValidation()
+          // This is normally not set. We use it to make sure the invalid date literal is actually detected.
+          JenaParameters.enableEagerLiteralValidation = true
+          RdfValidate.setStdIn(ByteArrayInputStream(frameBytes))
+          val (out, err) = RdfValidate.runTestCommand(
+            List("rdf", "validate", "--validate-terms=false"),
+          )
+          out shouldBe empty
+          err shouldBe empty
+        }
       }
     }
   }
