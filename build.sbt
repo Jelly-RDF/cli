@@ -23,8 +23,8 @@ lazy val graalOptions = Seq(
   // Remove this after moving to Scala 3.8
   if (scalaV.split('.')(1).toInt < 8) Seq("-J--sun-misc-unsafe-memory-access=allow") else Nil,
   // Do a fast build if it's a dev build
-  // For the release build, optimize for size and make a build report
-  if (isDevBuild) Seq("-Ob") else Seq("-Os", "--emit build-report"),
+  // For the release build, optimize for speed and make a build report
+  if (isDevBuild) Seq("-Ob") else Seq("-O3", "--emit build-report"),
 ).flatten ++ Seq(
   "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature",
   "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
@@ -82,6 +82,6 @@ lazy val root = (project in file("."))
     // GraalVM settings
     Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
     // Do a fast build if it's a dev build
-    // For the release build, optimize for size and make a build report
+    // For the release build, optimize for speed and make a build report
     graalVMNativeImageOptions := graalOptions,
   )
