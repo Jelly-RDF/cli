@@ -18,10 +18,7 @@ import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
 import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
-class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
-
-  protected val testCardinality: Int = 33
-
+object RdfToJellySpec:
   def translateJellyBack(inputStream: InputStream): Model =
     Using(inputStream) { content =>
       val newModel = ModelFactory.createDefaultModel()
@@ -41,6 +38,11 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       case scala.util.Success(value) => value
       case scala.util.Failure(exception) => throw exception
     }
+
+class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
+  import RdfToJellySpec.*
+
+  protected val testCardinality: Int = 33
 
   "rdf to-jelly command" should {
     "handle conversion of NQuads to Jelly" when {

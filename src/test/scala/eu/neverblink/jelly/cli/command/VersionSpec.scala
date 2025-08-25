@@ -12,4 +12,9 @@ class VersionSpec extends AnyWordSpec, Matchers:
         out should include("Jelly-JVM")
         out should include("Apache Jena")
       }
+
+      "report that reflection is supported" in {
+        val (out, err) = Version.runTestCommand(List(alias))
+        out should include("[X] JVM reflection: supported.")
+      }
     }

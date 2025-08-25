@@ -7,6 +7,8 @@ import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
 import org.apache.jena.query.DatasetFactory
+import org.apache.jena.rdf.model.ModelFactory
+import org.apache.jena.riot.RDFDataMgr
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -15,8 +17,6 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Paths}
 import scala.io.Source
 import scala.util.Using
-import org.apache.jena.riot.RDFDataMgr
-import org.apache.jena.rdf.model.ModelFactory
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
 

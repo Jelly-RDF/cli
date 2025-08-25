@@ -5,7 +5,11 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
-import eu.neverblink.jelly.cli.util.jena.StreamRdfBatchWriter
+import eu.neverblink.jelly.cli.util.jena.{
+  JenaSystemOptions,
+  StreamRdfBatchWriter,
+  StreamRdfCombiningBatchWriter,
+}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
@@ -18,7 +22,6 @@ import org.apache.jena.sparql.core.Quad
 
 import java.io.{InputStream, OutputStream}
 import scala.jdk.CollectionConverters.*
-import eu.neverblink.jelly.cli.util.jena.StreamRdfCombiningBatchWriter
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
@@ -57,6 +60,8 @@ case class RdfFromJellyOptions(
         "Ignored otherwise. Take care with input size, as this option will load everything into memory.",
     )
     combine: Boolean = false,
+    @Recurse
+    rdfPerformanceOptions: RdfPerformanceOptions = RdfPerformanceOptions(),
 ) extends HasJellyCommandOptions
 
 object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writeable]:
@@ -73,6 +78,8 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
   private def takeFrames: IndexRange = IndexRange(getOptions.takeFrames, "--take-frames")
 
   override def doRun(options: RdfFromJellyOptions, remainingArgs: RemainingArgs): Unit =
+    if !options.rdfPerformanceOptions.validateTerms.getOrElse(false) then
+      JenaSystemOptions.disableTermValidation()
     // Parse options now to make sure they are valid
     takeFrames
     val (inputStream, outputStream) =

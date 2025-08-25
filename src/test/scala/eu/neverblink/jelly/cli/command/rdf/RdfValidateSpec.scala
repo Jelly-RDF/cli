@@ -1,6 +1,6 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
+import eu.neverblink.jelly.cli.command.helpers.{RdfAdapter, TestFixtureHelper}
 import eu.neverblink.jelly.cli.command.helpers.RdfAdapter.*
 import eu.neverblink.jelly.cli.{CriticalException, ExitException}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory

@@ -40,7 +40,7 @@ jobs:
 
     - name: Build and test
       shell: bash
-      run: sbt -v +test
+      run: sbt -v +test test-serial:test
 
   test-assembly:
     runs-on: ubuntu-latest

@@ -26,7 +26,8 @@ lazy val graalOptions = Seq(
   // For the release build, optimize for speed and make a build report
   if (isDevBuild) Seq("-Ob") else Seq("-O3", "--emit build-report"),
 ).flatten ++ Seq(
-  "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature",
+  "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature," +
+    "eu.neverblink.jelly.cli.graal.JenaInternalsFeature",
   "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
   // Needed to skip initializing all charsets.
   // See: https://github.com/Jelly-RDF/cli/issues/154
@@ -35,11 +36,14 @@ lazy val graalOptions = Seq(
   "-H:+UsePredicates", // SkipFlow optimization -- will be default in GraalVM 25
 )
 
+lazy val TestSerial = config("test-serial") extend Test
+
 lazy val root = (project in file("."))
   .enablePlugins(
     BuildInfoPlugin,
     GraalVMNativeImagePlugin,
   )
+  .configs(TestSerial)
   .settings(
     name := "jelly-cli",
     libraryDependencies ++= Seq(
@@ -51,7 +55,7 @@ lazy val root = (project in file("."))
       ("eu.neverblink.jelly" % "jelly-jena" % jellyV).excludeAll(ExclusionRule("org.apache.jena")),
       "eu.neverblink.jelly" % "jelly-core-protos-google" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0",
-      "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      "org.scalatest" %% "scalatest" % "3.2.19" % "test,test-serial",
       "org.yaml" % "snakeyaml" % "2.4" % Test,
       // For native-image reflection compatibility
       "org.graalvm.sdk" % "graal-sdk" % graalvmV % "provided",
@@ -78,6 +82,11 @@ lazy val root = (project in file("."))
       case PathList("reference.conf") => MergeStrategy.concat
       case _ => MergeStrategy.first
     },
+
+    // Serial tests should not run in parallel.
+    // They are used for tests that manipulate global state, like system properties.
+    inConfig(TestSerial)(Defaults.testSettings),
+    TestSerial / parallelExecution := false,
 
     // GraalVM settings
     Compile / mainClass := Some("eu.neverblink.jelly.cli.App"),
