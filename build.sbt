@@ -85,5 +85,4 @@ lazy val root = (project in file("."))
     // Do a fast build if it's a dev build
     // For the release build, optimize for speed and make a build report
     graalVMNativeImageOptions := graalOptions,
-    graalVMNativeImageCommand := "/opt/graalvm_2025_03/bin/native-image",
   )
