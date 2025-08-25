@@ -3,16 +3,13 @@ package eu.neverblink.jelly.cli.command.rdf
 import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
 import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.utils.IoUtils
-import org.apache.jena.datatypes.DatatypeFormatException
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
-import org.apache.jena.shared.impl.JenaParameters
 import org.apache.jena.sparql.core.DatasetGraphFactory
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -21,10 +18,7 @@ import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
 import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
-class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
-
-  protected val testCardinality: Int = 33
-
+object RdfToJellySpec:
   def translateJellyBack(inputStream: InputStream): Model =
     Using(inputStream) { content =>
       val newModel = ModelFactory.createDefaultModel()
@@ -44,6 +38,11 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       case scala.util.Success(value) => value
       case scala.util.Failure(exception) => throw exception
     }
+
+class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
+  import RdfToJellySpec.*
+
+  protected val testCardinality: Int = 33
 
   "rdf to-jelly command" should {
     "handle conversion of NQuads to Jelly" when {
@@ -882,61 +881,6 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               include("unsupported") and
               include("SUBJECT_GRAPHS/QUADS"),
           )
-      }
-    }
-
-    "handle term validation" when {
-      val input =
-        "_:Bb1 <notgood://malformed\\u0020iri> \"lalala\"^^<http://www.w3.org/2001/XMLSchema#int> ."
-          .getBytes
-
-      "term validation disabled (default)" in {
-        // Run in synchronized block to avoid interference with other tests
-        JenaSystemOptions.synchronized {
-          JenaSystemOptions.resetTermValidation()
-          JenaParameters.enableEagerLiteralValidation = true
-          RdfToJelly.setStdIn(new ByteArrayInputStream(input))
-          val (out, err) = RdfToJelly.runTestCommand(
-            List("rdf", "to-jelly", "--in-format=nt"),
-          )
-          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-          val frame = readJellyFile(newIn)
-          frame.size should be(1)
-          frame.head.getRows.size() should be > 3
-          err shouldBe empty
-        }
-      }
-
-      "term validation disabled (explicit)" in {
-        JenaSystemOptions.synchronized {
-          JenaSystemOptions.resetTermValidation()
-          JenaParameters.enableEagerLiteralValidation = true
-          RdfToJelly.setStdIn(new ByteArrayInputStream(input))
-          val (out, err) = RdfToJelly.runTestCommand(
-            List("rdf", "to-jelly", "--in-format=nt", "--validate-terms=false"),
-          )
-          val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
-          val frame = readJellyFile(newIn)
-          frame.size should be(1)
-          frame.head.getRows.size() should be > 3
-          err shouldBe empty
-        }
-      }
-
-      "term validation enabled (explicit)" in {
-        JenaSystemOptions.synchronized {
-          JenaSystemOptions.resetTermValidation()
-          // This is normally not set. We use it to make sure the invalid date literal is actually detected.
-          JenaParameters.enableEagerLiteralValidation = true
-          RdfToJelly.setStdIn(new ByteArrayInputStream(input))
-          val e = intercept[ExitException] {
-            RdfToJelly.runTestCommand(
-              List("rdf", "to-jelly", "--in-format=nt", "--validate-terms=true"),
-            )
-          }
-          e.code should be(1)
-          e.cause.get shouldBe a[DatatypeFormatException]
-        }
       }
     }
   }
