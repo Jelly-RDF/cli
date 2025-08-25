@@ -126,7 +126,7 @@ For most use cases, we recommend using the binary distribution, because it has w
 
 If you are bulk-converting large amounts of RDF data (>10M triples), you may want to use the JAR build instead of the pre-compiled binary. With the JAR, your JVM will perform just-in-time compilation, resulting in a better optimized code. The application will take longer to start, but the overall throughput will be better for large files.
 
-For maximum performance, we recommend using a recent JVM (e.g., GraalVM or OpenJDK). In some cases we saw up to 4x better throughput when running the JAR with GraalVM 24 in JIT mode, as compared to the pre-compiled binary.
+For maximum performance, we recommend using a recent JVM (e.g., GraalVM or OpenJDK). In some cases we saw up to 2x better throughput when running the JAR with GraalVM 24 in JIT mode, as compared to the pre-compiled binary.
 
 ## GitHub Action
 
