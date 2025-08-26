@@ -17,4 +17,15 @@ class VersionSpec extends AnyWordSpec, Matchers:
         val (out, err) = Version.runTestCommand(List(alias))
         out should include("[X] JVM reflection: supported.")
       }
+
+      "include the copyright year" in {
+        val (out, err) = Version.runTestCommand(List(alias))
+        val currentYear = java.time.Year.now.getValue.toString
+        out should include(s"Copyright (C) $currentYear NeverBlink and contributors")
+      }
+
+      "include a link to the license" in {
+        val (out, err) = Version.runTestCommand(List(alias))
+        out should include("https://www.apache.org/licenses/LICENSE-2.0")
+      }
     }

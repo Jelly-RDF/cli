@@ -72,6 +72,9 @@ lazy val root = (project in file("."))
       version,
       scalaVersion,
       libraryDependencies,
+      BuildInfoKey.action("buildTime") {
+        System.currentTimeMillis
+      },
     ),
     buildInfoPackage := "eu.neverblink.jelly.cli",
     assembly / assemblyMergeStrategy := {
