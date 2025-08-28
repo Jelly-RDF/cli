@@ -27,13 +27,19 @@ jelly-cli
 
 ### Manual download
 
-Alternatively, you can download the binary manually (this the only option for Windows users without WSL). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the binary built for your platform.
+Alternatively, you can download the binary manually (this also works for Windows). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the build for your platform.
 
 You can then run it like so:
 
 ```shell
 chmod +x jelly-cli
 ./jelly-cli
+```
+
+Or, on Windows:
+
+```shell
+jelly-cli.exe
 ```
 
 ## Usage
