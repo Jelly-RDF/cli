@@ -11,6 +11,8 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.security.Provider;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 // Substitutions of classes and methods for GraalVM native image builds.
 // These try to remove things from the static analysis (and, in effect, from the final binary)
@@ -53,14 +55,33 @@ final class HttpLibSubstitute { }
 final class HttpEnvSubstitute { }
 
 /**
- * UUID generation is used by Jena for blank node IDs, but we can fall back to the default implementation.
+ * Use pseudo-random UUIDs instead of secure random ones for seeding the blank node allocator.
+ * The secure random number generation pulls in a lot of stuff we don't need.
+ * <p>
+ * For conversion commands, this is not used at all, because we preserve blank node IDs.
  */
-@Substitute
-@TargetClass(className = "sun.security.jca.ProviderList")
-final class ProviderListSubstitute { 
+@TargetClass(org.apache.jena.riot.lang.BlankNodeAllocatorHash.class)
+final class BlankNodeAllocatorHashSubstitute {
     @Substitute
-    public List<Provider> providers() {
-        return List.of();
+    UUID freshSeed() {
+        ThreadLocalRandom r = ThreadLocalRandom.current();
+        return new UUID(r.nextLong(), r.nextLong());
+    }
+}
+
+/**
+ * Jena uses secure random number generation to create blank node IDs in its Model API.
+ * <p>
+ * Replaced with pseudo-random UUIDs to avoid including secure random number generation in the native image.
+ * This should be good enough for our purposes, because this is only used in init code for vocabularies
+ * and not for user data.
+ */
+@TargetClass(org.apache.jena.graph.BlankNodeId.class)
+final class BlankNodeIdSubstitute {
+    @Substitute
+    public static String createFreshId() {
+        ThreadLocalRandom r = ThreadLocalRandom.current();
+        return new UUID(r.nextLong(), r.nextLong()).toString();
     }
 }
 
