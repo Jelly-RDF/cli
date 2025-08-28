@@ -9,8 +9,6 @@ import com.oracle.svm.core.annotate.TargetClass;
 
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.security.Provider;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
