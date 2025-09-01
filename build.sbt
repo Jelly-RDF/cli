@@ -58,7 +58,7 @@ lazy val root = (project in file("."))
       "eu.neverblink.jelly" % "jelly-core-protos-google" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0",
       "org.scalatest" %% "scalatest" % "3.2.19" % "test,test-serial",
-      "org.yaml" % "snakeyaml" % "2.4" % Test,
+      "org.yaml" % "snakeyaml" % "2.5" % Test,
       // For native-image reflection compatibility
       "org.graalvm.sdk" % "graal-sdk" % graalvmV % "provided",
       "org.reflections" % "reflections" % "0.10.2",
