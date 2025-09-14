@@ -250,8 +250,8 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
     val output = StreamRdfCollector()
     Using.resource(IoUtil.inputStream(fileName)) { is =>
       RiotParserUtil.parse(
-        getOptions.rdfPerformanceOptions.validateTerms.getOrElse(true),
-        format.jenaLang,
+        getOptions.rdfPerformanceOptions.resolveIris,
+        format,
         is,
         output,
       )

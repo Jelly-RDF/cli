@@ -883,4 +883,56 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           )
       }
     }
+
+    "handle IRI resolution" when {
+      "IRI resolution enabled (default), input TTL stream" in withEmptyJellyFile { j =>
+        val input =
+          """BASE <http://example.org/>
+            |<a> <http://example.org/p> <b> .
+            |""".stripMargin
+        RdfToJelly.setStdIn(ByteArrayInputStream(input.getBytes))
+        RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format=ttl", "--to", j),
+        )
+        val content = translateJellyBack(new FileInputStream(j))
+        val stmts = content.listStatements().asScala.toSeq
+        stmts.size should be(1)
+        stmts.head.getSubject.getURI should be("http://example.org/a")
+        stmts.head.getPredicate.getURI should be("http://example.org/p")
+        stmts.head.getObject.asResource().getURI should be("http://example.org/b")
+      }
+
+      "IRI resolution disabled, input TTL stream" in withEmptyJellyFile { j =>
+        val input =
+          """BASE <http://example.org/>
+            |<a> <http://example.org/p> <b> .
+            |""".stripMargin
+        RdfToJelly.setStdIn(ByteArrayInputStream(input.getBytes))
+        RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format=ttl", "--resolve-iris=false", "--to", j),
+        )
+        val content = translateJellyBack(new FileInputStream(j))
+        val stmts = content.listStatements().asScala.toSeq
+        stmts.size should be(1)
+        stmts.head.getSubject.getURI should be("a")
+        stmts.head.getPredicate.getURI should be("http://example.org/p")
+        stmts.head.getObject.asResource().getURI should be("b")
+      }
+
+      "IRI resolution enabled (but ignored), input NT stream" in withEmptyJellyFile { j =>
+        val input =
+          """<a> <http://example.org/p> <b> .
+            |""".stripMargin
+        RdfToJelly.setStdIn(ByteArrayInputStream(input.getBytes))
+        RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--to", j),
+        )
+        val content = translateJellyBack(new FileInputStream(j))
+        val stmts = content.listStatements().asScala.toSeq
+        stmts.size should be(1)
+        stmts.head.getSubject.getURI should be("a")
+        stmts.head.getPredicate.getURI should be("http://example.org/p")
+        stmts.head.getObject.asResource().getURI should be("b")
+      }
+    }
   }

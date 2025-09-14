@@ -1,6 +1,8 @@
 package eu.neverblink.jelly.cli.util.jena.riot
 
-import org.apache.jena.riot.{Lang, RDFParser, RDFParserRegistry, RIOT}
+import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
+import org.apache.jena.riot.lang.LabelToNode
+import org.apache.jena.riot.{RDFParser, RDFParserRegistry, RIOT}
 import org.apache.jena.riot.system.StreamRDF
 
 import java.io.InputStream
@@ -9,19 +11,24 @@ import java.io.InputStream
   */
 object RiotParserUtil:
   def parse(
-      enableTermValidation: Boolean,
-      lang: Lang,
+      resolveIris: Boolean,
+      format: RdfFormat.Jena,
       source: InputStream,
       output: StreamRDF,
-  ): Unit =
-    if enableTermValidation then
-      // Standard parser with validation enabled
+  ): Unit = {
+    // Only really enable IRI resolution if the format supports it
+    if resolveIris && format.supportsBaseIri then
+      // Parser with full IRI resolution
       RDFParser.source(source)
-        .lang(lang)
+        .lang(format.jenaLang)
+        .labelToNode(LabelToNode.createUseLabelAsGiven())
+        .checking(false)
+        .strict(false)
         .parse(output)
     else
       // Fast parser with validation disabled
       RDFParserRegistry
-        .getFactory(lang)
-        .create(lang, FastParserProfile())
-        .read(source, "", lang.getContentType, output, RIOT.getContext)
+        .getFactory(format.jenaLang)
+        .create(format.jenaLang, FastParserProfile())
+        .read(source, "", format.jenaLang.getContentType, output, RIOT.getContext)
+  }

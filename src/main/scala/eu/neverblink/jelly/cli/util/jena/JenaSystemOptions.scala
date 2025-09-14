@@ -1,12 +1,11 @@
 package eu.neverblink.jelly.cli.util.jena
 
 import org.apache.jena.graph.impl.LiteralLabel
-import org.apache.jena.irix.{IRIProviderAny, SystemIRIx}
 
 import scala.util.Try
 
 object JenaSystemOptions:
-  /** Enable faster parsing by disabling strict IRI and literal validation.
+  /** Enable faster parsing by disabling strict literal validation.
     * @return
     *   A Success if the operation was successful, or a Failure with the exception if not. The
     *   operation may fail in environments where reflection is not supported. The failure can be
@@ -21,13 +20,9 @@ object JenaSystemOptions:
     toggle(true)
 
   private def toggle(enable: Boolean): Try[Unit] =
-    val valueMode = if enable then
-      SystemIRIx.reset()
-      "EAGER"
-    else
-      // Set the IRI provider to one that does no validation or resolving whatsoever
-      SystemIRIx.setProvider(IRIProviderAny.stringProvider())
-      "LAZY"
+    val valueMode =
+      if enable then "EAGER"
+      else "LAZY"
 
     // Disable/enable eager computation of literal values, which does strict checking.
     // This requires reflection as the field is private static final.
