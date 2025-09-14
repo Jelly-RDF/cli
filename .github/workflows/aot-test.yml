@@ -37,8 +37,11 @@ jobs:
           # See if it runs at all
           target/graalvm-native-image/jelly-cli version
           
-          # Make sure reflection works
+          # Make sure reflection is supported
           target/graalvm-native-image/jelly-cli version | grep "JVM reflection: supported"
+          
+          # Make sure large RDF/XML file parsing is supported
+          target/graalvm-native-image/jelly-cli version | grep "Large RDF/XML file parsing: supported"
           
           # Test RDF conversions
           echo '_:b <http://t.org/> _:b .' > in.nt

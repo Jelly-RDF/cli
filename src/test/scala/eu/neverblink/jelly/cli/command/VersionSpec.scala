@@ -18,6 +18,18 @@ class VersionSpec extends AnyWordSpec, Matchers:
         out should include("[X] JVM reflection: supported.")
       }
 
+      "report that large XML parsing is supported by default if running under JVM <= 23" in {
+        assume(Runtime.version().feature() <= 23, "Test only valid for JVM <= 23")
+        val (out, err) = Version.runTestCommand(List(alias))
+        out should include("[X] Large RDF/XML file parsing: supported.")
+      }
+
+      "report that large XML parsing is not supported by default if running under JVM >= 24" in {
+        assume(Runtime.version().feature() >= 24, "Test only valid for JVM >= 24")
+        val (out, err) = Version.runTestCommand(List(alias))
+        out should include("[ ] Large RDF/XML file parsing: not supported.")
+      }
+
       "include the copyright year" in {
         val (out, err) = Version.runTestCommand(List(alias))
         val currentYear = java.time.Year.now.getValue.toString
