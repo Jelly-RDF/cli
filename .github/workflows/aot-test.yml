@@ -58,6 +58,12 @@ jobs:
             target/graalvm-native-image/jelly-cli rdf to-jelly --in-format "rdfxml" > rdfxml.jelly && \
             [ -s rdfxml.jelly ]
           
+          # Invalid RDF/XMl input test
+          # Regression test for: https://github.com/Jelly-RDF/cli/issues/217
+          echo 'invalidxml' | \
+            ( ! target/graalvm-native-image/jelly-cli rdf to-jelly --in-format "rdfxml" &> error.txt ) && \
+            grep 'Content is not allowed in prolog' error.txt
+          
           # Test rdf validate
           target/graalvm-native-image/jelly-cli \
             rdf validate out.jelly --compare-to-rdf-file in.nt
