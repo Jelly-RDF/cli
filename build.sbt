@@ -36,6 +36,9 @@ lazy val graalOptions = Seq(
   "-H:+UsePredicates", // SkipFlow optimization -- will be default in GraalVM 25
   // Make sure we don't include stuff that should be unreachable in the native image
   "-H:AbortOnMethodReachable=*UUID.randomUUID*",
+  // Include XML error messages
+  // Issue: https://github.com/Jelly-RDF/cli/issues/217
+  "-H:IncludeResourceBundles=com.sun.org.apache.xerces.internal.impl.msg.XMLMessages",
 )
 
 lazy val TestSerial = config("test-serial") extend Test
