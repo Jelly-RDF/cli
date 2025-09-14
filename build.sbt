@@ -27,7 +27,8 @@ lazy val graalOptions = Seq(
   if (isDevBuild) Seq("-Ob") else Seq("-O3", "--emit build-report"),
 ).flatten ++ Seq(
   "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature," +
-    "eu.neverblink.jelly.cli.graal.JenaInternalsFeature",
+    "eu.neverblink.jelly.cli.graal.JenaInternalsFeature," +
+    "eu.neverblink.jelly.cli.graal.LargeXmlFeature",
   "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
   // Needed to skip initializing all charsets.
   // See: https://github.com/Jelly-RDF/cli/issues/154
