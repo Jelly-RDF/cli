@@ -14,7 +14,7 @@ import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.proto.v1.*
 import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.{Lang, RIOT}
+import org.apache.jena.riot.RIOT
 
 import java.io.{BufferedReader, FileInputStream, InputStream, InputStreamReader, OutputStream}
 import scala.util.Using
@@ -77,7 +77,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
   lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Readable] = RdfToJellyPrint
 
   val defaultAction: (InputStream, OutputStream) => Unit =
-    langToJelly(RdfFormat.NQuads.jenaLang, _, _)
+    langToJelly(RdfFormat.NQuads, _, _)
 
   private def loadOptionsFromFile(filename: String): RdfStreamOptions =
     val inputStream = new FileInputStream(filename)
@@ -114,12 +114,12 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
   override def matchFormatToAction(
       format: RdfFormat.Readable,
   ): Option[(InputStream, OutputStream) => Unit] = format match {
-    case f: RdfFormat.Jena.Readable => Some(langToJelly(f.jenaLang, _, _))
+    case f: RdfFormat.Jena.Readable => Some(langToJelly(f, _, _))
     case f: RdfFormat.JellyText.type => Some(jellyTextToJelly)
   }
 
   /** This method reads the file, rewrites it to Jelly and writes it to some output stream
-    * @param jenaLang
+    * @param format
     *   Language that should be converted to Jelly
     * @param inputStream
     *   InputStream
@@ -127,7 +127,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
     *   OutputStream
     */
   private def langToJelly(
-      jenaLang: Lang,
+      format: RdfFormat.Jena,
       inputStream: InputStream,
       outputStream: OutputStream,
   ): Unit =
@@ -189,8 +189,8 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           JellyStreamWriter(JenaConverterFactory.getInstance(), variant, outputStream)
 
     RiotParserUtil.parse(
-      getOptions.rdfPerformanceOptions.validateTerms.getOrElse(false),
-      jenaLang,
+      getOptions.rdfPerformanceOptions.resolveIris,
+      format,
       inputStream,
       jellyWriter,
     )

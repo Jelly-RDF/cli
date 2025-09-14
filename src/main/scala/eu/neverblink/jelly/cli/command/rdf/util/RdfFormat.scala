@@ -6,6 +6,7 @@ import org.apache.jena.riot.{Lang, RDFLanguages}
 sealed trait RdfFormat:
   val fullName: String
   val cliOptions: List[String]
+  val supportsBaseIri: Boolean
 
 object RdfFormat:
 
@@ -29,6 +30,7 @@ object RdfFormat:
     override val fullName: String = "N-Quads"
     override val cliOptions: List[String] = List("nq", "nquads")
     override val jenaLang: Lang = RDFLanguages.NQUADS
+    override val supportsBaseIri: Boolean = false
 
   case object NTriples
       extends RdfFormat.Jena.StreamWriteable,
@@ -37,16 +39,19 @@ object RdfFormat:
     override val fullName: String = "N-Triples"
     override val cliOptions: List[String] = List("nt", "ntriples")
     override val jenaLang: Lang = RDFLanguages.NTRIPLES
+    override val supportsBaseIri: Boolean = false
 
   case object Turtle extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "Turtle"
     override val cliOptions: List[String] = List("ttl", "turtle")
     override val jenaLang: Lang = RDFLanguages.TURTLE
+    override val supportsBaseIri: Boolean = true
 
   case object TriG extends RdfFormat.Jena.StreamWriteable, RdfFormat.Jena.Readable:
     override val fullName: String = "TriG"
     override val cliOptions: List[String] = List("trig")
     override val jenaLang: Lang = RDFLanguages.TRIG
+    override val supportsBaseIri: Boolean = true
 
   case object RdfProto
       extends RdfFormat.Jena.StreamWriteable,
@@ -55,6 +60,7 @@ object RdfFormat:
     override val fullName: String = "RDF Protobuf"
     override val cliOptions: List[String] = List("jenaproto", "jena-proto")
     override val jenaLang: Lang = RDFLanguages.RDFPROTO
+    override val supportsBaseIri: Boolean = false
 
   case object Thrift
       extends RdfFormat.Jena.StreamWriteable,
@@ -63,16 +69,19 @@ object RdfFormat:
     override val fullName: String = "RDF Thrift"
     override val cliOptions: List[String] = List("jenathrift", "jena-thrift")
     override val jenaLang: Lang = RDFLanguages.RDFTHRIFT
+    override val supportsBaseIri: Boolean = false
 
   case object RdfXml extends RdfFormat.Jena.Readable, RdfFormat.Jena.BatchWriteable:
     override val fullName: String = "RDF/XML"
     override val cliOptions: List[String] = List("rdfxml", "rdf-xml")
     override val jenaLang: Lang = RDFLanguages.RDFXML
+    override val supportsBaseIri: Boolean = true
 
   case object JsonLd extends RdfFormat.Jena.Readable, RdfFormat.Jena.BatchWriteable:
     override val fullName: String = "JSON-LD"
     override val cliOptions: List[String] = List("jsonld", "json-ld")
     override val jenaLang: Lang = RDFLanguages.JSONLD
+    override val supportsBaseIri: Boolean = true
 
   // We do not ever want to write or read from Jelly to Jelly
   // So better not have it as Writeable or Readable, just mark that it's integrated into Jena
@@ -80,6 +89,7 @@ object RdfFormat:
     override val fullName: String = "Jelly binary"
     override val cliOptions: List[String] = List("jelly")
     override val jenaLang: Lang = JellyLanguage.JELLY
+    override val supportsBaseIri: Boolean = false
 
   case object JellyText
       extends RdfFormat,
@@ -89,6 +99,7 @@ object RdfFormat:
     override val fullName: String = "Jelly text"
     override val cliOptions: List[String] = List("jelly-text")
     val extension = ".jelly.txt"
+    override val supportsBaseIri: Boolean = false
 
   private val rdfFormats: List[RdfFormat] =
     List(NQuads, NTriples, JellyBinary, JellyText, Turtle, TriG, RdfProto, Thrift, RdfXml, JsonLd)
