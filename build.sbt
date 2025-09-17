@@ -35,6 +35,7 @@ lazy val graalOptions = Seq(
   "--initialize-at-build-time=org.glassfish.json.UnicodeDetectingInputStream",
   "-H:+TrackPrimitiveValues", // SkipFlow optimization -- will be default in GraalVM 25
   "-H:+UsePredicates", // SkipFlow optimization -- will be default in GraalVM 25
+  "-H:+MLCallCountProfileInference", // ML inference for hot/cold method detection
   // Make sure we don't include stuff that should be unreachable in the native image
   "-H:AbortOnMethodReachable=*UUID.randomUUID*",
   // Include XML error messages
@@ -102,4 +103,5 @@ lazy val root = (project in file("."))
     // Do a fast build if it's a dev build
     // For the release build, optimize for speed and make a build report
     graalVMNativeImageOptions := graalOptions,
+    graalVMNativeImageCommand := "/opt/graalvm_2025_09/bin/native-image",
   )
