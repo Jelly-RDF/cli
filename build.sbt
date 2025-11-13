@@ -1,5 +1,5 @@
 ThisBuild / semanticdbEnabled := true
-lazy val scalaV = "3.7.3"
+lazy val scalaV = "3.7.4"
 ThisBuild / scalaVersion := scalaV
 
 resolvers +=
