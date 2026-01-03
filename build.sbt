@@ -1,13 +1,13 @@
 ThisBuild / semanticdbEnabled := true
-lazy val scalaV = "3.7.3"
+lazy val scalaV = "3.7.4"
 ThisBuild / scalaVersion := scalaV
 
 resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
 lazy val jenaV = "5.3.0"
-lazy val jellyV = "3.5.2"
-lazy val graalvmV = "25.0.0"
+lazy val jellyV = "3.6.2"
+lazy val graalvmV = "25.0.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
