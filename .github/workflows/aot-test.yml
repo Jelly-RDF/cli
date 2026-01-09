@@ -32,6 +32,7 @@ jobs:
 
       - name: Test the binary
         run: |
+          set -o pipefail
           set -eux
           
           # See if it runs at all
