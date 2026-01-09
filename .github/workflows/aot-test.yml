@@ -31,6 +31,7 @@ jobs:
         run: sbt GraalVMNativeImage/packageBin
 
       - name: Test the binary
+        shell: bash
         run: |
           set -euo pipefail
           
