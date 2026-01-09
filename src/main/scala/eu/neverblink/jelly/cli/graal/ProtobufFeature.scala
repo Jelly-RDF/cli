@@ -14,9 +14,10 @@ class ProtobufFeature extends Feature:
 
   override def beforeAnalysis(access: BeforeAnalysisAccess): Unit =
     val reflections = Reflections("eu.neverblink.jelly.core.proto.google.v1", Scanners.SubTypes)
-    val classes = reflections.getSubTypesOf(
-      classOf[com.google.protobuf.GeneratedMessage],
-    ).asScala ++
+    val classes = Seq(
+      classOf[com.google.protobuf.DescriptorProtos.FieldOptions],
+    ) ++
+      reflections.getSubTypesOf(classOf[com.google.protobuf.GeneratedMessage]).asScala ++
       reflections.getSubTypesOf(classOf[com.google.protobuf.GeneratedMessage.Builder[?]]).asScala ++
       reflections.getSubTypesOf(classOf[com.google.protobuf.ProtocolMessageEnum]).asScala
     classes.foreach(clazz => {
