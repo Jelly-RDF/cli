@@ -32,8 +32,7 @@ jobs:
 
       - name: Test the binary
         run: |
-          set -o pipefail
-          set -eux
+          set -euo pipefail
           
           # See if it runs at all
           target/graalvm-native-image/jelly-cli version
