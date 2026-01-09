@@ -54,6 +54,10 @@ jobs:
           target/graalvm-native-image/jelly-cli \
             rdf from-jelly --out-format=jelly-text out.jelly > out.txt && \
             [ -s out.txt ] || exit 1
+          # From jelly-text
+          target/graalvm-native-image/jelly-cli \
+            rdf to-jelly --in-format=jelly-text out.txt > out2.jelly && \
+            [ -s out2.jelly ] || exit 1
           target/graalvm-native-image/jelly-cli \
             rdf from-jelly --out-format=jsonld out.jelly > out.json && \
             [ -s out.json ] || exit 1

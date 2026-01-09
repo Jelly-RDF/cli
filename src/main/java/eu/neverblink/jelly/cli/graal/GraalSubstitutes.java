@@ -3,9 +3,9 @@ package eu.neverblink.jelly.cli.graal;
 import com.apicatalog.jsonld.JsonLdError;
 import com.apicatalog.jsonld.http.HttpClient;
 import com.apicatalog.jsonld.http.HttpResponse;
-import com.oracle.svm.core.annotate.Delete;
-import com.oracle.svm.core.annotate.Substitute;
-import com.oracle.svm.core.annotate.TargetClass;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.TextFormat;
+import com.oracle.svm.core.annotate.*;
 
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -92,4 +92,23 @@ final class BlankNodeIdSubstitute {
 final class UnicodeDetectingInputStreamSubstitute {
     @Delete
     private static Charset UTF_32LE;
+}
+
+/**
+ * Alias for TextFormat.TextGenerator to be used in substitutions (TextGenerator is private).
+ */
+@TargetClass(className = "com.google.protobuf.TextFormat", innerClass = "TextGenerator")
+final class TextFormatTextGeneratorAlias {
+}
+
+/**
+ * Disable redaction support in protobuf TextFormat printer, which we don't need.
+ * This a lot of reflection-heavy code that we can do without.
+ */
+@TargetClass(className = "com.google.protobuf.TextFormat", innerClass = "Printer")
+final class TextFormatPrinterSubstitute {
+    @Substitute
+    private boolean shouldRedact(final Descriptors.FieldDescriptor field, TextFormatTextGeneratorAlias generator) {
+        return false;
+    }
 }
