@@ -36,41 +36,43 @@ jobs:
           set -euo pipefail
           
           # See if it runs at all
-          target/graalvm-native-image/jelly-cli version
+          target/graalvm-native-image/jelly-cli version || exit 1
           
           # Make sure reflection is supported
-          target/graalvm-native-image/jelly-cli version | grep "JVM reflection: supported"
+          target/graalvm-native-image/jelly-cli version | grep "JVM reflection: supported" \
+            || exit 1
           
           # Make sure large RDF/XML file parsing is supported
-          target/graalvm-native-image/jelly-cli version | grep "Large RDF/XML file parsing: supported"
+          target/graalvm-native-image/jelly-cli version | grep "Large RDF/XML file parsing: supported" \
+            || exit 1
           
           # Test RDF conversions
           echo '_:b <http://t.org/> _:b .' > in.nt
           target/graalvm-native-image/jelly-cli \
             rdf to-jelly --in-format=nt in.nt > out.jelly && \
-            [ -s out.jelly ]
+            [ -s out.jelly ] || exit 1
           target/graalvm-native-image/jelly-cli \
             rdf from-jelly --out-format=jelly-text out.jelly > out.txt && \
-            [ -s out.txt ]
+            [ -s out.txt ] || exit 1
           target/graalvm-native-image/jelly-cli \
             rdf from-jelly --out-format=jsonld out.jelly > out.json && \
-            [ -s out.json ]
+            [ -s out.json ] || exit 1
           echo '{"@graph":[{"@id":"http://e.org/r","http://e.org/p":{"@value":"v"}}]}' | \
             target/graalvm-native-image/jelly-cli rdf to-jelly --in-format "jsonld" > jsonld.jelly && \
-            [ -s jsonld.jelly ]
+            [ -s jsonld.jelly ] || exit 1
           echo '<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Seq rdf:about="http://example.org/favourite-fruit"></rdf:Seq></rdf:RDF>' | \
             target/graalvm-native-image/jelly-cli rdf to-jelly --in-format "rdfxml" > rdfxml.jelly && \
-            [ -s rdfxml.jelly ]
+            [ -s rdfxml.jelly ] || exit 1
           
           # Invalid RDF/XMl input test
           # Regression test for: https://github.com/Jelly-RDF/cli/issues/217
           echo 'invalidxml' | \
             ( ! target/graalvm-native-image/jelly-cli rdf to-jelly --in-format "rdfxml" &> error.txt ) && \
-            grep 'Content is not allowed in prolog' error.txt
+            grep 'Content is not allowed in prolog' error.txt || exit 1
           
           # Test rdf validate
           target/graalvm-native-image/jelly-cli \
-            rdf validate out.jelly --compare-to-rdf-file in.nt
+            rdf validate out.jelly --compare-to-rdf-file in.nt || exit 1
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
