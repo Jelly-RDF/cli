@@ -1,5 +1,5 @@
 ThisBuild / semanticdbEnabled := true
-lazy val scalaV = "3.7.4"
+lazy val scalaV = "3.8.1"
 ThisBuild / scalaVersion := scalaV
 
 resolvers +=
@@ -17,15 +17,18 @@ def isDevBuild: Boolean =
   sys.env.get("DEV_BUILD").exists(s => s != "0" && s != "false")
 
 lazy val graalOptions = Seq(
-  // If running on Scala <3.8 and JDK >=24, we need to allow unsafe memory access.
-  // Otherwise, we get annoying warnings on startup.
-  // https://github.com/scala/scala3/issues/9013
-  // Remove this after moving to Scala 3.8
-  if (scalaV.split('.')(1).toInt < 8) Seq("-J--sun-misc-unsafe-memory-access=allow") else Nil,
   // Do a fast build if it's a dev build
   // For the release build, optimize for speed and make a build report
   if (isDevBuild) Seq("-Ob") else Seq("-O3", "--emit build-report"),
 ).flatten ++ Seq(
+  // If using dependencies on Scala <3.8 and JDK >=24, we need to allow unsafe memory access.
+  // Otherwise, we get annoying warnings on startup.
+  // https://github.com/scala/scala3/issues/9013
+  // Remove this after dependency upgrades to Scala 3.8+
+  // See this thread for an explanation of why this requires also updates in dependencies:
+  // https://github.com/scala/scala3/pull/24109#issuecomment-3786629196
+  "-J--sun-misc-unsafe-memory-access=allow",
+  // Custom Graal features
   "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature," +
     "eu.neverblink.jelly.cli.graal.JenaInternalsFeature," +
     "eu.neverblink.jelly.cli.graal.LargeXmlFeature",
@@ -103,4 +106,5 @@ lazy val root = (project in file("."))
     // Do a fast build if it's a dev build
     // For the release build, optimize for speed and make a build report
     graalVMNativeImageOptions := graalOptions,
+    graalVMNativeImageCommand := "/opt/graalvm_2025_09/bin/native-image",
   )

@@ -36,6 +36,7 @@ object Version extends JellyCommand[VersionOptions]:
          |Jelly-JVM   $jellyV
          |Apache Jena $jenaV
          |JVM         ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")}
+         |Scala       ${BuildInfo.scalaVersion}
          |-------------------------------------------------------------
          |""".stripMargin.trim)
     // Print feature support info
