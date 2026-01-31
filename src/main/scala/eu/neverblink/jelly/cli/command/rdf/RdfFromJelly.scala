@@ -60,6 +60,12 @@ case class RdfFromJellyOptions(
         "Ignored otherwise. Take care with input size, as this option will load everything into memory.",
     )
     combine: Boolean = false,
+    @HelpMessage(
+      "Discard the named graph information, treating the input as triples in the default graph. " +
+        "This allows you to convert a Jelly file containing quads to Turtle/N-Triples in a lossy manner. " +
+        "This option has no impact on frame boundaries. To merge frames, use the --combine option.",
+    )
+    mergeGraphs: Boolean = false,
     @Recurse
     rdfPerformanceOptions: RdfPerformanceOptions = RdfPerformanceOptions(),
 ) extends HasJellyCommandOptions
@@ -72,8 +78,14 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
 
   lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Writeable] = RdfFromJellyPrint
 
-  val defaultAction: (InputStream, OutputStream) => Unit =
-    (in, out) => jellyToLang(in, StreamRDFWriter.getWriterStream(out, RdfFormat.NQuads.jenaLang))
+  val defaultAction: WriteAction =
+    (in, out, opt) =>
+      jellyToLang(
+        in,
+        StreamRDFWriter.getWriterStream(out, RdfFormat.NQuads.jenaLang),
+        RdfFormat.NQuads,
+        opt,
+      )
 
   private def takeFrames: IndexRange = IndexRange(getOptions.takeFrames, "--take-frames")
 
@@ -84,34 +96,34 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     takeFrames
     val (inputStream, outputStream) =
       this.getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
-    parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile)
+    parseFormatArgs(inputStream, outputStream, options.outputFormat, options.outputFile, options)
 
   override def matchFormatToAction(
       format: RdfFormat.Writeable,
-  ): Option[(InputStream, OutputStream) => Unit] =
+  ): Option[WriteAction] =
     (format, getOptions.combine) match
       case (j: RdfFormat.Jena.StreamWriteable, _) =>
-        Some((in, out) => jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang)))
+        Some((in, out, opt) =>
+          jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang), j, opt),
+        )
       case (j: RdfFormat.Jena.BatchWriteable, true) =>
-        Some((in, out) =>
-          StreamRdfCombiningBatchWriter(out, j.jenaLang).runAndOutput(x => jellyToLang(in, x)),
+        Some((in, out, opt) =>
+          StreamRdfCombiningBatchWriter(out, j.jenaLang).runAndOutput(x =>
+            jellyToLang(in, x, j, opt),
+          ),
         )
       case (j: RdfFormat.Jena.BatchWriteable, false) =>
-        Some((in, out) => jellyToLang(in, StreamRdfBatchWriter(out, j.jenaLang)))
+        Some((in, out, opt) => jellyToLang(in, StreamRdfBatchWriter(out, j.jenaLang), j, opt))
       case (RdfFormat.JellyText, _) => Some(jellyBinaryToText)
 
   /** This method reads the Jelly file, rewrites it to specified format and writes it to some output
     * stream
-    * @param jenaLang
-    *   Language that jelly should be converted to
-    * @param inputStream
-    *   InputStream
-    * @param outputStream
-    *   OutputStream
     */
   private def jellyToLang(
       inputStream: InputStream,
       writer: StreamRDF,
+      format: RdfFormat,
+      options: RdfFromJellyOptions,
   ): Unit =
     // Whether the output is active at this moment
     var outputEnabled = false
@@ -125,7 +137,16 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       }
 
       override def handleQuad(subject: Node, predicate: Node, `object`: Node, graph: Node): Unit = {
-        if outputEnabled then writer.quad(Quad.create(graph, subject, predicate, `object`))
+        if outputEnabled then
+          if format.supportsQuads then writer.quad(Quad.create(graph, subject, predicate, `object`))
+          else if options.mergeGraphs || Quad.isDefaultGraph(graph) then
+            writer.triple(Triple.create(subject, predicate, `object`))
+          else
+            throw new CriticalException(
+              f"Encountered a quad in the input ($subject $predicate ${`object`} $graph), " +
+                f"but the output format ($format) does not support quads. Either choose a different output format " +
+                "or use the --merge-graphs option to merge all named graphs into the default graph.",
+            )
       }
     }
 
@@ -153,13 +174,12 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
 
   /** This method reads the Jelly file, rewrites it to Jelly text and writes it to some output
     * stream
-    * @param inputStream
-    *   InputStream
-    * @param outputStream
-    *   OutputStream
     */
-  private def jellyBinaryToText(inputStream: InputStream, outputStream: OutputStream): Unit =
-
+  private def jellyBinaryToText(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+      opt: RdfFromJellyOptions,
+  ): Unit =
     inline def writeFrameToOutput(f: RdfStreamFrame, frameIndex: Int): Unit =
       // we want to write a comment to the file before each frame
       val comment = f"# Frame $frameIndex\n"
