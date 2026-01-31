@@ -31,11 +31,11 @@ object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
     "If no input file is specified, the input is read from stdin.\n" +
     "If no output file is specified, the output is written to stdout.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
-    "Otherwise, the program will exit with code 0.\n" +
+    "Otherwise, the program will exit with code 0.\n\n" +
     "Note: this command works in a streaming manner where possible and scales well to\n" +
     "large files. Non-streaming formats (e.g. RDF/XML) by default work on a\n" +
     "frame-by-frame basis, but they can be combined into one dataset with the\n" +
-    "--combine option. RDF/XML will only serialize the default model.",
+    "--combine option.",
 )
 @ArgsName("<file-to-convert>")
 case class RdfFromJellyOptions(
@@ -56,14 +56,16 @@ case class RdfFromJellyOptions(
     )
     takeFrames: String = "",
     @HelpMessage(
-      "Add to combine the results into one dataset, when using a non-streaming output format. " +
-        "Ignored otherwise. Take care with input size, as this option will load everything into memory.",
+      "Add to combine all stream frames into one dataset, when using a non-streaming output format. " +
+        "Ignored otherwise. Take care with input size, as this option will load everything into memory. " +
+        "Default: false.",
     )
     combine: Boolean = false,
     @HelpMessage(
       "Discard the named graph information, treating the input as triples in the default graph. " +
         "This allows you to convert a Jelly file containing quads to Turtle/N-Triples in a lossy manner. " +
-        "This option has no impact on frame boundaries. To merge frames, use the --combine option.",
+        "This option has no impact on frame boundaries. To merge frames, use the --combine option. " +
+        "Default: false.",
     )
     mergeGraphs: Boolean = false,
     @Recurse
