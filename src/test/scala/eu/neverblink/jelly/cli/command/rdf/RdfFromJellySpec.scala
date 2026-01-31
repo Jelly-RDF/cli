@@ -440,6 +440,13 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           }
         }
 
+      val allFormats = tripleFormats ++ Seq(
+        RdfFormat.TriG,
+        RdfFormat.JsonLd,
+        RdfFormat.NQuads,
+      )
+      // --merge-graphs should also work for formats supporting quads
+      for format <- allFormats do
         f"merge graphs when converting to $format with the --merge-graphs option" in {
           withEmptyJellyFile { j =>
             RDFWriter

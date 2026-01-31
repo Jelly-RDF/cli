@@ -140,8 +140,10 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
 
       override def handleQuad(subject: Node, predicate: Node, `object`: Node, graph: Node): Unit = {
         if outputEnabled then
-          if format.supportsQuads then writer.quad(Quad.create(graph, subject, predicate, `object`))
-          else if options.mergeGraphs || Quad.isDefaultGraph(graph) then
+          if options.mergeGraphs then writer.triple(Triple.create(subject, predicate, `object`))
+          else if format.supportsQuads then
+            writer.quad(Quad.create(graph, subject, predicate, `object`))
+          else if Quad.isDefaultGraph(graph) then
             writer.triple(Triple.create(subject, predicate, `object`))
           else
             throw new CriticalException(
