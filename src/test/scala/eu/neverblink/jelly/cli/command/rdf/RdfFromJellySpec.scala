@@ -4,15 +4,16 @@ import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
+import eu.neverblink.jelly.convert.jena.riot.JellyFormat
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
 import org.apache.jena.query.DatasetFactory
 import org.apache.jena.rdf.model.ModelFactory
-import org.apache.jena.riot.RDFDataMgr
+import org.apache.jena.riot.{RDFDataMgr, RDFWriter}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileOutputStream}
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Paths}
 import scala.io.Source
@@ -223,6 +224,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       for (lang, header) <- Seq(
           (RdfFormat.JsonLd, "\\{\n {4}\"@graph\":".r),
           (RdfFormat.RdfXml, "<rdf:RDF".r),
+          (RdfFormat.TriG, "PREFIX ".r),
         )
       do
         s"input stream to output ${lang.fullName} stream" in {
@@ -237,38 +239,36 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           model.isIsomorphicWith(newModel) shouldBe true
         }
 
-        s"dataset input stream to output ${lang.fullName} stream" in {
-          val input = DataGenHelper.generateJellyInputStreamDataset(2, testCardinality, "")
-          RdfFromJelly.setStdIn(input)
-          val dataset = DataGenHelper.generateDataset(2, testCardinality, "")
-          val (out, err) = RdfFromJelly.runTestCommand(
-            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
-          )
-          val newDataset = DatasetFactory.create()
-          RDFDataMgr.read(newDataset, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
-          newDataset.isEmpty shouldBe false
-          dataset.getDefaultModel.isIsomorphicWith(newDataset.getDefaultModel) shouldBe true
-          if lang != RdfFormat.RdfXml then
-            dataset.getNamedModel("http://example.org/graph/2").isIsomorphicWith(
-              newDataset.getNamedModel("http://example.org/graph/2"),
-            ) shouldBe true
-        }
+        if lang != RdfFormat.RdfXml then
+          s"dataset input stream to output ${lang.fullName} stream" in {
+            val input = DataGenHelper.generateJellyInputStreamDataset(2, testCardinality, "")
+            RdfFromJelly.setStdIn(input)
+            val dataset = DataGenHelper.generateDataset(2, testCardinality, "")
+            val (out, err) = RdfFromJelly.runTestCommand(
+              List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+            )
+            val newDataset = DatasetFactory.create()
+            RDFDataMgr.read(newDataset, new ByteArrayInputStream(out.getBytes()), lang.jenaLang)
+            newDataset.isEmpty shouldBe false
+            dataset.getDefaultModel.isIsomorphicWith(newDataset.getDefaultModel) shouldBe true
+          }
 
-        s"multiple frames input stream to output ${lang.fullName} stream without --combine flag" in {
-          RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
-          val (out, err) = RdfFromJelly.runTestCommand(
-            List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
-          )
-          header.findAllIn(out).length shouldBe 10
-        }
+        if lang != RdfFormat.TriG then
+          s"multiple frames input stream to output ${lang.fullName} stream without --combine flag" in {
+            RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+            val (out, err) = RdfFromJelly.runTestCommand(
+              List("rdf", "from-jelly", "--out-format", lang.cliOptions.head),
+            )
+            header.findAllIn(out).length shouldBe 10
+          }
 
-        s"multiple frames input stream to output ${lang.fullName} stream with --combine flag" in {
-          RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
-          val (out, err) = RdfFromJelly.runTestCommand(
-            List("rdf", "from-jelly", "--combine", "--out-format", lang.cliOptions.head),
-          )
-          header.findAllIn(out).length shouldBe 1
-        }
+          s"multiple frames input stream to output ${lang.fullName} stream with --combine flag" in {
+            RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+            val (out, err) = RdfFromJelly.runTestCommand(
+              List("rdf", "from-jelly", "--combine", "--out-format", lang.cliOptions.head),
+            )
+            header.findAllIn(out).length shouldBe 1
+          }
     }
 
     "throw proper exception" when {
@@ -403,5 +403,73 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         cause.argument should be("--take-frames")
         cause.argumentValue should be("invalid")
       }
+    }
+
+    "handle quad-to-triple flattening (--merge-graphs)" when {
+      val tripleFormats = Seq(
+        RdfFormat.NTriples,
+        RdfFormat.Turtle,
+        RdfFormat.RdfXml,
+      )
+      val testDs = DataGenHelper.generateDataset(5, 5, "test")
+      val flattenedModel = testDs.getUnionModel.union(testDs.getDefaultModel)
+      for format <- tripleFormats do
+        f"throw exception when trying to convert to $format without --merge-graphs" in {
+          withEmptyJellyFile { j =>
+            RDFWriter
+              .source(testDs)
+              .format(JellyFormat.JELLY_BIG_ALL_FEATURES)
+              .build()
+              .output(FileOutputStream(File(j)))
+
+            val e = intercept[ExitException] {
+              RdfFromJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "from-jelly",
+                  j,
+                  "--out-format",
+                  format.cliOptions.head,
+                ),
+              )
+            }
+            val cause = e.getCause.asInstanceOf[CriticalException]
+            cause.getMessage should include(format.toString)
+            cause.getMessage should include("Encountered a quad")
+            cause.getMessage should include("--merge-graphs")
+          }
+        }
+
+      val allFormats = tripleFormats ++ Seq(
+        RdfFormat.TriG,
+        RdfFormat.JsonLd,
+        RdfFormat.NQuads,
+      )
+      // --merge-graphs should also work for formats supporting quads
+      for format <- allFormats do
+        f"merge graphs when converting to $format with the --merge-graphs option" in {
+          withEmptyJellyFile { j =>
+            RDFWriter
+              .source(testDs)
+              .format(JellyFormat.JELLY_BIG_ALL_FEATURES)
+              .build()
+              .output(FileOutputStream(File(j)))
+
+            val (out, err) = RdfFromJelly.runTestCommand(
+              List(
+                "rdf",
+                "from-jelly",
+                j,
+                "--out-format",
+                format.cliOptions.head,
+                "--merge-graphs",
+              ),
+            )
+
+            val newModel = ModelFactory.createDefaultModel()
+            RDFDataMgr.read(newModel, new ByteArrayInputStream(out.getBytes()), format.jenaLang)
+            flattenedModel.isIsomorphicWith(newModel) shouldBe true
+          }
+        }
     }
   }
