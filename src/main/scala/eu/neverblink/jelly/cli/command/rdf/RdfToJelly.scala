@@ -76,8 +76,8 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
 
   lazy val printUtil: RdfCommandPrintUtil[RdfFormat.Readable] = RdfToJellyPrint
 
-  val defaultAction: (InputStream, OutputStream) => Unit =
-    langToJelly(RdfFormat.NQuads, _, _)
+  val defaultAction: WriteAction =
+    langToJelly(RdfFormat.NQuads, _, _, _)
 
   private def loadOptionsFromFile(filename: String): RdfStreamOptions =
     val inputStream = new FileInputStream(filename)
@@ -108,13 +108,14 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       outputStream,
       options.inputFormat,
       remainingArgs.remaining.headOption,
+      options,
     )
     if !isQuietMode then checkAndWarnTypeCombination()
 
   override def matchFormatToAction(
       format: RdfFormat.Readable,
-  ): Option[(InputStream, OutputStream) => Unit] = format match {
-    case f: RdfFormat.Jena.Readable => Some(langToJelly(f, _, _))
+  ): Option[WriteAction] = format match {
+    case f: RdfFormat.Jena.Readable => Some(langToJelly(f, _, _, _))
     case f: RdfFormat.JellyText.type => Some(jellyTextToJelly)
   }
 
@@ -130,6 +131,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       format: RdfFormat.Jena,
       inputStream: InputStream,
       outputStream: OutputStream,
+      opt: RdfToJellyOptions,
   ): Unit =
     val jellyOpt = getOptions.jellySerializationOptions.asRdfStreamOptions
     // Configure the writer
@@ -202,7 +204,11 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
     * @param outputStream
     *   Jelly binary output stream
     */
-  private def jellyTextToJelly(inputStream: InputStream, outputStream: OutputStream): Unit =
+  private def jellyTextToJelly(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+      opt: RdfToJellyOptions,
+  ): Unit =
     if !isQuietMode then
       printLine(
         "WARNING: The Jelly text format is not stable and may change in incompatible " +
