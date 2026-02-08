@@ -61,18 +61,18 @@ jelly-cli rdf from-jelly input.jelly > output.nq
 ```
 
 By default, `jelly-cli` will translate files to NQuads. 
-But you can also specify the output format with `--out-format`, for example:
+You can also specify the output format with `--out-format`, for example:
 
 ```shell
 jelly-cli rdf from-jelly input.jelly --out-format=ttl > output.ttl
 ```
 
-You can specify most well-known formats supported by Apache Jena, but also a custom Jelly-Text format. 
-Jelly-Text is a human-readable translation of Jelly binary. It's not meant for machine consumption. It is useful for debugging and inspecting Jelly files.
+You can specify most well-known formats supported by Apache Jena, but also the custom `jelly-text` format. 
+`jelly-text` is a human-readable translation of Jelly binary. It's not meant for machine consumption. It is useful for debugging and inspecting Jelly files.
 
 ### Transcode Jelly files
 
-The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm. However, the numerical values for each of the options in the output stream must be greater than or equal to those in the input stream(s).
+The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm. This algorithm has a limitation: the lookup sizes of the output stream must be greater than or equal to the lookup sizes of the input streams.
 
 ```shell
 jelly-cli rdf transcode input.jelly > output.jelly
@@ -80,7 +80,7 @@ jelly-cli rdf transcode input.jelly > output.jelly
 
 ### Inspect Jelly files
 
-To inspect a Jelly file and get basic information describing its contents, such as stream options or number of triples in the file, run
+To inspect a Jelly file and get basic information describing its contents, such as stream options or number of triples in the file, run:
 
 ```shell
 jelly-cli rdf inspect input.jelly
@@ -96,7 +96,7 @@ In both cases, you will get the output as a valid YAML.
 
 ### Validate Jelly files
 
-To validate a Jelly file, run
+To validate a Jelly file, run:
 
 ```shell
 jelly-cli rdf validate input.jelly
@@ -126,13 +126,13 @@ If for some reason the binaries wouldn't work for you, or you want to get better
 java -jar jelly-cli.jar --help
 ```
 
-For most use cases, we recommend using the binary distribution, because it has way faster startup times and doesn't require you to install Java.
+For simple day-to-day use cases, we recommend using the binary distribution, because it has way faster startup times and doesn't require you to install Java.
 
 ### Performance considerations
 
-If you are bulk-converting large amounts of RDF data (>10M triples), you may want to use the JAR build instead of the pre-compiled binary. With the JAR, your JVM will perform just-in-time compilation, resulting in a better optimized code. The application will take longer to start, but the overall throughput will be better for large files.
+If you are bulk-converting large amounts of RDF data (>10M triples), you may want to use the JAR build instead of the pre-compiled binary. With the JAR, your JVM will perform just-in-time compilation, resulting in better optimized code. The application will take longer to start, but the overall throughput will be better for large files.
 
-For maximum performance, we recommend using a recent JVM (e.g., GraalVM or OpenJDK). In some cases we saw up to 2x better throughput when running the JAR with GraalVM 24 in JIT mode, as compared to the pre-compiled binary.
+For maximum performance, we recommend using a recent JVM (e.g., OpenJDK 25). In some cases we saw up to 2x better throughput when running the JAR with GraalVM 24 in JIT mode, as compared to the pre-compiled binary.
 
 ## GitHub Action
 
