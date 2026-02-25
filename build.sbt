@@ -6,7 +6,7 @@ resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
 lazy val jenaV = "5.3.0"
-lazy val jellyV = "3.7.0"
+lazy val jellyV = "3.7.1"
 lazy val graalvmV = "25.0.2"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
@@ -36,8 +36,8 @@ lazy val graalOptions = Seq(
   // Needed to skip initializing all charsets.
   // See: https://github.com/Jelly-RDF/cli/issues/154
   "--initialize-at-build-time=org.glassfish.json.UnicodeDetectingInputStream",
-  "-H:+TrackPrimitiveValues", // SkipFlow optimization -- will be default in GraalVM 25
-  "-H:+UsePredicates", // SkipFlow optimization -- will be default in GraalVM 25
+  "-H:+TrackPrimitiveValues", // SkipFlow optimization
+  "-H:+UsePredicates", // SkipFlow optimization
   "-H:+MLCallCountProfileInference", // ML inference for hot/cold method detection
   // Make sure we don't include stuff that should be unreachable in the native image
   "-H:AbortOnMethodReachable=*UUID.randomUUID*",
