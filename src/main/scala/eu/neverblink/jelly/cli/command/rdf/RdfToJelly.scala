@@ -188,7 +188,7 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
             .enableNamespaceDeclarations(getOptions.enableNamespaceDeclarations)
             .isDelimited(getOptions.delimited)
             .build()
-          JellyStreamWriter(JenaConverterFactory.getInstance(), variant, outputStream)
+          JellyStreamWriter.create(JenaConverterFactory.getInstance(), variant, outputStream)
 
     RiotParserUtil.parse(
       getOptions.rdfPerformanceOptions.resolveIris,
