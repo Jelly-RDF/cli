@@ -40,7 +40,7 @@ jobs:
 
     - name: Build and test
       shell: bash
-      run: sbt -v +test test-serial:test
+      run: sbt -v +test TestSerial/test
 
   test-assembly:
     runs-on: ubuntu-latest
@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           sbt -v assembly
-          mv target/scala-*/jelly-cli-assembly*.jar jelly-cli.jar
+          mv target/out/jvm/scala-*/jelly-cli/jelly-cli-assembly*.jar jelly-cli.jar
 
       - name: Test the assembly
         run: |
