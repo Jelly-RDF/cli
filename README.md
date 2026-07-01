@@ -120,13 +120,20 @@ And use the `--debug` option to get more information about any exceptions you en
 
 ## Alternative installation: JAR builds
 
-If for some reason the binaries wouldn't work for you, or you want to get better performance for large files (see *Performance considerations* below), you can use the JAR build. This build runs on any platform, as long as you have Java (min. version 17). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the `jelly-cli.jar` file. Then, run it like so:
+If for some reason the binaries wouldn't work for you, or you want to get better performance for large files (see *Performance considerations* below), you can use the JAR build. This build runs on any platform, as long as you have Java (min. version 21). Go to the **[releases page](https://github.com/Jelly-RDF/cli/releases/latest)** and download the `jelly-cli.jar` file. Then, run it like so:
 
 ```shell
 java -jar jelly-cli.jar --help
 ```
 
 For simple day-to-day use cases, we recommend using the binary distribution, because it has way faster startup times and doesn't require you to install Java.
+
+### Java version requirements
+
+Depending on the version of `jelly-cli`:
+
+- 0.10.x or later: Java 21+
+- 0.1.x – 0.9.x: Java 17+
 
 ### Performance considerations
 
