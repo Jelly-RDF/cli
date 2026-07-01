@@ -17,8 +17,6 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            java: 17
-          - os: ubuntu-latest
             java: 21
           - os: ubuntu-latest
             java: 25
@@ -53,7 +51,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
           cache: sbt
 
       - name: Setup SBT
