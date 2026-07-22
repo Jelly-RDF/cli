@@ -8,6 +8,7 @@ import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType,
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.utils.IoUtils
+import org.apache.jena.irix.IRIs
 import org.apache.jena.rdf.model.{Model, ModelFactory}
 import org.apache.jena.riot.{RDFLanguages, RDFParser}
 import org.apache.jena.sparql.core.DatasetGraphFactory
@@ -934,5 +935,26 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         stmts.head.getPredicate.getURI should be("http://example.org/p")
         stmts.head.getObject.asResource().getURI should be("b")
       }
+
+      "IRI resolution enabled (default), input RDF/XML stream with relative IRIs" in
+        withEmptyJellyFile { j =>
+          val input =
+            """<?xml version="1.0" encoding="utf-8"?>
+              |<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+              |  <rdf:Description rdf:about="#relative">
+              |    <__g0:test.org xmlns:__g0="http://">test</__g0:test.org>
+              |  </rdf:Description>
+              |</rdf:RDF>""".stripMargin
+          RdfToJelly.setStdIn(ByteArrayInputStream(input.getBytes))
+          RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", "--in-format", RdfFormat.RdfXml.cliOptions.head, "--to", j),
+          )
+          val content = translateJellyBack(new FileInputStream(j))
+          val stmts = content.listStatements().asScala.toSeq
+          stmts.size should be(1)
+          stmts.head.getSubject.getURI should be(s"${IRIs.getBaseStr}#relative")
+          stmts.head.getPredicate.getURI should be("http://test.org")
+          stmts.head.getObject.asLiteral().getString should be("test")
+        }
     }
   }
