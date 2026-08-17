@@ -31,7 +31,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jelly-cli-${{ matrix.os }}
-          path: target/graalvm-native-image/*
+          # sbt 2 nests build outputs under target/out/<platform>/<scala version>/<project>/
+          path: target/out/jvm/scala-*/jelly-cli/graalvm-native-image/*
 
   jit-compile:
     name: Build the uber-JAR
@@ -53,7 +54,7 @@ jobs:
         shell: bash
         run: |
           sbt -v assembly
-          mv target/scala-*/jelly-cli-assembly*.jar jelly-cli.jar
+          mv target/out/jvm/scala-*/jelly-cli/jelly-cli-assembly*.jar jelly-cli.jar
 
       - name: Upload assembly
         uses: actions/upload-artifact@v4

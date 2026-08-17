@@ -2,6 +2,11 @@ ThisBuild / semanticdbEnabled := true
 lazy val scalaV = "3.8.4"
 ThisBuild / scalaVersion := scalaV
 
+// sbt-native-packager (pulled in by GraalVMNativeImagePlugin) defines settings for the Debian,
+// RPM, and Universal packaging formats, which we don't use. sbt 2 reports all of them as unused
+// keys on every startup, so turn the lint off.
+Global / lintUnusedKeysOnLoad := false
+
 resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
