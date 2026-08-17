@@ -313,7 +313,7 @@ class MetricsPrinter(val formatter: Formatter):
       "stream_name" -> YamlString(options.getStreamName),
       "physical_type" -> YamlEnum(options.getPhysicalType.toString, options.getPhysicalTypeValue),
       "generalized_statements" -> YamlBool(options.getGeneralizedStatements),
-      "rdf_star" -> YamlBool(options.getRdfStar),
+      "triple_terms" -> YamlBool(options.getRdfStar),
       "max_name_table_size" -> YamlInt(options.getMaxNameTableSize),
       "max_prefix_table_size" -> YamlInt(options.getMaxPrefixTableSize),
       "max_datatype_table_size" -> YamlInt(options.getMaxDatatypeTableSize),

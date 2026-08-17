@@ -7,7 +7,7 @@ import eu.neverblink.jelly.core.utils.LogicalStreamTypeUtils
 import eu.neverblink.jelly.core.JellyOptions
 
 private val `default.opt.streamName`: String = ""
-private val `default.opt.rdfStar`: Boolean = true
+private val `default.opt.tripleTerms`: Boolean = true
 private val `default.opt.maxNameTableSize`: Int = JellyOptions.BIG_STRICT.getMaxNameTableSize
 private val `default.opt.maxPrefixTableSize`: Int = JellyOptions.BIG_STRICT.getMaxPrefixTableSize
 private val `default.opt.maxDatatypeTableSize`: Int =
@@ -22,9 +22,10 @@ case class RdfJellySerializationOptions(
     )
     `opt.generalizedStatements`: Option[Boolean] = None,
     @HelpMessage(
-      "Whether the stream may contain RDF-star statements. Default: " + `default.opt.rdfStar`,
+      "Whether the stream may contain RDF 1.2 triple terms. Default: " +
+        `default.opt.tripleTerms`,
     )
-    `opt.rdfStar`: Option[Boolean] = None,
+    `opt.tripleTerms`: Option[Boolean] = None,
     @HelpMessage(
       "Maximum size of the name lookup table. Default: " + `default.opt.maxNameTableSize`,
     )
@@ -105,7 +106,7 @@ case class RdfJellySerializationOptions(
     RdfStreamOptions.newInstance()
       .setStreamName(`opt.streamName`.getOrElse(`default.opt.streamName`))
       .setGeneralizedStatements(`opt.generalizedStatements`.getOrElse(inferred.generalized))
-      .setRdfStar(`opt.rdfStar`.getOrElse(`default.opt.rdfStar`))
+      .setRdfStar(`opt.tripleTerms`.getOrElse(`default.opt.tripleTerms`))
       .setMaxNameTableSize(`opt.maxNameTableSize`.getOrElse(`default.opt.maxNameTableSize`))
       .setMaxPrefixTableSize(`opt.maxPrefixTableSize`.getOrElse(`default.opt.maxPrefixTableSize`))
       .setMaxDatatypeTableSize(
@@ -121,8 +122,8 @@ case class RdfJellySerializationOptions(
         cloned.setGeneralizedStatements(`opt.generalizedStatements`.get)
       if `opt.streamName`.isDefined then // comment to stop scalafmt from making this a mess
         cloned.setStreamName(`opt.streamName`.get)
-      if `opt.rdfStar`.isDefined then // comment to stop scalafmt from making this a mess
-        cloned.setRdfStar(`opt.rdfStar`.get)
+      if `opt.tripleTerms`.isDefined then // comment to stop scalafmt from making this a mess
+        cloned.setRdfStar(`opt.tripleTerms`.get)
       if `opt.maxNameTableSize`.isDefined then
         cloned.setMaxNameTableSize(`opt.maxNameTableSize`.get)
       if `opt.maxPrefixTableSize`.isDefined then

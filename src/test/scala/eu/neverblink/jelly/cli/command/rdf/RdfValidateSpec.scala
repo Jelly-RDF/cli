@@ -166,7 +166,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         e.cause.get.getMessage should include("Unexpected triple row in stream")
       }
 
-      val rdfStarTriple = Seq(
+      val tripleTermTriple = Seq(
         rdfStreamRow(rdfNameEntry(value = "a")),
         rdfStreamRow(
           rdfTriple(
@@ -186,7 +186,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
           ),
         ),
       )
-      val rdfStarQuad = Seq(
+      val tripleTermQuad = Seq(
         rdfStreamRow(rdfNameEntry(value = "a")),
         rdfStreamRow(
           rdfQuad(
@@ -209,7 +209,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         ),
       )
 
-      "RDF-star triple used in an RDF-star stream" in {
+      "triple with a triple term used in a triple-term stream" in {
         val f = rdfStreamFrame(
           Seq(
             rdfStreamRow(
@@ -217,13 +217,13 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
                 PhysicalStreamType.TRIPLES,
               ).setVersion(1),
             ),
-          ) ++ rdfStarTriple,
+          ) ++ tripleTermTriple,
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
         RdfValidate.runTestCommand(List("rdf", "validate"))
       }
 
-      "RDF-star triple used in a non-RDF-star stream" in {
+      "triple with a triple term used in a non-triple-term stream" in {
         val f = rdfStreamFrame(
           Seq(
             rdfStreamRow(
@@ -231,14 +231,14 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
                 PhysicalStreamType.TRIPLES,
               ).setVersion(1),
             ),
-          ) ++ rdfStarTriple,
+          ) ++ tripleTermTriple,
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
         val e = intercept[ExitException] {
           RdfValidate.runTestCommand(List("rdf", "validate"))
         }
         e.cause.get shouldBe a[CriticalException]
-        e.cause.get.getMessage should include("Unexpected RDF-star triple in frame 0:")
+        e.cause.get.getMessage should include("Unexpected triple term in triple in frame 0:")
       }
 
       "generalized triple used in a generalized stream" in {
@@ -273,7 +273,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         e.cause.get.getMessage should include("Unexpected generalized triple in frame 0:")
       }
 
-      "RDF-star quad used in an RDF-star stream" in {
+      "quad with a triple term used in a triple-term stream" in {
         val f = rdfStreamFrame(
           Seq(
             rdfStreamRow(
@@ -281,13 +281,13 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
                 PhysicalStreamType.QUADS,
               ).setVersion(1),
             ),
-          ) ++ rdfStarQuad,
+          ) ++ tripleTermQuad,
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
         RdfValidate.runTestCommand(List("rdf", "validate"))
       }
 
-      "RDF-star quad used in a non-RDF-star stream" in {
+      "quad with a triple term used in a non-triple-term stream" in {
         val f = rdfStreamFrame(
           Seq(
             rdfStreamRow(
@@ -295,14 +295,14 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
                 1,
               ),
             ),
-          ) ++ rdfStarQuad,
+          ) ++ tripleTermQuad,
         )
         RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
         val e = intercept[ExitException] {
           RdfValidate.runTestCommand(List("rdf", "validate"))
         }
         e.cause.get shouldBe a[CriticalException]
-        e.cause.get.getMessage should include("Unexpected RDF-star quad in frame 0:")
+        e.cause.get.getMessage should include("Unexpected triple term in quad in frame 0:")
       }
 
       "generalized quad used in a generalized stream" in {
@@ -599,11 +599,11 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       // Regression test for https://github.com/Jelly-RDF/cli/issues/113
-      "comparing RDF-star data with blank nodes and nested triples" in {
+      "comparing RDF 1.2 data with blank nodes and nested triple terms" in {
         val t = Triple.create(
-          NodeFactory.createTripleNode(
+          NodeFactory.createTripleTerm(
             Triple.create(
-              NodeFactory.createTripleNode(
+              NodeFactory.createTripleTerm(
                 Triple.create(
                   NodeFactory.createBlankNode(),
                   NodeFactory.createURI("http://example.org/predicate"),
@@ -633,9 +633,9 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         }
       }
 
-      "RDF-star triples in subject and object positions (generalized=false)" in {
+      "triple terms in subject and object positions (generalized=false)" in {
         val t = Triple.create(
-          NodeFactory.createTripleNode(
+          NodeFactory.createTripleTerm(
             Triple.create(
               NodeFactory.createBlankNode(),
               NodeFactory.createURI("http://example.org/predicate"),
@@ -643,7 +643,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
             ),
           ),
           NodeFactory.createURI("http://example.org/predicate"),
-          NodeFactory.createTripleNode(
+          NodeFactory.createTripleTerm(
             Triple.create(
               NodeFactory.createBlankNode(),
               NodeFactory.createURI("http://example.org/predicate"),
@@ -668,10 +668,10 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         err shouldBe empty
       }
 
-      "not validate RDF-star triples in predicate position (generalized=false)" in {
+      "not validate triple terms in predicate position (generalized=false)" in {
         val t = Triple.create(
           NodeFactory.createBlankNode(),
-          NodeFactory.createTripleNode(
+          NodeFactory.createTripleTerm(
             Triple.create(
               NodeFactory.createBlankNode(),
               NodeFactory.createURI("http://example.org/predicate"),
@@ -700,15 +700,15 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         e.cause.get.getMessage should include("Unexpected generalized triple in frame 0:")
       }
 
-      "RDF-star triples in S, P, and O positions (generalized=true)" in {
-        val quoted = NodeFactory.createTripleNode(
+      "triple terms in S, P, and O positions (generalized=true)" in {
+        val tripleTerm = NodeFactory.createTripleTerm(
           Triple.create(
             NodeFactory.createBlankNode(),
             NodeFactory.createURI("http://example.org/predicate"),
             NodeFactory.createBlankNode(),
           ),
         )
-        val t = Triple.create(quoted, quoted, quoted)
+        val t = Triple.create(tripleTerm, tripleTerm, tripleTerm)
 
         val buffer = RowBuffer.newLazyImmutable()
         val enc = JenaConverterFactory.getInstance().encoder(

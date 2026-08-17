@@ -164,18 +164,20 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
         val t = Triple.create(subject, predicate, `object`)
         if !opt.getGeneralizedStatements && StatementUtils.isGeneralized(t) then
           throw CriticalException(s"Unexpected generalized triple in frame $currentPosition: $t")
-        if !opt.getRdfStar && StatementUtils.isRdfStar(t) then
-          throw CriticalException(s"Unexpected RDF-star triple in frame $currentPosition: $t")
+        if !opt.getRdfStar && StatementUtils.hasTripleTerms(t) then
+          throw CriticalException(
+            s"Unexpected triple term in triple in frame $currentPosition: $t",
+          )
         // Add the triple to the comparison set, if we are in the compare range
         if currentPosition >= startFrom then jellyStreamConsumer.triple(t)
       }
 
       override def handleQuad(subject: Node, predicate: Node, `object`: Node, graph: Node): Unit = {
-        val q = new Quad(graph, subject, predicate, `object`)
+        val q = Quad.create(graph, subject, predicate, `object`)
         if !opt.getGeneralizedStatements && StatementUtils.isGeneralized(q) then
           throw CriticalException(s"Unexpected generalized quad in frame $currentPosition: $q")
-        if !opt.getRdfStar && StatementUtils.isRdfStar(q) then
-          throw CriticalException(s"Unexpected RDF-star quad in frame $currentPosition: $q")
+        if !opt.getRdfStar && StatementUtils.hasTripleTerms(q) then
+          throw CriticalException(s"Unexpected triple term in quad in frame $currentPosition: $q")
         // Add the quad to the comparison set, if we are in the compare range
         if currentPosition >= startFrom then jellyStreamConsumer.quad(q)
       }

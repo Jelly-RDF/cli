@@ -42,8 +42,8 @@ object OrderedRdfCompare extends RdfCompare:
                   s"expected $e, got $a. $eId is already mapped to ${bNodeMap(eId)}.",
               )
           else bNodeMap(eId) = aId
-        else if et.isNodeTriple && at.isNodeTriple then
-          // Recurse into the RDF-star quoted triple
+        else if et.isTripleTerm && at.isTripleTerm then
+          // Recurse into the RDF 1.2 triple term
           tryIsomorphism(
             iterateTerms(et.getTriple),
             iterateTerms(at.getTriple),

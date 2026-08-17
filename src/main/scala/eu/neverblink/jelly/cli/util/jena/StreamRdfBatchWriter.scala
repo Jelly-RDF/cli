@@ -21,6 +21,7 @@ class StreamRdfBatchWriter(val outputStream: OutputStream, val lang: Lang) exten
   override def triple(triple: Triple): Unit = datasetStream.triple(triple)
   override def prefix(prefix: String, iri: String): Unit = datasetStream.prefix(prefix, iri)
   override def base(base: String): Unit = datasetStream.base(base)
+  override def version(version: String): Unit = datasetStream.version(version)
   override def finish(): Unit = writeOutput()
   override def start(): Unit = ()
   def writeOutput(): Unit =
