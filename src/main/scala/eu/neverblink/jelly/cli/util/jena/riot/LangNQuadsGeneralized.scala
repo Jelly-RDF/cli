@@ -26,9 +26,9 @@ final class LangNQuadsGeneralized(tokens: Tokenizer, profile: ParserProfile, des
 
   override protected def parseOne: Quad =
     val sToken = nextToken
-    val s = parseNode(sToken)
-    val p = parseNode(nextToken)
-    val o = parseNode(nextToken)
+    val s = parseNode("subject", sToken)
+    val p = parseNode("predicate", nextToken)
+    val o = parseNode("object", nextToken)
     var xToken = nextToken // Maybe DOT
     if (xToken.getType eq TokenType.EOF)
       exception(xToken, "Premature end of file: Quad not terminated by DOT: %s", xToken)
@@ -36,7 +36,7 @@ final class LangNQuadsGeneralized(tokens: Tokenizer, profile: ParserProfile, des
     // to set bnode label scope (if not global)
     var c: Node = null
     if (xToken.getType ne TokenType.DOT) {
-      c = parseNode(xToken)
+      c = parseNode("graph", xToken)
       xToken = nextToken
       currentGraph = c
     } else {

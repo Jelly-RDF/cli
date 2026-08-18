@@ -32,6 +32,8 @@ final class StreamRdfCollector extends StreamRDF:
 
   override def base(base: String): Unit = ()
 
+  override def version(version: String): Unit = ()
+
   override def prefix(prefix: String, iri: String): Unit =
     buffer += NamespaceDeclaration(prefix, iri)
 

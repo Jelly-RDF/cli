@@ -206,7 +206,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 f,
                 "--opt.stream-name=testName",
                 "--opt.generalized-statements=false",
-                "--opt.rdf-star=false",
+                "--opt.triple-terms=false",
                 "--opt.max-name-table-size=100",
                 "--opt.max-prefix-table-size=100",
                 "--opt.max-datatype-table-size=100",
@@ -494,7 +494,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                     "--options-from",
                     optionsFile,
                     jenaFile,
-                    "--opt.rdf-star",
+                    "--opt.triple-terms",
                     "false",
                   ),
                 )

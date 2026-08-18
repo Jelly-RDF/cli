@@ -154,7 +154,9 @@ steps:
 
 ## RDF-star/RDF 1.2 compatibility
 
-`jelly-cli` is based on [Apache Jena](https://jena.apache.org/) 5.3.0, which is the last version of Jena that supports RDF-star. Later versions removed RDF-star support in favor of draft support for RDF 1.2, which is not directly compatible with RDF-star. Because RDF 1.2 is not yet a W3C Recommendation, we stick to RDF-star for now and will update to RDF 1.2 once it is finalized.
+`jelly-cli` includes partial support for RDF 1.2 (triple terms only).
+
+**[v0.10.0](https://github.com/Jelly-RDF/cli/releases/tag/v0.10.0) is the last release that supported RDF-star.** It is based on Jena 5.3.0, the last version of Jena to support RDF-star.
 
 ## Contributing
 

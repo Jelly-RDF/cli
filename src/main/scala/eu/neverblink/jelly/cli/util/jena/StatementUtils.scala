@@ -12,14 +12,14 @@ object StatementUtils:
     q.getSubject :: q.getPredicate :: q.getObject :: q.getGraph :: Nil
 
   def isGeneralized(t: Triple): Boolean =
-    (!t.getSubject.isBlank && !t.getSubject.isURI && !t.getSubject.isNodeTriple)
+    (!t.getSubject.isBlank && !t.getSubject.isURI && !t.getSubject.isTripleTerm)
       || !t.getPredicate.isURI
 
   def isGeneralized(q: Quad): Boolean =
-    (!q.getSubject.isBlank && !q.getSubject.isURI && !q.getSubject.isNodeTriple)
+    (!q.getSubject.isBlank && !q.getSubject.isURI && !q.getSubject.isTripleTerm)
       || !q.getPredicate.isURI
       || (!q.getGraph.isBlank && !q.getGraph.isURI)
 
-  def isRdfStar(t: Triple): Boolean = iterateTerms(t).exists(_.isNodeTriple)
+  def hasTripleTerms(t: Triple): Boolean = iterateTerms(t).exists(_.isTripleTerm)
 
-  def isRdfStar(q: Quad): Boolean = iterateTerms(q).exists(_.isNodeTriple)
+  def hasTripleTerms(q: Quad): Boolean = iterateTerms(q).exists(_.isTripleTerm)

@@ -10,7 +10,7 @@ Global / lintUnusedKeysOnLoad := false
 resolvers +=
   "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
-lazy val jenaV = "5.3.0"
+lazy val jenaV = "6.2.0"
 lazy val jellyV = "3.7.3"
 lazy val graalvmV = "25.2.4"
 
@@ -65,8 +65,7 @@ lazy val root = (project in file("."))
       "org.slf4j" % "slf4j-simple" % "2.0.18",
       "org.apache.jena" % "jena-core" % jenaV,
       "org.apache.jena" % "jena-arq" % jenaV,
-      // Jelly-JVM >= 3.4.1 includes Jena 5.5.x as a dependency, we must exclude it, because
-      // we use Jena 5.3.0.
+      // Jelly-JVM 3.7.x pins Jena 5.6.x as a dependency, we must exclude it, because we use Jena 6.x.
       ("eu.neverblink.jelly" % "jelly-jena" % jellyV).excludeAll(ExclusionRule("org.apache.jena")),
       "eu.neverblink.jelly" % "jelly-core-protos-google" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0",

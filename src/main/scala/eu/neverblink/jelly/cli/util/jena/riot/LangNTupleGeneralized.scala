@@ -11,22 +11,22 @@ import org.apache.jena.riot.tokens.{Token, TokenType, Tokenizer}
 abstract class LangNTupleGeneralized[T](tokens: Tokenizer, profile: ParserProfile, dest: StreamRDF)
     extends LangNTuple[T](tokens, profile, dest):
 
-  protected final def parseNode(token: Token): Node =
+  protected final def parseNode(posn: String, token: Token): Node =
     if (token.isEOF) exception(token, "Premature end of file: %s", token)
-    if (token.hasType(TokenType.LT2)) parseTripleTermGeneralized
+    if (token.hasType(TokenType.L_TRIPLE)) parseTripleTermGeneralized
     else
-      checkRDFTerm(token)
+      checkRDFTerm(posn, token)
       tokenAsNode(token)
 
   protected final def parseTripleGeneralized: Triple =
     val sToken = nextToken
-    val s = parseNode(sToken)
-    val p = parseNode(nextToken)
-    val o = parseNode(nextToken)
+    val s = parseNode("subject", sToken)
+    val p = parseNode("predicate", nextToken)
+    val o = parseNode("object", nextToken)
     profile.createTriple(s, p, o, sToken.getLine, sToken.getColumn)
 
   protected final def parseTripleTermGeneralized: Node =
     val t = parseTripleGeneralized
     val x = nextToken
-    if (x.getType ne TokenType.GT2) exception(x, "Triple term not terminated by >>: %s", x)
-    NodeFactory.createTripleNode(t)
+    if (x.getType ne TokenType.R_TRIPLE) exception(x, "Triple term not terminated by )>>: %s", x)
+    NodeFactory.createTripleTerm(t)

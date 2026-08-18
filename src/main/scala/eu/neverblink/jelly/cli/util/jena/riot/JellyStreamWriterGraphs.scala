@@ -49,6 +49,9 @@ final class JellyStreamWriterGraphs(opt: JellyFormatVariant, out: OutputStream) 
   // Not supported
   override def base(base: String): Unit = ()
 
+  // Not supported – Jelly has no equivalent of the RDF 1.2 version directive
+  override def version(version: String): Unit = ()
+
   override def prefix(prefix: String, iri: String): Unit =
     if opt.isEnableNamespaceDeclarations then
       encoder.handleNamespace(prefix, NodeFactory.createURI(iri))
