@@ -7,6 +7,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.TextFormat;
 import com.oracle.svm.core.annotate.*;
 
+import java.io.File;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.UUID;
@@ -80,6 +81,24 @@ final class BlankNodeIdSubstitute {
     public static String createFreshId() {
         ThreadLocalRandom r = ThreadLocalRandom.current();
         return new UUID(r.nextLong(), r.nextLong()).toString();
+    }
+}
+
+/**
+ * Jena's data bags spill to a temporary file once they outgrow their in-memory threshold, and name
+ * that file with a secure random UUID. The SPARQL results JSON reader buffers rows in a data bag
+ * when it has to read past the bindings to find the header, which drags secure random number
+ * generation back into the binary.
+ * <p>
+ * The file name only has to be unique, so a pseudo-random UUID does the job here.
+ */
+@TargetClass(className = "org.apache.jena.atlas.data.AbstractDataBag")
+final class AbstractDataBagSubstitute {
+    @Substitute
+    protected File getNewTemporaryFile() {
+        ThreadLocalRandom r = ThreadLocalRandom.current();
+        File sysTempDir = new File(System.getProperty("java.io.tmpdir"));
+        return new File(sysTempDir, "DataBag-" + new UUID(r.nextLong(), r.nextLong()) + ".tmp");
     }
 }
 

@@ -8,10 +8,10 @@ ThisBuild / scalaVersion := scalaV
 Global / lintUnusedKeysOnLoad := false
 
 resolvers +=
-  "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
+  "Sonatype OSS Snapshots" at "https://central.sonatype.com/repository/maven-snapshots"
 
 lazy val jenaV = "6.2.0"
-lazy val jellyV = "3.7.3"
+lazy val jellyV = "3.7.3+33-28c9f700-SNAPSHOT"
 lazy val graalvmV = "25.2.4"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
@@ -67,6 +67,8 @@ lazy val root = (project in file("."))
       "org.apache.jena" % "jena-arq" % jenaV,
       // Jelly-JVM 3.7.x pins Jena 5.6.x as a dependency, we must exclude it, because we use Jena 6.x.
       ("eu.neverblink.jelly" % "jelly-jena" % jellyV).excludeAll(ExclusionRule("org.apache.jena")),
+      ("eu.neverblink.jelly" % "jelly-jena-sparql" % jellyV)
+        .excludeAll(ExclusionRule("org.apache.jena")),
       "eu.neverblink.jelly" % "jelly-core-protos-google" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0",
       "org.scalatest" %% "scalatest" % "3.2.20" % "test,test-serial",
