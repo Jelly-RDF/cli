@@ -104,6 +104,24 @@ jelly-cli rdf validate input.jelly
 
 You can also check whether the Jelly file has been encoded using specific stream options or is equivalent to another RDF file, with the use of additional options to this command.
 
+### Convert SPARQL results to and from Jelly-SPARQL
+
+Jelly-SPARQL is a columnar format for SPARQL query results. To convert results to it, run:
+
+```shell
+jelly-cli sparql to-jelly results.srj > results.jellys
+```
+
+And to convert back:
+
+```shell
+jelly-cli sparql from-jelly results.jellys --out-format=csv > results.csv
+```
+
+Both commands handle SELECT results (bindings) and ASK results (a boolean). All standard result formats (JSON, XML, CSV and TSV) are supported, plus a plain text table (`text`) for output only.
+
+Jelly-SPARQL is an experimental draft and the format may still change.
+
 ### General tips
 
 Use the `--help` option to learn more about all the available settings:
@@ -114,6 +132,8 @@ jelly-cli rdf from-jelly --help
 jelly-cli rdf transcode --help
 jelly-cli rdf inspect --help
 jelly-cli rdf validate --help
+jelly-cli sparql to-jelly --help
+jelly-cli sparql from-jelly --help
 ```
 
 And use the `--debug` option to get more information about any exceptions you encounter.

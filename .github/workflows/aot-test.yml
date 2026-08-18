@@ -81,6 +81,19 @@ jobs:
           ./jelly-cli \
             rdf validate out.jelly --compare-to-rdf-file in.nt || exit 1
 
+          # Test SPARQL result set conversions
+          echo '{"head":{"vars":["a"]},"results":{"bindings":[{"a":{"type":"uri","value":"http://e.org/x"}}]}}' > in.srj
+          ./jelly-cli \
+            sparql to-jelly in.srj > out.jellys && \
+            [ -s out.jellys ] || exit 1
+          ./jelly-cli \
+            sparql from-jelly --out-format=csv out.jellys | grep 'http://e.org/x' || exit 1
+          # ASK results take a different code path than bindings
+          echo '{"head":{},"boolean":true}' | \
+            ./jelly-cli sparql to-jelly --in-format=json > ask.jellys && \
+            [ -s ask.jellys ] || exit 1
+          ./jelly-cli sparql from-jelly ask.jellys | grep 'true' || exit 1
+
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
