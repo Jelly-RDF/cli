@@ -176,12 +176,12 @@ The CI checks will not pass if this is not the case.
 - Ensure you have [GraalVM](https://www.graalvm.org/) installed and the `native-image` utility is available in your `PATH`.
 - Clone the repository.
 - Run `sbt GraalVMNativeImage/packageBin`
-- The binary will be available at `./target/graalvm-native-image/jelly-cli`.
+- The binary will be available at `./target/out/jvm/scala-3.*.*/jelly-cli/graalvm-native-image/jelly-cli`.
 
 #### Über-JAR build (just-in-time)
 
 - Run `sbt assembly`
-- The resulting JAR will be in `./target/scala-3.*.*/jelly-cli-assembly-*.jar`
+- The resulting JAR will be in `./target/out/jvm/scala-3.*.*/jelly-cli/jelly-cli-assembly-*.jar`
 - Run it like: `java -jar <path-to-jar>`
 
 ----

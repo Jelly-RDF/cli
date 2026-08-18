@@ -102,7 +102,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       }
 
       "input stream to output stream, generalized RDF (N-Triples)" in {
-        val inputStream = new FileInputStream(getClass.getResource("/generalized.nt").getPath)
+        val inputStream = getClass.getResourceAsStream("/generalized.nt")
         RdfToJelly.setStdIn(inputStream)
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format=nt"),
@@ -116,7 +116,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       }
 
       "input stream to output stream, generalized RDF (N-Quads)" in {
-        val inputStream = new FileInputStream(getClass.getResource("/generalized.nq").getPath)
+        val inputStream = getClass.getResourceAsStream("/generalized.nq")
         RdfToJelly.setStdIn(inputStream)
         val (out, err) = RdfToJelly.runTestCommand(
           List("rdf", "to-jelly", "--in-format=nq"),
