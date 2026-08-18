@@ -8,10 +8,10 @@ ThisBuild / scalaVersion := scalaV
 Global / lintUnusedKeysOnLoad := false
 
 resolvers +=
-  "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
+  "Sonatype OSS Snapshots" at "https://central.sonatype.com/repository/maven-snapshots"
 
 lazy val jenaV = "6.2.0"
-lazy val jellyV = "3.7.3"
+lazy val jellyV = "3.7.3+33-28c9f700-SNAPSHOT"
 lazy val graalvmV = "25.2.4"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
