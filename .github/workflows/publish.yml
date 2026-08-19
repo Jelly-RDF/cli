@@ -12,7 +12,7 @@ jobs:
       matrix:
         os: [macos-14, windows-2022, ubuntu-22.04, ubuntu-22.04-arm]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: graalvm/setup-graalvm@v1
         with:
@@ -27,21 +27,29 @@ jobs:
       - name: Build native image
         run: sbt GraalVMNativeImage/packageBin
 
+      - name: Collect the binary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir binary
+          # sbt 2 nests build outputs under target/out/<platform>/<scala version>/<project>/
+          mv target/out/jvm/scala-*/jelly-cli/graalvm-native-image/* binary/
+
       - name: Upload binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jelly-cli-${{ matrix.os }}
-          # sbt 2 nests build outputs under target/out/<platform>/<scala version>/<project>/
-          path: target/out/jvm/scala-*/jelly-cli/graalvm-native-image/*
+          path: binary/*
 
   jit-compile:
     name: Build the uber-JAR
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -57,7 +65,7 @@ jobs:
           mv target/out/jvm/scala-*/jelly-cli/jelly-cli-assembly*.jar jelly-cli.jar
 
       - name: Upload assembly
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jelly-cli-assembly
           path: jelly-cli.jar
@@ -68,7 +76,7 @@ jobs:
       - aot-compile
       - jit-compile
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
 
       - name: Rename binaries
         run: |
@@ -88,7 +96,7 @@ jobs:
 
       - name: Upload binaries (pre-release)
         if: github.ref == 'refs/heads/main'
-        uses: ncipollo/release-action@v1.14.0
+        uses: ncipollo/release-action@v1.21.0
         with:
           allowUpdates: true
           prerelease: true
@@ -102,7 +110,7 @@ jobs:
 
       - name: Upload binaries (tagged release)
         if: github.ref != 'refs/heads/main'
-        uses: ncipollo/release-action@v1.14.0
+        uses: ncipollo/release-action@v1.21.0
         with:
           prerelease: false
           draft: false

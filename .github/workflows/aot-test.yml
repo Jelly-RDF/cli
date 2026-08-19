@@ -13,7 +13,7 @@ jobs:
         # Windows and Linux ARM are built later after the PR is merged.
         os: [macos-14, ubuntu-22.04]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: graalvm/setup-graalvm@v1
         with:
@@ -95,7 +95,7 @@ jobs:
           ./jelly-cli sparql from-jelly ask.jellys | grep 'true' || exit 1
 
       - name: Upload binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jelly-cli-${{ matrix.os }}
           path: jelly-cli
