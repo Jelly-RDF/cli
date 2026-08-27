@@ -12,7 +12,7 @@ resolvers +=
 
 lazy val jenaV = "6.2.0"
 lazy val jellyV = "3.7.3+44-077ab789-SNAPSHOT"
-lazy val graalvmV = "25.2.4"
+lazy val graalvmV = "25.3.4.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
 
