@@ -21,9 +21,9 @@ object IoUtil:
     if !file.canRead then throw InputFileInaccessible(fileName)
     FileInputStream(file)
 
-  /** Create output stream with extra error handling. If the file exists, it will append to it.
+  /** Create output stream with extra error handling. If the file exists, it will be truncated.
     * @param fileName
-    * @throws OutputFileExists
+    * @throws OutputFileCannotBeCreated
     * @return
     *   FileOutputStream
     */
@@ -33,4 +33,4 @@ object IoUtil:
     val parentFile = if (suppFile != null) suppFile else File(".")
     if !parentFile.canWrite || (file.exists() && !file.canWrite) then
       throw OutputFileCannotBeCreated(fileName)
-    FileOutputStream(file, true)
+    FileOutputStream(file)

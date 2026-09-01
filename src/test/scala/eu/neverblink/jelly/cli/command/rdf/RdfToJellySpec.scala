@@ -70,6 +70,17 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
       }
 
+      "a file to an already existing file, truncating it" in withFullJenaFile { f =>
+        withEmptyJellyFile { j =>
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j, f))
+          val framesAfterFirstRun = readJellyFile(new FileInputStream(j)).size
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--to", j, f))
+          readJellyFile(new FileInputStream(j)).size should be(framesAfterFirstRun)
+          val content = translateJellyBack(new FileInputStream(j))
+          content.size should be(testCardinality)
+        }
+      }
+
       "input stream to output stream" in {
         val input = DataGenHelper.generateJenaInputStream(testCardinality)
         RdfToJelly.setStdIn(input)
