@@ -62,7 +62,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "jelly-cli",
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-simple" % "2.0.18",
+      "org.slf4j" % "slf4j-simple" % "2.0.19",
       "org.apache.jena" % "jena-core" % jenaV,
       "org.apache.jena" % "jena-arq" % jenaV,
       // Jelly-JVM 3.7.x pins Jena 5.6.x as a dependency, we must exclude it, because we use Jena 6.x.
