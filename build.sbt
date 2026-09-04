@@ -1,5 +1,5 @@
 ThisBuild / semanticdbEnabled := true
-lazy val scalaV = "3.8.4"
+lazy val scalaV = "3.9.0"
 ThisBuild / scalaVersion := scalaV
 
 // sbt-native-packager (pulled in by GraalVMNativeImagePlugin) defines settings for the Debian,
