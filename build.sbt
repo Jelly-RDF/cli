@@ -11,7 +11,7 @@ resolvers +=
   "Sonatype OSS Snapshots" at "https://central.sonatype.com/repository/maven-snapshots"
 
 lazy val jenaV = "6.2.0"
-lazy val jellyV = "3.7.3+46-2d860cef-SNAPSHOT"
+lazy val jellyV = "3.7.3+49-e908953b-SNAPSHOT"
 lazy val graalvmV = "25.3.4.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
