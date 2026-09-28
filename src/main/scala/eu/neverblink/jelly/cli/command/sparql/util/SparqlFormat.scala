@@ -12,7 +12,6 @@ import org.apache.jena.riot.resultset.ResultSetLang
 sealed trait SparqlFormat:
   val fullName: String
   val cliOptions: List[String]
-  val jenaLang: Lang
   override final def toString: String = fullName
 
 object SparqlFormat:
@@ -23,28 +22,32 @@ object SparqlFormat:
   /** Formats we can write a result set to. */
   sealed trait Writeable extends SparqlFormat
 
-  case object Json extends SparqlFormat.Readable, SparqlFormat.Writeable:
+  /** Formats handled by Jena's result set readers and writers. */
+  sealed trait Jena extends SparqlFormat:
+    val jenaLang: Lang
+
+  case object Json extends SparqlFormat.Jena, SparqlFormat.Readable, SparqlFormat.Writeable:
     override val fullName: String = "SPARQL results JSON"
     override val cliOptions: List[String] = List("json", "srj")
     override val jenaLang: Lang = ResultSetLang.RS_JSON
 
-  case object Xml extends SparqlFormat.Readable, SparqlFormat.Writeable:
+  case object Xml extends SparqlFormat.Jena, SparqlFormat.Readable, SparqlFormat.Writeable:
     override val fullName: String = "SPARQL results XML"
     override val cliOptions: List[String] = List("xml", "srx")
     override val jenaLang: Lang = ResultSetLang.RS_XML
 
-  case object Csv extends SparqlFormat.Readable, SparqlFormat.Writeable:
+  case object Csv extends SparqlFormat.Jena, SparqlFormat.Readable, SparqlFormat.Writeable:
     override val fullName: String = "CSV"
     override val cliOptions: List[String] = List("csv")
     override val jenaLang: Lang = ResultSetLang.RS_CSV
 
-  case object Tsv extends SparqlFormat.Readable, SparqlFormat.Writeable:
+  case object Tsv extends SparqlFormat.Jena, SparqlFormat.Readable, SparqlFormat.Writeable:
     override val fullName: String = "TSV"
     override val cliOptions: List[String] = List("tsv")
     override val jenaLang: Lang = ResultSetLang.RS_TSV
 
   /** Jena's pretty-printed table. Jena registers no reader for it, so it's output-only. */
-  case object Text extends SparqlFormat.Writeable:
+  case object Text extends SparqlFormat.Jena, SparqlFormat.Writeable:
     override val fullName: String = "Text table"
     override val cliOptions: List[String] = List("text")
     override val jenaLang: Lang = ResultSetLang.RS_Text
@@ -52,12 +55,18 @@ object SparqlFormat:
   /** We never convert Jelly to Jelly, so this is neither Readable nor Writeable – it is only here
     * so that the other side of the conversion has a name.
     */
-  case object JellySparql extends SparqlFormat:
+  case object JellySparql extends SparqlFormat.Jena:
     override val fullName: String = "Jelly-SPARQL"
     override val cliOptions: List[String] = List("jelly-sparql")
     override val jenaLang: Lang = JellySparqlLanguage.JELLY_SPARQL
 
-  private val sparqlFormats: List[SparqlFormat] = List(Json, Xml, Csv, Tsv, Text, JellySparql)
+  case object JellySparqlText extends SparqlFormat.Readable, SparqlFormat.Writeable:
+    override val fullName: String = "Jelly-SPARQL text"
+    override val cliOptions: List[String] = List("jelly-sparql-text")
+    val extension = ".jellys.txt"
+
+  private val sparqlFormats: List[SparqlFormat] =
+    List(Json, Xml, Csv, Tsv, Text, JellySparql, JellySparqlText)
 
   def all: List[SparqlFormat] = sparqlFormats
 
@@ -86,5 +95,9 @@ object SparqlFormat:
   /** Infers the format based on the file name.
     */
   def inferFormat(fileName: String): Option[SparqlFormat] =
-    val guessType = RDFLanguages.guessContentType(fileName)
-    sparqlFormats.collectFirst { case f if f.jenaLang.getContentType == guessType => f }
+    if fileName.endsWith(JellySparqlText.extension) then Some(JellySparqlText)
+    else
+      val guessType = RDFLanguages.guessContentType(fileName)
+      sparqlFormats.collectFirst {
+        case f: SparqlFormat.Jena if f.jenaLang.getContentType == guessType => f
+      }

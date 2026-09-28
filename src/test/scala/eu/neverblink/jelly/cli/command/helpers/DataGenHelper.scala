@@ -1,7 +1,8 @@
 package eu.neverblink.jelly.cli.command.helpers
 
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
-import eu.neverblink.jelly.core.proto.google.v1 as google
+import eu.neverblink.jelly.cli.util.io.ProtoText
+import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
 import org.apache.jena.query.{Dataset, DatasetFactory}
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
@@ -75,8 +76,8 @@ object DataGenHelper:
     */
   def generateJellyText(nTriples: Int): String =
     val bytes = generateJellyBytes(nTriples)
-    val frame = google.RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(bytes))
-    frame.toString
+    val frame = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(bytes))
+    ProtoText.print(RdfStreamFrame.getDescriptor, frame.toByteArray)
 
   /** This method generates a Jelly byte input stream with nTriples
     * @param nTriples

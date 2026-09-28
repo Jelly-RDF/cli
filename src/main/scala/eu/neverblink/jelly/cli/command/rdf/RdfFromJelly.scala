@@ -5,6 +5,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
+import eu.neverblink.jelly.cli.util.io.ProtoText
 import eu.neverblink.jelly.cli.util.jena.{
   JenaSystemOptions,
   StreamRdfBatchWriter,
@@ -14,13 +15,13 @@ import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
 import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
-import eu.neverblink.jelly.core.proto.google.v1 as google
 import org.apache.jena.graph.{Node, Triple}
 import org.apache.jena.riot.system.StreamRDF
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.sparql.core.Quad
 
 import java.io.{InputStream, OutputStream}
+import java.nio.charset.StandardCharsets.UTF_8
 import scala.jdk.CollectionConverters.*
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
@@ -187,10 +188,9 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     inline def writeFrameToOutput(f: RdfStreamFrame, frameIndex: Int): Unit =
       // we want to write a comment to the file before each frame
       val comment = f"# Frame $frameIndex\n"
-      outputStream.write(comment.getBytes)
-      val frame = google.RdfStreamFrame.parseFrom(f.toByteArray).toString
-      // the protoString is basically the jelly-txt format already
-      outputStream.write(frame.getBytes)
+      outputStream.write(comment.getBytes(UTF_8))
+      val frame = ProtoText.print(RdfStreamFrame.getDescriptor, f.toByteArray)
+      outputStream.write(frame.getBytes(UTF_8))
 
     try {
       val it = JellyUtil.iterateRdfStream(inputStream)

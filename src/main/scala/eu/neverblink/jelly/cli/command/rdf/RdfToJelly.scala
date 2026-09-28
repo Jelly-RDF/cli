@@ -1,22 +1,22 @@
 package eu.neverblink.jelly.cli.command.rdf
 
 import caseapp.*
-import com.google.protobuf.TextFormat
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
+import eu.neverblink.jelly.cli.util.io.ProtoText
 import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
 import eu.neverblink.jelly.cli.util.jena.riot.{JellyStreamWriterGraphs, RiotParserUtil}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
 import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
-import eu.neverblink.jelly.core.proto.google.v1 as google
 import eu.neverblink.jelly.core.proto.v1.*
 import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.riot.system.StreamRDFWriter
 import org.apache.jena.riot.RIOT
 
 import java.io.{BufferedReader, FileInputStream, InputStream, InputStreamReader, OutputStream}
+import java.nio.charset.StandardCharsets.UTF_8
 import scala.util.Using
 
 object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
@@ -216,10 +216,10 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
           "NEVER use it in production.\nUse --quiet to silence this warning.",
         true,
       )
-    Using.resource(InputStreamReader(inputStream)) { r1 =>
+    Using.resource(InputStreamReader(inputStream, UTF_8)) { r1 =>
       Using.resource(BufferedReader(r1)) { reader =>
         jellyTextStreamAsFrames(reader)
-          .map(txt => TextFormat.parse(txt, classOf[google.RdfStreamFrame]))
+          .map(txt => ProtoText.parse(RdfStreamFrame.getDescriptor, txt))
           .foreach(frame => {
             if getOptions.delimited then frame.writeDelimitedTo(outputStream)
             else frame.writeTo(outputStream)

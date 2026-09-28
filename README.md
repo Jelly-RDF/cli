@@ -120,8 +120,6 @@ jelly-cli sparql from-jelly results.jellys --out-format=csv > results.csv
 
 Both commands handle SELECT results (bindings) and ASK results (a boolean). All standard result formats (JSON, XML, CSV and TSV) are supported, plus a plain text table (`text`) for output only.
 
-Jelly-SPARQL is an experimental draft and the format may still change.
-
 ### General tips
 
 Use the `--help` option to learn more about all the available settings:
