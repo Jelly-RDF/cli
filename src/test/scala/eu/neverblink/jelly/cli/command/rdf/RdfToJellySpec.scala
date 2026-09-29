@@ -6,7 +6,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
 import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.JellyOptions
-import eu.neverblink.jelly.core.proto.google.v1 as google
+import eu.neverblink.jelly.cli.util.io.ProtoText
 import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.irix.IRIs
 import org.apache.jena.rdf.model.{Model, ModelFactory}
@@ -776,9 +776,10 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         initialJellyFile => {
           val initialFrames = readJellyFile(new FileInputStream(initialJellyFile))
           val initialOpts = initialFrames.head.getRows.asScala.head.getOptions
-          val jellyText = google.RdfStreamFrame.parseDelimitedFrom(
-            new FileInputStream(initialJellyFile),
-          ).toString
+          val jellyText = ProtoText.print(
+            RdfStreamFrame.getDescriptor,
+            RdfStreamFrame.parseDelimitedFrom(new FileInputStream(initialJellyFile)).toByteArray,
+          )
           val bytes = ByteArrayInputStream(jellyText.getBytes())
           RdfToJelly.testMode(true)
           RdfToJelly.setStdIn(bytes)

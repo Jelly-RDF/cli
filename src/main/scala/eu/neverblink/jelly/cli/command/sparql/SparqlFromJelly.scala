@@ -14,6 +14,7 @@ object SparqlFromJellyPrint:
     "If no input file is specified, the input is read from stdin.\n" +
     "If no output file is specified, the output is written to stdout.\n" +
     "Both SELECT results (bindings) and ASK results (a boolean) are supported.\n" +
+    "The jelly-sparql-text format is a human-readable version of Jelly-SPARQL, for debugging.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
     "Otherwise, the program will exit with code 0.",
 )

@@ -5,13 +5,13 @@ import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
 import eu.neverblink.jelly.cli.command.sparql.util.SparqlFormat
 import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
 import org.apache.jena.query.{ResultSet, ResultSetFactory}
-import org.apache.jena.riot.{Lang, ResultSetMgr}
-import org.apache.jena.riot.resultset.ResultSetLang
+import org.apache.jena.riot.{Lang, RIOT, ResultSetMgr}
+import org.apache.jena.riot.resultset.{ResultSetLang, ResultSetWriterRegistry}
 import org.apache.jena.sparql.resultset.ResultsCompare
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.io.ByteArrayInputStream
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Path}
 import java.util.UUID.randomUUID
@@ -41,6 +41,17 @@ object SparqlSerDesSpec:
     ResultSetMgr.read(ByteArrayInputStream(bytes), lang)
 
   def parse(s: String, lang: Lang): ResultSet = parse(s.getBytes(UTF_8), lang)
+
+  /** Writes the SELECT results to Jelly-SPARQL, with at most `valuesPerFrame` cells per frame. */
+  def toSmallFrames(json: String, valuesPerFrame: Int): Array[Byte] =
+    val out = ByteArrayOutputStream()
+    val context = RIOT.getContext.copy()
+      .set(JellySparqlLanguage.SYMBOL_MAX_VALUES_PER_FRAME, valuesPerFrame)
+    ResultSetWriterRegistry
+      .getFactory(JellySparqlLanguage.JELLY_SPARQL)
+      .create(JellySparqlLanguage.JELLY_SPARQL)
+      .write(out, parse(json, ResultSetLang.RS_JSON), context)
+    out.toByteArray
 
 class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
   import SparqlSerDesSpec.*
@@ -202,5 +213,108 @@ class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
         e.getCause shouldBe a[InvalidJellyFile]
       }
+    }
+  }
+
+  /** Runs `sparql from-jelly` to the text format and returns the text. */
+  private def toText(jelly: Array[Byte]): String =
+    SparqlFromJelly.setStdIn(ByteArrayInputStream(jelly))
+    SparqlFromJelly.runTestCommand(
+      List("sparql", "from-jelly", "--out-format", "jelly-sparql-text"),
+    )._1
+
+  /** Runs `sparql to-jelly` over the text format and returns the Jelly-SPARQL bytes. */
+  private def fromText(text: String): Array[Byte] =
+    SparqlToJelly.setStdIn(ByteArrayInputStream(text.getBytes(UTF_8)))
+    SparqlToJelly.runTestCommand(
+      List("sparql", "to-jelly", "--in-format", "jelly-sparql-text", "--quiet"),
+    )
+    SparqlToJelly.getOutBytes
+
+  "Jelly-SPARQL text format" should {
+    "be written by from-jelly, one commented block per frame" in {
+      val text = toText(toJelly(selectJson, ".srj"))
+      text should startWith("# Frame 0\n")
+      text should not include "# Frame 1"
+      for expected <- Seq("options {", "variables {", "name: \"label\"", "row_count: 3") do
+        text should include(expected)
+      // Non-ASCII text is written without escaping
+      text should include("cześć")
+    }
+
+    "round trip a SELECT result set through text and back" in {
+      val text = toText(toJelly(selectJson, ".srj"))
+      ResultsCompare.equalsByTermAndOrder(
+        parse(fromText(text), JellySparqlLanguage.JELLY_SPARQL),
+        parse(selectJson, ResultSetLang.RS_JSON),
+      ) shouldBe true
+    }
+
+    "round trip an ASK result through text and back" in {
+      for value <- Seq(true, false) do
+        val text = toText(toJelly(askJson(value), ".srj"))
+        ResultSetMgr.readBoolean(
+          ByteArrayInputStream(fromText(text)),
+          JellySparqlLanguage.JELLY_SPARQL,
+        ) shouldBe value
+    }
+
+    "keep frame boundaries in a multi-frame stream" in {
+      val jelly = toSmallFrames(selectJson, 4)
+      val text = toText(jelly)
+      val frameCount = text.linesIterator.count(_.startsWith("# Frame"))
+      frameCount should be > 1
+      // Converting back to binary and to text again must give the same frames
+      val backToJelly = fromText(text)
+      toText(backToJelly) shouldBe text
+      ResultsCompare.equalsByTermAndOrder(
+        parse(backToJelly, JellySparqlLanguage.JELLY_SPARQL),
+        parse(selectJson, ResultSetLang.RS_JSON),
+      ) shouldBe true
+    }
+
+    "read text without frame comments as a single frame" in {
+      val text = toText(toJelly(selectJson, ".srj"))
+        .linesIterator.filterNot(_.startsWith("#")).mkString("\n")
+      ResultsCompare.equalsByTermAndOrder(
+        parse(fromText(text), JellySparqlLanguage.JELLY_SPARQL),
+        parse(selectJson, ResultSetLang.RS_JSON),
+      ) shouldBe true
+    }
+
+    "infer the format from the .jellys.txt extension on both sides" in {
+      val jelly = toJelly(selectJson, ".srj")
+      withEmptyFile(SparqlFormat.JellySparqlText.extension) { target =>
+        SparqlFromJelly.setStdIn(ByteArrayInputStream(jelly))
+        SparqlFromJelly.runTestCommand(List("sparql", "from-jelly", "--to", target))
+        val text = String(Files.readAllBytes(Path.of(target)), UTF_8)
+        text should startWith("# Frame 0")
+        SparqlToJelly.runTestCommand(List("sparql", "to-jelly", target, "--quiet"))
+        ResultsCompare.equalsByTermAndOrder(
+          parse(SparqlToJelly.getOutBytes, JellySparqlLanguage.JELLY_SPARQL),
+          parse(selectJson, ResultSetLang.RS_JSON),
+        ) shouldBe true
+      }
+    }
+
+    "warn that the text format is unstable, unless --quiet is set" in {
+      val text = toText(toJelly(selectJson, ".srj"))
+      SparqlToJelly.setStdIn(ByteArrayInputStream(text.getBytes(UTF_8)))
+      val (_, err) = SparqlToJelly.runTestCommand(
+        List("sparql", "to-jelly", "--in-format", "jelly-sparql-text"),
+      )
+      err should include("WARNING")
+      SparqlToJelly.setStdIn(ByteArrayInputStream(text.getBytes(UTF_8)))
+      val (_, quietErr) = SparqlToJelly.runTestCommand(
+        List("sparql", "to-jelly", "--in-format", "jelly-sparql-text", "--quiet"),
+      )
+      quietErr shouldBe empty
+    }
+
+    "report malformed text" in {
+      val e = intercept[ExitException] {
+        fromText("this is { definitely not a frame")
+      }
+      e.getCause shouldBe a[InvalidJellyFile]
     }
   }

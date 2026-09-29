@@ -11,7 +11,7 @@ resolvers +=
   "Sonatype OSS Snapshots" at "https://central.sonatype.com/repository/maven-snapshots"
 
 lazy val jenaV = "6.2.0"
-lazy val jellyV = "3.7.3+63-e0758361-SNAPSHOT"
+lazy val jellyV = "3.7.3+64-36186011-SNAPSHOT"
 lazy val graalvmV = "25.4.4.1.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
@@ -34,8 +34,7 @@ lazy val graalOptions = Seq(
   // https://github.com/scala/scala3/pull/24109#issuecomment-3786629196
   "-J--sun-misc-unsafe-memory-access=allow",
   // Custom Graal features
-  "--features=eu.neverblink.jelly.cli.graal.ProtobufFeature," +
-    "eu.neverblink.jelly.cli.graal.JenaInternalsFeature," +
+  "--features=eu.neverblink.jelly.cli.graal.JenaInternalsFeature," +
     "eu.neverblink.jelly.cli.graal.LargeXmlFeature",
   "-H:ReflectionConfigurationFiles=" + file("graal.json").getAbsolutePath,
   // Needed to skip initializing all charsets.
@@ -69,13 +68,11 @@ lazy val root = (project in file("."))
       ("eu.neverblink.jelly" % "jelly-jena" % jellyV).excludeAll(ExclusionRule("org.apache.jena")),
       ("eu.neverblink.jelly" % "jelly-jena-sparql" % jellyV)
         .excludeAll(ExclusionRule("org.apache.jena")),
-      "eu.neverblink.jelly" % "jelly-core-protos-google" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.0",
       "org.scalatest" %% "scalatest" % "3.2.20" % "test,test-serial",
       "org.yaml" % "snakeyaml" % "2.7" % Test,
       // For native-image reflection compatibility
       "org.graalvm.sdk" % "graal-sdk" % graalvmV % "provided",
-      "org.reflections" % "reflections" % "0.10.2",
     ),
     scalacOptions ++= Seq(
       "-Wunused:imports",
