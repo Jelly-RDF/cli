@@ -8,6 +8,7 @@ import eu.neverblink.jelly.cli.util.args.IndexRange
 import eu.neverblink.jelly.cli.util.io.ProtoText
 import eu.neverblink.jelly.cli.util.jena.{
   JenaSystemOptions,
+  RdfSparqlConverter,
   StreamRdfBatchWriter,
   StreamRdfCombiningBatchWriter,
 }
@@ -15,6 +16,7 @@ import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
 import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
+import eu.neverblink.jelly.core.sparql.JellySparqlConstants
 import org.apache.jena.graph.{Node, Triple}
 import org.apache.jena.riot.system.StreamRDF
 import org.apache.jena.riot.system.StreamRDFWriter
@@ -118,6 +120,23 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       case (j: RdfFormat.Jena.BatchWriteable, false) =>
         Some((in, out, opt) => jellyToLang(in, StreamRdfBatchWriter(out, j.jenaLang), j, opt))
       case (RdfFormat.JellyText, _) => Some(jellyBinaryToText)
+      case (RdfFormat.JellySparql, _) => Some(jellyToSparql)
+
+  /** Converts the Jelly-RDF stream to a Jelly-SPARQL result set of ?s ?p ?o (?g), with the default
+    * options. To set them, use sparql to-jelly --in-format jelly-rdf.
+    */
+  private def jellyToSparql(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+      opt: RdfFromJellyOptions,
+  ): Unit =
+    RdfSparqlConverter.rdfToSparql(
+      inputStream,
+      outputStream,
+      RdfSparqlConverter.defaultSparqlOptions,
+      JellySparqlConstants.DEFAULT_MAX_VALUES_PER_FRAME,
+      delimited = true,
+    )
 
   /** This method reads the Jelly file, rewrites it to specified format and writes it to some output
     * stream

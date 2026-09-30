@@ -1,15 +1,13 @@
 package eu.neverblink.jelly.cli.command.sparql
 
 import caseapp.*
-import com.google.protobuf.{InvalidProtocolBufferException, TextFormat}
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.sparql.util.SparqlFormat
+import eu.neverblink.jelly.cli.command.sparql.util.{SparqlFormat, SparqlJellyUtil}
 import eu.neverblink.jelly.cli.util.io.ProtoText
-import eu.neverblink.jelly.core.{RdfProtoDeserializationError, RdfProtoSerializationError}
 import eu.neverblink.jelly.core.proto.v1.sparql.SparqlResultsFrame
-import eu.neverblink.jelly.core.sparql.JellySparqlIoUtils
-import org.apache.jena.riot.{RIOT, RiotException}
+import org.apache.jena.riot.RIOT
 import org.apache.jena.riot.resultset.{ResultSetReaderRegistry, ResultSetWriterRegistry}
+import org.apache.jena.sparql.util.Context
 
 import java.io.{BufferedReader, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.StandardCharsets.UTF_8
@@ -45,6 +43,22 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
           .filter(validFormats.contains)
           .getOrElse(defaultFormat)
 
+  /** Context passed to Jena's result set reader and writer. Commands override this to configure the
+    * Jelly-SPARQL writer.
+    */
+  protected def jenaContext: Context = RIOT.getContext.copy()
+
+  /** Whether the Jelly-SPARQL text format should be converted to delimited Jelly-SPARQL. */
+  protected def delimitedOutput: Boolean = true
+
+  /** Converts Jelly-RDF to Jelly-SPARQL. Commands that read Jelly-RDF override this. */
+  protected def jellyRdfToSparql(inputStream: InputStream, outputStream: OutputStream): Unit =
+    throw CriticalException("This command cannot read Jelly-RDF.")
+
+  /** Converts Jelly-SPARQL to Jelly-RDF. Commands that write Jelly-RDF override this. */
+  protected def jellySparqlToRdf(inputStream: InputStream, outputStream: OutputStream): Unit =
+    throw CriticalException("This command cannot write Jelly-RDF.")
+
   /** Reads a result set in one format and writes it back out in another.
     *
     * Both SELECT results (bindings) and ASK results (a single boolean) are handled.
@@ -55,32 +69,22 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
       inputStream: InputStream,
       outputStream: OutputStream,
   ): Unit =
-    try {
+    SparqlJellyUtil.translateErrors {
       (from, to) match
         case (SparqlFormat.JellySparql, SparqlFormat.JellySparqlText) =>
           jellyBinaryToText(inputStream, outputStream)
         case (SparqlFormat.JellySparqlText, SparqlFormat.JellySparql) =>
           jellyTextToBinary(inputStream, outputStream)
+        case (SparqlFormat.JellyRdf, SparqlFormat.JellySparql) =>
+          jellyRdfToSparql(inputStream, outputStream)
+        case (SparqlFormat.JellySparql, SparqlFormat.JellyRdf) =>
+          jellySparqlToRdf(inputStream, outputStream)
         case (f: SparqlFormat.Jena, t: SparqlFormat.Jena) =>
           jenaConvert(f, t, inputStream, outputStream)
         case _ =>
           throw CriticalException(f"Conversion from $from to $to is not supported.")
       outputStream.flush()
-    } catch
-      // The Jelly RowSet reader wraps I/O errors (including protobuf ones) in a RiotException,
-      // so unwrap it to report a malformed Jelly file the same way the rdf commands do.
-      case e: RiotException =>
-        e.getCause match
-          case cause: InvalidProtocolBufferException => throw InvalidJellyFile(cause)
-          case _ => throw JenaRiotException(e)
-      case e: InvalidProtocolBufferException =>
-        throw InvalidJellyFile(e)
-      case e: RdfProtoDeserializationError =>
-        throw JellyDeserializationError(e.getMessage)
-      case e: RdfProtoSerializationError =>
-        throw JellySerializationError(e.getMessage)
-      case e: TextFormat.ParseException =>
-        throw InvalidJellyFile(e)
+    }
 
   private def jenaConvert(
       from: SparqlFormat.Jena,
@@ -88,7 +92,7 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
       inputStream: InputStream,
       outputStream: OutputStream,
   ): Unit =
-    val context = RIOT.getContext.copy()
+    val context = jenaContext
     val reader = ResultSetReaderRegistry.getFactory(from.jenaLang).create(from.jenaLang)
     val writer = ResultSetWriterRegistry.getFactory(to.jenaLang).create(to.jenaLang)
     val result = reader.readAny(inputStream, context)
@@ -99,13 +103,7 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
   private val frameCommentPrefix = "# Frame"
 
   private def jellyBinaryToText(inputStream: InputStream, outputStream: OutputStream): Unit =
-    val response = JellySparqlIoUtils.autodetectDelimiting(inputStream)
-    val input = response.newInput()
-    val frames =
-      if response.isDelimited then
-        Iterator.continually(SparqlResultsFrame.parseDelimitedFrom(input)).takeWhile(_ != null)
-      else Iterator(SparqlResultsFrame.parseFrom(input))
-    for (frame, i) <- frames.zipWithIndex do
+    for (frame, i) <- SparqlJellyUtil.iterateSparqlStream(inputStream).zipWithIndex do
       outputStream.write(f"$frameCommentPrefix $i\n".getBytes(UTF_8))
       val text = ProtoText.print(SparqlResultsFrame.getDescriptor, frame.toByteArray)
       outputStream.write(text.getBytes(UTF_8))
@@ -119,8 +117,17 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
           "NEVER use it in production.\nUse --quiet to silence this warning.",
         true,
       )
+    var frameCount = 0
     def writeFrame(text: String): Unit =
-      ProtoText.parse(SparqlResultsFrame.getDescriptor, text).writeDelimitedTo(outputStream)
+      frameCount += 1
+      val frame = ProtoText.parse(SparqlResultsFrame.getDescriptor, text)
+      if delimitedOutput then frame.writeDelimitedTo(outputStream)
+      else if frameCount == 1 then frame.writeTo(outputStream)
+      // Concatenated non-delimited frames would be read back as one frame with merged columns
+      else
+        throw CriticalException(
+          "The input has more than one frame, so it cannot be written as non-delimited output.",
+        )
 
     Using.resource(BufferedReader(InputStreamReader(inputStream, UTF_8))) { reader =>
       val buffer = StringBuilder()

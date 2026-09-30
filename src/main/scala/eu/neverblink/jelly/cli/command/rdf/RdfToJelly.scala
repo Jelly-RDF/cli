@@ -5,17 +5,12 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.io.ProtoText
-import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
-import eu.neverblink.jelly.cli.util.jena.riot.{JellyStreamWriterGraphs, RiotParserUtil}
-import eu.neverblink.jelly.convert.jena.JenaConverterFactory
-import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage, JellyStreamWriter}
+import eu.neverblink.jelly.cli.util.jena.{JenaSystemOptions, RdfSparqlConverter}
+import eu.neverblink.jelly.cli.util.jena.riot.{JellyWriterUtil, RiotParserUtil}
 import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
 import eu.neverblink.jelly.core.proto.v1.*
-import eu.neverblink.jelly.core.utils.IoUtils
-import org.apache.jena.riot.system.StreamRDFWriter
-import org.apache.jena.riot.RIOT
 
-import java.io.{BufferedReader, FileInputStream, InputStream, InputStreamReader, OutputStream}
+import java.io.{BufferedReader, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.StandardCharsets.UTF_8
 import scala.util.Using
 
@@ -28,6 +23,10 @@ object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
     "If no output file is specified, the output is written to stdout.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n" +
     "Otherwise, the program will exit with code 0.\n" +
+    "The input can also be a Jelly-SPARQL result set (the jelly-sparql format) with 3 or 4 " +
+    "variables, which are taken by position, not by name: subject, predicate, object, and graph. " +
+    "Each solution becomes one statement. With 3 variables, the output is a TRIPLES stream, " +
+    "with 4 a QUADS stream, where an unbound graph means the default graph.\n" +
     "Note: this command works in a streaming manner and scales well to large files. ",
 )
 @ArgsName("<file-to-convert>")
@@ -79,20 +78,11 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
   val defaultAction: WriteAction =
     langToJelly(RdfFormat.NQuads, _, _, _)
 
-  private def loadOptionsFromFile(filename: String): RdfStreamOptions =
-    val inputStream = new FileInputStream(filename)
-    val response = IoUtils.autodetectDelimiting(inputStream)
-    val frame =
-      if response.isDelimited then Using(response.newInput())(RdfStreamFrame.parseDelimitedFrom)
-      else Using(response.newInput())(RdfStreamFrame.parseFrom)
-
-    frame.get.getRows.iterator().next().getOptions
-
   override def doRun(options: RdfToJellyOptions, remainingArgs: RemainingArgs): Unit =
     if !options.rdfPerformanceOptions.validateTerms.getOrElse(false) then
       JenaSystemOptions.disableTermValidation()
     // Infer before touching options
-    options.optionsFrom.map(loadOptionsFromFile).foreach(
+    options.optionsFrom.map(JellyUtil.loadOptionsFromFile).foreach(
       options.jellySerializationOptions.setOptions,
     )
     options.jellySerializationOptions.inferGeneralized(
@@ -117,7 +107,22 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
   ): Option[WriteAction] = format match {
     case f: RdfFormat.Jena.Readable => Some(langToJelly(f, _, _, _))
     case f: RdfFormat.JellyText.type => Some(jellyTextToJelly)
+    case RdfFormat.JellySparql => Some(jellySparqlToJelly)
   }
+
+  /** Convert a Jelly-SPARQL result set of ?s ?p ?o (?g) to Jelly-RDF. */
+  private def jellySparqlToJelly(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+      opt: RdfToJellyOptions,
+  ): Unit =
+    RdfSparqlConverter.sparqlToRdf(
+      inputStream,
+      outputStream,
+      getOptions.jellySerializationOptions.asRdfStreamOptions,
+      getOptions.rowsPerFrame,
+      getOptions.delimited,
+    )
 
   /** This method reads the file, rewrites it to Jelly and writes it to some output stream
     * @param format
@@ -134,61 +139,22 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       opt: RdfToJellyOptions,
   ): Unit =
     val jellyOpt = getOptions.jellySerializationOptions.asRdfStreamOptions
-    // Configure the writer
-    val jellyWriter =
-      if jellyOpt.getPhysicalType == PhysicalStreamType.GRAPHS then
-        // GRAPHS
-        JellyStreamWriterGraphs(
-          JellyFormatVariant
-            .builder()
-            .options(
-              jellyOpt.clone.setLogicalType(
-                if jellyOpt.getLogicalType == LogicalStreamType.UNSPECIFIED then
-                  LogicalStreamType.FLAT_QUADS
-                else jellyOpt.getLogicalType,
-              ),
-            )
-            .frameSize(getOptions.rowsPerFrame)
-            .enableNamespaceDeclarations(getOptions.enableNamespaceDeclarations)
-            .isDelimited(getOptions.delimited)
-            .build(),
-          out = outputStream,
-        )
-      else
-        // TRIPLES or QUADS
-        if jellyOpt.getPhysicalType == PhysicalStreamType.UNSPECIFIED then
-          if !isQuietMode && isLogicalGrouped(jellyOpt) then
-            printLine(
-              "WARNING: Logical type setting ignored because physical type is not set. " +
-                "Set the physical type to properly pass on the logical type." +
-                "Use --quiet to silence this warning.",
-              true,
-            )
-          val writerContext = RIOT.getContext.copy()
-            .set(
-              JellyLanguage.SYMBOL_STREAM_OPTIONS,
-              jellyOpt,
-            )
-            .set(JellyLanguage.SYMBOL_FRAME_SIZE, getOptions.rowsPerFrame)
-            .set(
-              JellyLanguage.SYMBOL_ENABLE_NAMESPACE_DECLARATIONS,
-              getOptions.enableNamespaceDeclarations,
-            ).set(JellyLanguage.SYMBOL_DELIMITED_OUTPUT, getOptions.delimited)
-          StreamRDFWriter.getWriterStream(
-            outputStream,
-            JellyLanguage.JELLY,
-            writerContext,
-          )
-        else
-          // If the physical type is specified, we can just construct the writer
-          val variant = JellyFormatVariant
-            .builder()
-            .options(jellyOpt)
-            .frameSize(getOptions.rowsPerFrame)
-            .enableNamespaceDeclarations(getOptions.enableNamespaceDeclarations)
-            .isDelimited(getOptions.delimited)
-            .build()
-          JellyStreamWriter.create(JenaConverterFactory.getInstance(), variant, outputStream)
+    if jellyOpt.getPhysicalType == PhysicalStreamType.UNSPECIFIED && !isQuietMode &&
+      isLogicalGrouped(jellyOpt)
+    then
+      printLine(
+        "WARNING: Logical type setting ignored because physical type is not set. " +
+          "Set the physical type to properly pass on the logical type." +
+          "Use --quiet to silence this warning.",
+        true,
+      )
+    val jellyWriter = JellyWriterUtil.createWriter(
+      jellyOpt,
+      getOptions.rowsPerFrame,
+      getOptions.enableNamespaceDeclarations,
+      getOptions.delimited,
+      outputStream,
+    )
 
     RiotParserUtil.parse(
       getOptions.rdfPerformanceOptions.resolveIris,

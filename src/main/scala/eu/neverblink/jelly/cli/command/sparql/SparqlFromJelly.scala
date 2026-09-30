@@ -2,7 +2,11 @@ package eu.neverblink.jelly.cli.command.sparql
 
 import caseapp.*
 import eu.neverblink.jelly.cli.*
+import eu.neverblink.jelly.cli.command.rdf.util.RdfJellySerializationOptions
 import eu.neverblink.jelly.cli.command.sparql.util.SparqlFormat
+import eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter
+
+import java.io.{InputStream, OutputStream}
 
 object SparqlFromJellyPrint:
   val validFormats: List[SparqlFormat] = SparqlFormat.writeable
@@ -49,3 +53,18 @@ object SparqlFromJelly extends SparqlSerDesCommand[SparqlFromJellyOptions]:
     val outputFormat = resolveFormat(options.outputFormat, options.outputFile)
     val (inputStream, outputStream) = getIoStreamsFromOptions(inputFile, options.outputFile)
     convert(SparqlFormat.JellySparql, outputFormat, inputStream, outputStream)
+
+  /** Converts to Jelly-RDF with the default options. To set them, use rdf to-jelly --in-format
+    * jelly-sparql.
+    */
+  override protected def jellySparqlToRdf(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+  ): Unit =
+    RdfSparqlConverter.sparqlToRdf(
+      inputStream,
+      outputStream,
+      RdfJellySerializationOptions().asRdfStreamOptions,
+      rowsPerFrame = 256,
+      delimited = true,
+    )

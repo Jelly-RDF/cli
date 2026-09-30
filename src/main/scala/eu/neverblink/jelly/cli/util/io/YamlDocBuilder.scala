@@ -21,11 +21,11 @@ class YamlDocBuilder(var currIndent: Int = 0):
         sb.append(v.toString)
       case YamlEnum(v, i) =>
         sb.append(f"${v} (${i})")
+      case YamlList(v) if v.isEmpty =>
+        sb.append("[]")
       case YamlList(v) =>
-        v.zipWithIndex.foreach { (e, index) =>
-          this.build(e, indent)
-          if e != v.last then sb.append(System.lineSeparator())
-        }
+        // Each element starts on a new line on its own
+        v.foreach(e => this.build(e, indent))
       case YamlListElem(v) =>
         sb.append(System.lineSeparator())
         sb.append("  " * indent).append("- ")

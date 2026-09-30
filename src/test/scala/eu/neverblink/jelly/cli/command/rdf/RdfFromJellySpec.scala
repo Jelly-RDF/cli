@@ -473,3 +473,38 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         }
     }
   }
+
+  "rdf from-jelly command with the jelly-sparql format" should {
+    import eu.neverblink.jelly.cli.command.helpers.RdfSparqlTestData.*
+    import eu.neverblink.jelly.cli.command.sparql.SparqlSerDesSpec.readFrames
+    import eu.neverblink.jelly.core.proto.v1.RdfVersion
+    import eu.neverblink.jelly.core.sparql.JellySparqlOptions
+
+    "write a result set of ?s ?p ?o ?g" in {
+      RdfFromJelly.setStdIn(ByteArrayInputStream(writeRdf(PhysicalStreamType.QUADS, quads = quads)))
+      RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--out-format", "jelly-sparql"))
+      val (vars, rows) = readSparql(RdfFromJelly.getOutBytes)
+      vars shouldBe Seq("s", "p", "o", "g")
+      rows.size shouldBe quads.size
+    }
+
+    "infer the format from the .jellys extension" in {
+      withEmptyJellyFile { j =>
+        val target = j + "s"
+        try
+          RdfFromJelly.setStdIn(ByteArrayInputStream(writeRdf(PhysicalStreamType.TRIPLES, triples)))
+          RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--to", target))
+          readSparql(Files.readAllBytes(Paths.get(target)))._1 shouldBe Seq("s", "p", "o")
+        finally Files.deleteIfExists(Paths.get(target))
+      }
+    }
+
+    "use the default options, with the RDF version inferred from the input" in {
+      val rdf = writeRdf(PhysicalStreamType.TRIPLES, triples, rdfStar = false)
+      RdfFromJelly.setStdIn(ByteArrayInputStream(rdf))
+      RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--out-format", "jelly-sparql"))
+      val options = readFrames(RdfFromJelly.getOutBytes).head.getOptions
+      options.getMaxNameTableSize shouldBe JellySparqlOptions.BIG.getMaxNameTableSize
+      options.getRdfVersion shouldBe RdfVersion.RDF_VERSION_1_1
+    }
+  }
