@@ -1,6 +1,7 @@
 package eu.neverblink.jelly.cli.command.rdf.util
 
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
+import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
 import org.apache.jena.riot.{Lang, RDFLanguages}
 
 sealed trait RdfFormat:
@@ -113,8 +114,30 @@ object RdfFormat:
     override val supportsBaseIri: Boolean = false
     override val supportsQuads: Boolean = true
 
+  /** Jelly-SPARQL result sets of ?s ?p ?o (?g). See
+    * [[eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter]].
+    */
+  case object JellySparql extends RdfFormat, RdfFormat.Writeable, RdfFormat.Readable:
+    override val fullName: String = "Jelly-SPARQL"
+    override val cliOptions: List[String] = List("jelly-sparql")
+    val lang: Lang = JellySparqlLanguage.JELLY_SPARQL
+    override val supportsBaseIri: Boolean = false
+    override val supportsQuads: Boolean = true
+
   private val rdfFormats: List[RdfFormat] =
-    List(NQuads, NTriples, JellyBinary, JellyText, Turtle, TriG, RdfProto, Thrift, RdfXml, JsonLd)
+    List(
+      NQuads,
+      NTriples,
+      JellyBinary,
+      JellyText,
+      JellySparql,
+      Turtle,
+      TriG,
+      RdfProto,
+      Thrift,
+      RdfXml,
+      JsonLd,
+    )
 
   def all: List[RdfFormat] = rdfFormats
 
@@ -139,5 +162,6 @@ object RdfFormat:
     formatGuessed match {
       case Some(f: RdfFormat.Jena) => formatGuessed
       case _ if fileName.endsWith(JellyText.extension) => Some(RdfFormat.JellyText)
+      case _ if guessType == JellySparql.lang.getContentType => Some(RdfFormat.JellySparql)
       case _ => None
     }

@@ -132,6 +132,8 @@ jelly-cli rdf inspect --help
 jelly-cli rdf validate --help
 jelly-cli sparql to-jelly --help
 jelly-cli sparql from-jelly --help
+jelly-cli sparql inspect --help
+jelly-cli sparql validate --help
 ```
 
 And use the `--debug` option to get more information about any exceptions you encounter.

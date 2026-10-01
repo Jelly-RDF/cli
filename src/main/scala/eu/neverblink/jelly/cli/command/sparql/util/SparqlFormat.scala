@@ -1,5 +1,6 @@
 package eu.neverblink.jelly.cli.command.sparql.util
 
+import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
 import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
 import org.apache.jena.riot.{Lang, RDFLanguages}
 import org.apache.jena.riot.resultset.ResultSetLang
@@ -65,8 +66,16 @@ object SparqlFormat:
     override val cliOptions: List[String] = List("jelly-sparql-text")
     val extension = ".jellys.txt"
 
+  /** Jelly-RDF, as a result set of ?s ?p ?o (?g). See
+    * [[eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter]].
+    */
+  case object JellyRdf extends SparqlFormat.Readable, SparqlFormat.Writeable:
+    override val fullName: String = "Jelly-RDF"
+    override val cliOptions: List[String] = List("jelly-rdf")
+    val lang: Lang = JellyLanguage.JELLY
+
   private val sparqlFormats: List[SparqlFormat] =
-    List(Json, Xml, Csv, Tsv, Text, JellySparql, JellySparqlText)
+    List(Json, Xml, Csv, Tsv, Text, JellySparql, JellySparqlText, JellyRdf)
 
   def all: List[SparqlFormat] = sparqlFormats
 
@@ -98,6 +107,8 @@ object SparqlFormat:
     if fileName.endsWith(JellySparqlText.extension) then Some(JellySparqlText)
     else
       val guessType = RDFLanguages.guessContentType(fileName)
-      sparqlFormats.collectFirst {
-        case f: SparqlFormat.Jena if f.jenaLang.getContentType == guessType => f
-      }
+      if guessType == JellyRdf.lang.getContentType then Some(JellyRdf)
+      else
+        sparqlFormats.collectFirst {
+          case f: SparqlFormat.Jena if f.jenaLang.getContentType == guessType => f
+        }

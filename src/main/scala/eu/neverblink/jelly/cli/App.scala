@@ -35,4 +35,6 @@ object App extends CommandsEntryPoint:
     RdfValidate,
     SparqlFromJelly,
     SparqlToJelly,
+    SparqlInspect,
+    SparqlValidate,
   )

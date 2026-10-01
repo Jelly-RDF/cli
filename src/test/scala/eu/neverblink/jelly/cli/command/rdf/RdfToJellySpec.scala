@@ -970,3 +970,68 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
     }
   }
+
+  "rdf to-jelly command with the jelly-sparql format" should {
+    import eu.neverblink.jelly.cli.command.helpers.RdfSparqlTestData.*
+    import java.io.ByteArrayOutputStream
+    import java.nio.file.Files
+
+    /** Jelly-SPARQL with the statements, made without going through any command. */
+    def sparqlOf(rdf: Array[Byte]): Array[Byte] =
+      val out = ByteArrayOutputStream()
+      eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter.rdfToSparql(
+        ByteArrayInputStream(rdf),
+        out,
+        eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter.defaultSparqlOptions,
+        4096,
+        true,
+      )
+      out.toByteArray
+
+    "read a result set of ?s ?p ?o ?g" in {
+      RdfToJelly.setStdIn(
+        ByteArrayInputStream(sparqlOf(writeRdf(PhysicalStreamType.QUADS, quads = quads))),
+      )
+      RdfToJelly.runTestCommand(
+        List("rdf", "to-jelly", "--in-format", "jelly-sparql", "--opt.stream-name=z"),
+      )
+      val jelly = RdfToJelly.getOutBytes
+      rdfStreamOptions(jelly).getPhysicalType shouldBe PhysicalStreamType.QUADS
+      rdfStreamOptions(jelly).getStreamName shouldBe "z"
+      readRdf(jelly) shouldBe quads.toSet
+    }
+
+    "infer the format from the .jellys extension" in {
+      val file = Files.createTempFile("jelly-cli-rdf", ".jellys")
+      try
+        Files.write(file, sparqlOf(writeRdf(PhysicalStreamType.TRIPLES, triples)))
+        RdfToJelly.runTestCommand(List("rdf", "to-jelly", file.toString))
+        readRdf(RdfToJelly.getOutBytes) shouldBe triplesAsQuads
+      finally Files.deleteIfExists(file)
+    }
+
+    "write a GRAPHS stream with --opt.physical-type=GRAPHS" in {
+      RdfToJelly.setStdIn(
+        ByteArrayInputStream(sparqlOf(writeRdf(PhysicalStreamType.QUADS, quads = quads))),
+      )
+      RdfToJelly.runTestCommand(
+        List("rdf", "to-jelly", "--in-format", "jelly-sparql", "--opt.physical-type=GRAPHS"),
+      )
+      rdfStreamOptions(RdfToJelly.getOutBytes).getPhysicalType shouldBe PhysicalStreamType.GRAPHS
+    }
+
+    "report a result set that cannot be written as RDF" in {
+      RdfToJelly.setStdIn(
+        ByteArrayInputStream(
+          writeSparql(
+            Seq("s", "p", "o"),
+            Seq(Map("s" -> litJson("lit"), "p" -> iriJson("p"), "o" -> litJson("v"))),
+          ),
+        ),
+      )
+      val e = intercept[ExitException] {
+        RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--in-format", "jelly-sparql"))
+      }
+      e.getCause.getMessage should include("--opt.generalized-statements=true")
+    }
+  }
