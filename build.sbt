@@ -68,7 +68,7 @@ lazy val root = (project in file("."))
       ("eu.neverblink.jelly" % "jelly-jena" % jellyV).excludeAll(ExclusionRule("org.apache.jena")),
       ("eu.neverblink.jelly" % "jelly-jena-sparql" % jellyV)
         .excludeAll(ExclusionRule("org.apache.jena")),
-      "com.github.alexarchambault" %% "case-app" % "2.1.0",
+      "com.github.alexarchambault" %% "case-app" % "2.1.1",
       "org.scalatest" %% "scalatest" % "3.2.20" % "test,test-serial",
       "org.yaml" % "snakeyaml" % "2.7" % Test,
       // For native-image reflection compatibility
