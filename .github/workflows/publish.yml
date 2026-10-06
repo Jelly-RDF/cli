@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-14, windows-2022, ubuntu-22.04, ubuntu-22.04-arm]
+        os: [macos-15, windows-2022, ubuntu-22.04, ubuntu-22.04-arm]
     steps:
       - uses: actions/checkout@v7
 
@@ -81,7 +81,7 @@ jobs:
       - name: Rename binaries
         run: |
           mv jelly-cli-assembly/jelly-cli.jar jelly-cli.jar
-          mv jelly-cli-macos-14/jelly-cli jelly-cli-mac-arm64
+          mv jelly-cli-macos-15/jelly-cli jelly-cli-mac-arm64
           mv jelly-cli-ubuntu-22.04/jelly-cli jelly-cli-linux-x86_64
           mv jelly-cli-ubuntu-22.04-arm/jelly-cli jelly-cli-linux-arm64
           mv jelly-cli-windows-2022/jelly-cli.exe jelly-cli-windows-x86_64.exe
