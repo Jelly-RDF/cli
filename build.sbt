@@ -48,6 +48,10 @@ lazy val graalOptions = Seq(
   // Include XML error messages
   // Issue: https://github.com/Jelly-RDF/cli/issues/217
   "-H:IncludeResourceBundles=com.sun.org.apache.xerces.internal.impl.msg.XMLMessages",
+) ++ (
+  // Without this, the minimum macOS version is the one of the build machine.
+  if (scala.util.Properties.isMac) Seq("-H:NativeLinkerOption=-mmacosx-version-min=14.0")
+  else Seq()
 )
 
 lazy val TestSerial = config("test-serial") extend Test
