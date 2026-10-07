@@ -208,4 +208,4 @@ The CI checks will not pass if this is not the case.
 
 ----
 
-The development of the Jelly protocol, its implementations, and supporting tooling was co-funded by the European Union. **[More details](https://w3id.org/jelly/dev/licensing/projects)**.
+The development of the Jelly protocol, its implementations, and supporting tooling was funded by commercial sponsors and the European Union. **[More details](https://w3id.org/jelly/dev/licensing/projects)**.
