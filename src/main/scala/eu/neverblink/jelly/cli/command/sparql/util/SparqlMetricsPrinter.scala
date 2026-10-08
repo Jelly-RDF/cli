@@ -16,10 +16,20 @@ import scala.jdk.CollectionConverters.*
   * With the count statistic, lookup entries and column values are counted one by one (a packed
   * lookup entry holds many values). With the size statistic, their serialized size is summed.
   */
-final class SparqlFrameInfo(val frameIndex: Long, val metadata: Map[String, ByteString])(using
+final class SparqlFrameInfo(
+    val frameIndex: Long,
+    val metadata: Map[String, ByteString],
+    // In a PUNCTUATED stream, the index of the result set the frame belongs to
+    val resultSetIndex: Option[Long] = None,
+)(using
     statCollector: FrameInfo.StatisticCollector,
 ):
   var frameCount: Long = 1
+  // Number of result sets that start in these frames
+  var resultSetCount: Long = 0
+  // In a PUNCTUATED stream, the variables or the ASK result of the result set that starts in this
+  // frame, if any
+  var resultSetHeader: Seq[(String, YamlValue)] = Seq()
   // Error message of the last trailer that reported one
   var trailerError: Option[String] = None
   private object stat:
@@ -39,6 +49,7 @@ final class SparqlFrameInfo(val frameIndex: Long, val metadata: Map[String, Byte
 
   def +=(other: SparqlFrameInfo): SparqlFrameInfo =
     this.frameCount += 1
+    this.resultSetCount += other.resultSetCount
     if other.trailerError.isDefined then this.trailerError = other.trailerError
     this.stat.frame += other.stat.frame
     this.stat.row += other.stat.row
@@ -72,7 +83,13 @@ final class SparqlFrameInfo(val frameIndex: Long, val metadata: Map[String, Byte
     if isCount then columns.iterator.map(valueCount).sum
     else measureAll(columns)
 
-  def processFrame(frame: SparqlResultsFrame): Unit =
+  /** @param resultSetStart
+    *   whether this is the first frame of a result set
+    */
+  def processFrame(frame: SparqlResultsFrame, resultSetStart: Boolean = false): Unit =
+    if resultSetStart then
+      resultSetCount += 1
+      if resultSetIndex.isDefined then resultSetHeader = SparqlMetricsPrinter.resultSetHeader(frame)
     stat.frame += statCollector.measure(frame)
     stat.row += frame.getRowCount
     Option(frame.getOptions).foreach(o => stat.option += statCollector.measure(o))
@@ -127,14 +144,30 @@ end SparqlFrameInfo
   */
 object SparqlMetricsPrinter:
 
-  /** Prints what the first frame says about the whole stream: the options, and the variables or the
-    * ASK result.
+  /** The variables or the ASK result, from the first frame of a result set. */
+  def resultSetHeader(frame: SparqlResultsFrame): Seq[(String, YamlValue)] =
+    Option(frame.getAskResult) match
+      case Some(ask) =>
+        Seq("ask_result" -> YamlBool(ask.getValue))
+      case None =>
+        val vars = frame.getVariables.asScala.map(v => YamlListElem(YamlString(v.getName)))
+        Seq("variables" -> YamlList(vars.toSeq))
+
+  private def isPunctuated(firstFrame: SparqlResultsFrame): Boolean =
+    firstFrame.getOptions.getStreamType == SparqlStreamType.PUNCTUATED
+
+  /** Prints what the first frame says about the whole stream: the options, and, if the stream has
+    * only one result set, its variables or the ASK result.
     */
   private def printHeader(firstFrame: SparqlResultsFrame, o: OutputStream): Unit =
     val options = firstFrame.getOptions
     val header = Seq(
       "stream_options" -> YamlMap(
         "stream_name" -> YamlString(options.getStreamName),
+        "stream_type" -> YamlEnum(
+          Option(options.getStreamType).map(_.toString).getOrElse("UNKNOWN"),
+          options.getStreamTypeValue,
+        ),
         "rdf_version" -> YamlEnum(
           Option(options.getRdfVersion).map(_.toString).getOrElse("UNKNOWN"),
           options.getRdfVersionValue,
@@ -144,12 +177,7 @@ object SparqlMetricsPrinter:
         "max_datatype_table_size" -> YamlInt(options.getMaxDatatypeTableSize),
         "version" -> YamlInt(options.getVersion),
       ),
-    ) ++ (Option(firstFrame.getAskResult) match
-      case Some(ask) =>
-        Seq("ask_result" -> YamlBool(ask.getValue))
-      case None =>
-        val vars = firstFrame.getVariables.asScala.map(v => YamlListElem(YamlString(v.getName)))
-        Seq("variables" -> YamlList(vars.toSeq)))
+    ) ++ (if isPunctuated(firstFrame) then Seq() else resultSetHeader(firstFrame))
     for (key, value) <- header do
       o.write(YamlDocBuilder.build(YamlMap(key -> value)).getString.getBytes)
       o.write(System.lineSeparator().getBytes)
@@ -166,6 +194,8 @@ object SparqlMetricsPrinter:
       val yamlFrame = YamlListElem(
         YamlMap(
           Seq("frame_index" -> YamlLong(frame.frameIndex)) ++
+            frame.resultSetIndex.map("result_set_index" -> YamlLong(_)) ++
+            frame.resultSetHeader ++
             formatMetadata(frame.metadata).map("metadata" -> _) ++
             frame.format()*,
         ),
@@ -183,7 +213,12 @@ object SparqlMetricsPrinter:
     val sum = iterator.reduce((a, b) => a += b)
     // Not printing metadata in this case, as there is no upper bound on the number of frames
     // and thus on the size of the collected metadata.
-    val stats = YamlMap(Seq("frame_count" -> YamlLong(sum.frameCount)) ++ sum.format()*)
+    val stats = YamlMap(
+      Seq("frame_count" -> YamlLong(sum.frameCount)) ++
+        (if isPunctuated(firstFrame) then Seq("result_set_count" -> YamlLong(sum.resultSetCount))
+         else Seq()) ++
+        sum.format()*,
+    )
     o.write(YamlDocBuilder.build(YamlMap("frames" -> stats)).getString.getBytes)
 
   private def formatMetadata(metadata: Map[String, ByteString]): Option[YamlMap] =

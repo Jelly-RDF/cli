@@ -3,17 +3,24 @@ package eu.neverblink.jelly.cli.command.sparql
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
 import eu.neverblink.jelly.cli.command.sparql.util.{SparqlFormat, SparqlJellyUtil}
-import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
+import eu.neverblink.jelly.convert.jena.sparql.{
+  JellySparqlLanguage,
+  JenaSparqlConverterFactory,
+  RowSetReaderJelly,
+  RowSetWriterJelly,
+}
 import eu.neverblink.jelly.core.proto.v1.RdfVersion
-import eu.neverblink.jelly.core.proto.v1.sparql.SparqlResultsFrame
+import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsFrame, SparqlStreamType}
 import eu.neverblink.jelly.core.sparql.{JellySparqlConstants, JellySparqlOptions}
-import org.apache.jena.query.{ResultSet, ResultSetFactory}
+import org.apache.jena.query.{ResultSet, ResultSetFactory, ResultSetRewindable}
 import org.apache.jena.riot.{Lang, RIOT, ResultSetMgr}
 import org.apache.jena.riot.resultset.{
   ResultSetLang,
   ResultSetReaderRegistry,
   ResultSetWriterRegistry,
 }
+import org.apache.jena.riot.rowset.RowSetReaderRegistry
+import org.apache.jena.sparql.core.Quad
 import org.apache.jena.sparql.resultset.ResultsCompare
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,6 +29,7 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Path}
 import java.util.UUID.randomUUID
+import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.*
 
 object SparqlSerDesSpec:
@@ -73,6 +81,62 @@ object SparqlSerDesSpec:
     if result.isBoolean then writer.write(out, result.getBooleanResult.booleanValue, context)
     else writer.write(out, result.getResultSet, context)
     out.toByteArray
+
+  /** Writes SPARQL JSON results (SELECT or ASK) as one PUNCTUATED Jelly-SPARQL stream, in order. */
+  def writePunctuated(
+      jsons: Seq[String],
+      valuesPerFrame: Int = JellySparqlConstants.DEFAULT_MAX_VALUES_PER_FRAME,
+  ): Array[Byte] =
+    val out = ByteArrayOutputStream()
+    val context = RIOT.getContext.copy()
+      .set(JellySparqlLanguage.SYMBOL_MAX_VALUES_PER_FRAME, valuesPerFrame)
+    val writer =
+      RowSetWriterJelly(RowSetWriterJelly.Options(), JenaSparqlConverterFactory.getInstance())
+        .resultSetsWriter(out, context)
+    for json <- jsons do
+      val result = RowSetReaderRegistry
+        .getFactory(ResultSetLang.RS_JSON)
+        .create(ResultSetLang.RS_JSON)
+        .readAny(ByteArrayInputStream(json.getBytes(UTF_8)), context)
+      if result.isBoolean then writer.write(result.booleanResult.booleanValue)
+      else writer.write(result.rowSet)
+    out.toByteArray
+
+  /** Reads all result sets of a Jelly-SPARQL stream of any type: the value of an ASK result, or the
+    * solutions.
+    */
+  def readResultSets(bytes: Array[Byte]): Seq[Either[Boolean, ResultSetRewindable]] =
+    val results = ArrayBuffer[Either[Boolean, ResultSetRewindable]]()
+    RowSetReaderJelly(RowSetReaderJelly.Options(), JenaSparqlConverterFactory.getInstance())
+      .readAll(
+        ByteArrayInputStream(bytes),
+        null,
+        r =>
+          results += (
+            if r.isBoolean then Left(r.booleanResult.booleanValue)
+            else Right(ResultSetFactory.makeRewindable(ResultSet.adapt(r.rowSet)))
+          ),
+      )
+    results.toSeq
+
+  /** Whether the result sets are the same as the SPARQL JSON results, in the same order. */
+  def sameResultSets(
+      actual: Seq[Either[Boolean, ResultSetRewindable]],
+      expected: Seq[String],
+  ): Boolean =
+    actual.size == expected.size && actual.zip(expected).forall {
+      case (Left(value), json) =>
+        ResultSetMgr.readBoolean(ByteArrayInputStream(json.getBytes(UTF_8)), ResultSetLang.RS_JSON)
+          == value
+      case (Right(rs), json) =>
+        rs.reset()
+        ResultsCompare.equalsByTermAndOrder(rs, parse(json, ResultSetLang.RS_JSON))
+    }
+
+  /** A SELECT result set with one variable, ?x, and one solution per value (JSON terms). */
+  def selectX(values: String*): String =
+    val rows = values.map(v => s"""{ "x": $v }""")
+    s"""{ "head": { "vars": [ "x" ] }, "results": { "bindings": [ ${rows.mkString(", ")} ] } }"""
 
   /** Reads the frames of a delimited Jelly-SPARQL stream. */
   def readFrames(bytes: Array[Byte]): Seq[SparqlResultsFrame] =
@@ -364,6 +428,128 @@ class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         }
         e.getCause shouldBe a[InvalidJellyFile]
       }
+    }
+  }
+
+  /** Runs `sparql to-jelly` over several files, given as (content, extension) pairs. */
+  private def toJellyFiles(files: Seq[(String, String)], args: List[String] = Nil): Array[Byte] =
+    val paths = files.map { (content, extension) =>
+      val file = Files.createTempFile(tmpDir, randomUUID.toString, extension)
+      Files.write(file, content.getBytes(UTF_8))
+      file
+    }
+    try
+      SparqlToJelly.runTestCommand(List("sparql", "to-jelly") ++ paths.map(_.toString) ++ args)
+      SparqlToJelly.getOutBytes
+    finally paths.foreach(Files.deleteIfExists)
+
+  "PUNCTUATED streams" should {
+    val second = selectX("""{"type":"bnode","value":"b0"}""", """{"type":"literal","value":"1"}""")
+    val xml = ResultSetMgr.asString(parse(second, ResultSetLang.RS_JSON), ResultSetLang.RS_XML)
+
+    "be written by to-jelly from several files, one result set per file" in {
+      val jelly = toJellyFiles(Seq(selectJson -> ".srj", askJson(true) -> ".srj", xml -> ".srx"))
+      readFrames(jelly).head.getOptions.getStreamType shouldBe SparqlStreamType.PUNCTUATED
+      sameResultSets(readResultSets(jelly), Seq(selectJson, askJson(true), second)) shouldBe true
+    }
+
+    "be written by to-jelly from one file with --opt.stream-type=punctuated" in {
+      for json <- Seq(selectJson, askJson(false)) do
+        val jelly = toJelly(json, ".srj", List("--opt.stream-type=punctuated"))
+        readFrames(jelly).head.getOptions.getStreamType shouldBe SparqlStreamType.PUNCTUATED
+        sameResultSets(readResultSets(jelly), Seq(json)) shouldBe true
+    }
+
+    "keep the other stream options and split the frames in to-jelly" in {
+      val jelly = toJellyFiles(
+        Seq(selectJson -> ".srj", second -> ".srj"),
+        List("--opt.stream-name=many", "--values-per-frame=2", "--quiet"),
+      )
+      val frames = readFrames(jelly)
+      frames.head.getOptions.getStreamName shouldBe "many"
+      frames.size should be > 2
+      sameResultSets(readResultSets(jelly), Seq(selectJson, second)) shouldBe true
+    }
+
+    "not be mentioned in the warning about options that default readers do not accept" in {
+      val (_, err) = withFile(selectJson, ".srj") { f =>
+        SparqlToJelly.runTestCommand(
+          List("sparql", "to-jelly", f, "--opt.stream-type=punctuated"),
+        )
+      }
+      err shouldBe empty
+    }
+
+    "be refused by to-jelly with --opt.stream-type=flat and several files" in {
+      val e = intercept[ExitException] {
+        toJellyFiles(Seq(selectJson -> ".srj", second -> ".srj"), List("--opt.stream-type=flat"))
+      }
+      e.getCause shouldBe a[InvalidArgument]
+      e.getCause.getMessage should include("PUNCTUATED")
+    }
+
+    "be refused by to-jelly with --delimited=false" in {
+      val e = intercept[ExitException] {
+        toJellyFiles(Seq(selectJson -> ".srj", second -> ".srj"), List("--delimited=false"))
+      }
+      e.getCause shouldBe a[InvalidArgument]
+    }
+
+    "not be made by to-jelly from several text or Jelly-RDF files" in {
+      val text = toText(toJelly(selectJson, ".srj"))
+      val e = intercept[ExitException] {
+        toJellyFiles(Seq(text -> ".jellys.txt", text -> ".jellys.txt"), List("--quiet"))
+      }
+      e.getCause.getMessage should include("can only be read from one file")
+    }
+
+    "reject an unknown stream type in to-jelly" in {
+      val e = intercept[ExitException] {
+        toJelly(selectJson, ".srj", List("--opt.stream-type=wavy"))
+      }
+      e.getCause shouldBe a[InvalidArgument]
+    }
+
+    "be written by from-jelly to one output, one result set after another" in {
+      val jelly = writePunctuated(Seq(selectJson, askJson(true), second))
+      SparqlFromJelly.setStdIn(ByteArrayInputStream(jelly))
+      val (json, _) = SparqlFromJelly.runTestCommand(List("sparql", "from-jelly"))
+      "\"head\"".r.findAllMatchIn(json).size shouldBe 3
+      json should include("\"boolean\" : true")
+      // The CSV header of each SELECT result set marks where it starts
+      SparqlFromJelly.setStdIn(ByteArrayInputStream(writePunctuated(Seq(selectJson, second))))
+      val (csv, _) =
+        SparqlFromJelly.runTestCommand(List("sparql", "from-jelly", "--out-format", "csv"))
+      csv.linesIterator.toSeq.filter(_.nonEmpty) should contain inOrder ("s,label,num,bn", "x")
+      csv should include("http://example.org/c")
+    }
+
+    "round trip through the text format" in {
+      val jelly = writePunctuated(Seq(selectJson, askJson(false), second), valuesPerFrame = 3)
+      val back = fromText(toText(jelly))
+      readFrames(back).size shouldBe readFrames(jelly).size
+      sameResultSets(readResultSets(back), Seq(selectJson, askJson(false), second)) shouldBe true
+    }
+
+    "be written by from-jelly as Jelly-RDF, one frame per result set" in {
+      import eu.neverblink.jelly.cli.command.helpers.RdfSparqlTestData.*
+      import eu.neverblink.jelly.cli.command.rdf.util.JellyUtil
+      import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType}
+      val resultSets = Seq(
+        sparqlJson(Seq("s", "p", "o", "g"), Seq(statementRow("a", "p", "v", Some("g")))),
+        sparqlJson(Seq("s", "p", "o"), Seq(statementRow("b", "p", "w"))),
+      )
+      SparqlFromJelly.setStdIn(ByteArrayInputStream(writePunctuated(resultSets)))
+      SparqlFromJelly.runTestCommand(List("sparql", "from-jelly", "--out-format", "jelly-rdf"))
+      val rdf = SparqlFromJelly.getOutBytes
+      val options = rdfStreamOptions(rdf)
+      options.getPhysicalType shouldBe PhysicalStreamType.QUADS
+      options.getLogicalType shouldBe LogicalStreamType.DATASETS
+      JellyUtil.iterateRdfStream(ByteArrayInputStream(rdf)).size shouldBe 2
+      readRdf(rdf) shouldBe Set(
+        Quad.create(iri("g"), iri("a"), iri("p"), lit("v")),
+        Quad.create(Quad.defaultGraphIRI, iri("b"), iri("p"), lit("w")),
+      )
     }
   }
 

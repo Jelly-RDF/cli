@@ -2,7 +2,12 @@ package eu.neverblink.jelly.cli.command.sparql
 
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
-import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsFrame, SparqlResultsTrailer}
+import eu.neverblink.jelly.core.proto.v1.sparql.{
+  SparqlResultsFrame,
+  SparqlResultsOptions,
+  SparqlResultsTrailer,
+  SparqlStreamType,
+}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -66,7 +71,7 @@ class SparqlValidateSpec extends AnyWordSpec with TestFixtureHelper with Matcher
 
     "accept a valid ASK result stream" in {
       validate(writeJelly(askJson(true)))
-      validate(writeJelly(askJson(false)), "--require-trailer")
+      validate(writeJelly(askJson(false)))
     }
 
     "complain about empty input" in {
@@ -113,19 +118,26 @@ class SparqlValidateSpec extends AnyWordSpec with TestFixtureHelper with Matcher
       "the stream options are repeated and match" in {
         val frames = readFrames(writeJelly(selectJson))
         // Concatenating two streams of the same query is allowed
-        validate(writeFrames(frames ++ frames), "--require-trailer")
+        validate(writeFrames(frames ++ frames))
       }
 
       "the stream options are repeated and differ" in {
+        def withOptions(change: SparqlResultsOptions.Mutable => Unit) =
+          readFrames(writeJelly(selectJson)).map { f =>
+            val options = f.getOptions.clone()
+            change(options)
+            val c = f.clone().setOptions(options)
+            c.resetCachedSize()
+            c
+          }
         val first = readFrames(writeJelly(selectJson))
-        val second = readFrames(writeJelly(selectJson)).map { f =>
-          val c = f.clone().setOptions(f.getOptions.clone().setStreamName("other"))
-          c.resetCachedSize()
-          c
-        }
-        validateFails(writeFrames(first ++ second)).getMessage should include(
-          "Later occurrence of stream options in frame 1 does not match the first",
-        )
+        // Allowed, as long as the new options are valid on their own
+        validate(writeFrames(first ++ withOptions(_.setStreamName("other"))))
+        validateFails(writeFrames(first ++ withOptions(_.setVersion(0))))
+          .getMessage should include("version")
+        validateFails(
+          writeFrames(first ++ withOptions(_.setStreamType(SparqlStreamType.PUNCTUATED))),
+        ).getMessage should include("stream type must be the same")
       }
 
       "the version in the options is 0" in {
@@ -142,8 +154,8 @@ class SparqlValidateSpec extends AnyWordSpec with TestFixtureHelper with Matcher
       "the stream has no trailer" in {
         val frames = readFrames(writeJelly(selectJson)).map(withTrailer(_, None))
         val jelly = writeFrames(frames)
-        validate(jelly)
-        validateFails(jelly, "--require-trailer").getMessage should include(
+        validate(jelly, "--require-trailer=false")
+        validateFails(jelly).getMessage should include(
           "does not end with a trailer",
         )
       }
@@ -151,8 +163,8 @@ class SparqlValidateSpec extends AnyWordSpec with TestFixtureHelper with Matcher
       "one of the concatenated streams has no trailer" in {
         val frames = readFrames(writeJelly(selectJson))
         val jelly = writeFrames(frames.map(withTrailer(_, None)) ++ frames)
-        validate(jelly)
-        validateFails(jelly, "--require-trailer").getMessage should include(
+        validate(jelly, "--require-trailer=false")
+        validateFails(jelly).getMessage should include(
           "does not end with a trailer",
         )
       }
@@ -160,6 +172,117 @@ class SparqlValidateSpec extends AnyWordSpec with TestFixtureHelper with Matcher
       "the trailer reports an error" in {
         val frames = readFrames(writeJelly(selectJson)).map(withTrailer(_, Some("query timeout")))
         validateFails(writeFrames(frames)).getMessage should include("query timeout")
+      }
+    }
+
+    "check a PUNCTUATED stream" when {
+      val second =
+        selectX("""{"type":"bnode","value":"b0"}""", """{"type":"literal","value":"1"}""")
+      val jelly = writePunctuated(Seq(selectJson, askJson(true), second))
+
+      "it is valid" in {
+        validate(jelly)
+        validate(writePunctuated(Seq(selectJson, second), valuesPerFrame = 2))
+      }
+
+      "the last result set has no trailer" in {
+        val frames = readFrames(jelly)
+        val noTrailer = writeFrames(frames.init :+ withTrailer(frames.last, None))
+        validate(noTrailer, "--require-trailer=false")
+        validateFails(noTrailer).getMessage should include(
+          "does not end with a trailer",
+        )
+      }
+
+      "a trailer reports an error" in {
+        val frames = readFrames(jelly)
+        val failed = writeFrames(
+          frames.head +: withTrailer(frames(1), Some("query timeout")) +: frames.drop(2),
+        )
+        val e = validateFails(failed)
+        e.getMessage should include("result set 1 is incomplete")
+        e.getMessage should include("query timeout")
+      }
+
+      "each result set is compared to its own reference file" in {
+        withFile(selectJson.getBytes(UTF_8), ".srj") { ref1 =>
+          withFile(askJson(true).getBytes(UTF_8), ".srj") { ref2 =>
+            withFile(second.getBytes(UTF_8), ".srj") { ref3 =>
+              validate(
+                jelly,
+                "--compare-to-file",
+                ref1,
+                "--compare-to-file",
+                ref2,
+                "--compare-to-file",
+                ref3,
+              )
+              val e = validateFails(
+                jelly,
+                "--compare-to-file",
+                ref1,
+                "--compare-to-file",
+                ref2,
+                "--compare-to-file",
+                ref1,
+              )
+              e.getMessage should include("Expected variables ?s ?label ?num ?bn")
+              e.getMessage should include("in result set 2")
+            }
+          }
+        }
+      }
+
+      "the reference files have a different number of result sets" in {
+        withFile(selectJson.getBytes(UTF_8), ".srj") { ref =>
+          validateFails(jelly, "--compare-to-file", ref).getMessage should include(
+            "Expected 1 result sets, as in the reference files, but the input stream has more",
+          )
+          validateFails(
+            writeJelly(selectJson),
+            "--compare-to-file",
+            ref,
+            "--compare-to-file",
+            ref,
+          ).getMessage should include(
+            "Expected 2 result sets, as in the reference files, but got 1",
+          )
+        }
+      }
+
+      "a Jelly-SPARQL reference file has several result sets" in {
+        withFile(writePunctuated(Seq(selectJson, askJson(true))), ".jellys") { ref1 =>
+          withFile(second.getBytes(UTF_8), ".srj") { ref2 =>
+            validate(jelly, "--compare-to-file", ref1, "--compare-to-file", ref2)
+            validateFails(jelly, "--compare-to-file", ref2, "--compare-to-file", ref1)
+              .getMessage should include("Expected variables ?x")
+          }
+        }
+      }
+
+      "the solutions of a later result set differ" in {
+        val other =
+          selectX("""{"type":"bnode","value":"b0"}""", """{"type":"literal","value":"2"}""")
+        withFile(writePunctuated(Seq(selectJson, askJson(true), other)), ".jellys") { ref =>
+          val e = validateFails(jelly, "--compare-to-file", ref)
+          e.getMessage should include("Solution 1 in result set 2 does not match")
+        }
+      }
+
+      "the same blank node label is used in different result sets" in {
+        val bnode = selectX("""{"type":"bnode","value":"a"}""")
+        // Blank nodes are scoped to one result set, so these need not be the same node
+        withFile(
+          writePunctuated(
+            Seq(
+              selectX("""{"type":"bnode","value":"x"}"""),
+              selectX("""{"type":"bnode","value":"y"}"""),
+            ),
+          ),
+          ".jellys",
+        ) { ref =>
+          validate(writePunctuated(Seq(bnode, bnode)), "--compare-to-file", ref)
+        }
       }
     }
 

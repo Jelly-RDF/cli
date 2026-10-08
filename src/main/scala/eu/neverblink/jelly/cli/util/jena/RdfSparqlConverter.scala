@@ -2,8 +2,12 @@ package eu.neverblink.jelly.cli.util.jena
 
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.JellyUtil
-import eu.neverblink.jelly.cli.command.sparql.util.SparqlJellyUtil
-import eu.neverblink.jelly.cli.util.jena.riot.JellyWriterUtil
+import eu.neverblink.jelly.cli.command.sparql.util.{
+  SparqlJellyUtil,
+  SparqlResultSet,
+  SparqlResultSetReader,
+}
+import eu.neverblink.jelly.cli.util.jena.riot.{JellyFrameWriter, JellyWriterUtil}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
 import eu.neverblink.jelly.core.JellyOptions
@@ -13,7 +17,7 @@ import eu.neverblink.jelly.core.proto.v1.sparql.SparqlResultsOptions
 import eu.neverblink.jelly.core.sparql.JellySparqlOptions
 import org.apache.jena.graph.{Node, Triple}
 import org.apache.jena.riot.RIOT
-import org.apache.jena.riot.resultset.ResultSetReaderRegistry
+import org.apache.jena.riot.system.StreamRDF
 import org.apache.jena.riot.rowset.RowSetWriterRegistry
 import org.apache.jena.sparql.core.{Quad, Var}
 import org.apache.jena.sparql.engine.binding.Binding
@@ -119,12 +123,16 @@ object RdfSparqlConverter:
     }
     (inputOptions, vars, bindings)
 
-  /** Converts a Jelly-SPARQL result set to a Jelly-RDF stream, one statement per solution.
+  /** Converts a Jelly-SPARQL stream to a Jelly-RDF stream, one statement per solution.
+    *
+    * A FLAT stream gives a stream with frames of `rowsPerFrame` rows. A PUNCTUATED stream gives one
+    * frame per result set, with the logical type set to GRAPHS (TRIPLES output) or DATASETS
+    * (otherwise), unless it was set already.
     *
     * @param outputOptions
     *   stream options of the output. The physical type may be unspecified.
     * @param rowsPerFrame
-    *   target number of rows per output frame
+    *   target number of rows per output frame, for FLAT input
     * @param delimited
     *   whether the output should be delimited
     */
@@ -136,78 +144,114 @@ object RdfSparqlConverter:
       delimited: Boolean,
   ): Unit =
     SparqlJellyUtil.translateErrors {
-      convertSparqlToRdf(inputStream, outputStream, outputOptions, rowsPerFrame, delimited)
+      val resultSets = SparqlResultSetReader(SparqlJellyUtil.iterateSparqlStream(inputStream))
+      if !resultSets.hasNext then throw CriticalException("Empty input stream")
+      val first = selectResult(resultSets.next(), 0)
+      val jellyOpt = withPhysicalType(outputOptions, first.variables.size == 4)
+      if resultSets.isPunctuated then
+        if jellyOpt.getLogicalType == LogicalStreamType.UNSPECIFIED then
+          jellyOpt.setLogicalType(
+            if jellyOpt.getPhysicalType == PhysicalStreamType.TRIPLES then LogicalStreamType.GRAPHS
+            else LogicalStreamType.DATASETS,
+          )
+        val writer = JellyFrameWriter(jellyOpt, delimited, outputStream)
+        writeStatements(first, writer, jellyOpt, Some(0))
+        writer.endFrame()
+        for (resultSet, i) <- resultSets.zipWithIndex do
+          writeStatements(selectResult(resultSet, i + 1), writer, jellyOpt, Some(i + 1))
+          writer.endFrame()
+        writer.finish()
+      else
+        val writer = JellyWriterUtil.createWriter(
+          jellyOpt,
+          rowsPerFrame,
+          enableNamespaceDeclarations = false,
+          delimited,
+          outputStream,
+        )
+        writer.start()
+        writeStatements(first, writer, jellyOpt)
+        writer.finish()
       outputStream.flush()
     }
 
-  private def convertSparqlToRdf(
-      inputStream: InputStream,
-      outputStream: OutputStream,
-      outputOptions: RdfStreamOptions,
-      rowsPerFrame: Int,
-      delimited: Boolean,
+  /** Checks that the result set is a solution sequence that can be made into statements. */
+  private def selectResult(resultSet: SparqlResultSet, index: Int): SparqlResultSet.Select =
+    resultSet match
+      case _: SparqlResultSet.Ask =>
+        throw CriticalException(
+          (if index == 0 then "The input is" else s"Result set $index is") +
+            " an ASK result, which cannot be converted to RDF",
+        )
+      case select: SparqlResultSet.Select =>
+        val vars = select.variables
+        if vars.size != 3 && vars.size != 4 then
+          throw CriticalException(
+            (if index == 0 then "The result set" else s"Result set $index") +
+              s" must have 3 or 4 variables, but it has ${vars.size}: " + vars.mkString(", "),
+          )
+        select
+
+  /** Writes the solutions of the result set as statements.
+    *
+    * @param resultSetIndex
+    *   the index of the result set in a PUNCTUATED stream, for error messages
+    */
+  private def writeStatements(
+      resultSet: SparqlResultSet.Select,
+      writer: StreamRDF,
+      jellyOpt: RdfStreamOptions,
+      resultSetIndex: Option[Int] = None,
   ): Unit =
-    val lang = JellySparqlLanguage.JELLY_SPARQL
-    val result = ResultSetReaderRegistry.getFactory(lang).create(lang)
-      .readAny(inputStream, RIOT.getContext.copy())
-    if result.isBoolean then
-      throw CriticalException("The input is an ASK result, which cannot be converted to RDF")
-    val resultSet = result.getResultSet
-    val vars = resultSet.getResultVars.asScala.map(Var.alloc).toIndexedSeq
-    if vars.size != 3 && vars.size != 4 then
-      throw CriticalException(
-        s"The result set must have 3 or 4 variables, but it has ${vars.size}: " +
-          vars.mkString(", "),
-      )
+    val vars = resultSet.variables
     val quads = vars.size == 4
-    val jellyOpt = withPhysicalType(outputOptions, quads)
-    val writer = JellyWriterUtil.createWriter(
-      jellyOpt,
-      rowsPerFrame,
-      enableNamespaceDeclarations = false,
-      delimited,
-      outputStream,
-    )
-    writer.start()
+    val triples = jellyOpt.getPhysicalType == PhysicalStreamType.TRIPLES
+    val where = resultSetIndex.map(i => s" of result set $i").getOrElse("")
+    if quads && triples then
+      throw CriticalException(
+        s"Result set${resultSetIndex.map(" " + _).getOrElse("")} has 4 variables, but the output is a " +
+          "TRIPLES stream. Use --opt.physical-type=QUADS or GRAPHS.",
+      )
     var index = 0L
-    while resultSet.hasNext do
-      val binding = resultSet.nextBinding()
-      def get(i: Int): Node = binding.get(vars(i))
+    for row <- resultSet.rows do
       def required(i: Int): Node =
-        val node = get(i)
+        val node = row(i)
         if node == null then
           throw CriticalException(
-            s"Solution $index has no value for ${vars(i)}, so it cannot be made into a statement",
+            s"Solution $index$where has no value for ${vars(i)}, so it cannot be made into a " +
+              "statement",
           )
         node
       val triple = Triple.create(required(0), required(1), required(2))
-      if jellyOpt.getPhysicalType == PhysicalStreamType.TRIPLES then
+      if triples then
         checkStatement(
           triple.toString,
           StatementUtils.isGeneralized(triple),
           StatementUtils.hasTripleTerms(triple),
-          index,
+          s"$index$where",
           jellyOpt,
         )
         writer.triple(triple)
       else
-        val graph = (if quads then Option(get(3)) else None).getOrElse(Quad.defaultGraphIRI)
+        val graph = (if quads then Option(row(3)) else None).getOrElse(Quad.defaultGraphIRI)
         val quad = Quad.create(graph, triple)
         checkStatement(
           quad.toString,
           StatementUtils.isGeneralized(quad),
           StatementUtils.hasTripleTerms(quad),
-          index,
+          s"$index$where",
           jellyOpt,
         )
         writer.quad(quad)
       index += 1
-    writer.finish()
 
   /** The output options, with the physical type set to match the number of variables, unless it was
     * set already.
     */
-  private def withPhysicalType(options: RdfStreamOptions, quads: Boolean): RdfStreamOptions =
+  private def withPhysicalType(
+      options: RdfStreamOptions,
+      quads: Boolean,
+  ): RdfStreamOptions.Mutable =
     val jellyOpt = options.clone()
     jellyOpt.getPhysicalType match
       case PhysicalStreamType.UNSPECIFIED =>
@@ -226,16 +270,16 @@ object RdfSparqlConverter:
       statement: String,
       generalized: Boolean,
       tripleTerms: Boolean,
-      index: Long,
+      solution: String,
       opt: RdfStreamOptions,
   ): Unit =
     if !opt.getGeneralizedStatements && generalized then
       throw CriticalException(
-        s"Solution $index is not a valid RDF statement: $statement. " +
+        s"Solution $solution is not a valid RDF statement: $statement. " +
           "Use --opt.generalized-statements=true to allow generalized statements.",
       )
     if !opt.getRdfStar && tripleTerms then
       throw CriticalException(
-        s"Solution $index contains a triple term: $statement. " +
+        s"Solution $solution contains a triple term: $statement. " +
           "Use --opt.triple-terms=true to allow triple terms.",
       )
