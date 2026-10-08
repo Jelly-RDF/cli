@@ -5,16 +5,20 @@ import eu.neverblink.jelly.cli.command.helpers.RdfSparqlTestData.*
 import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
 import eu.neverblink.jelly.cli.command.rdf.util.{JellyUtil, RdfJellySerializationOptions}
 import eu.neverblink.jelly.cli.command.sparql.SparqlSerDesSpec.*
-import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamOptions, RdfVersion}
-import eu.neverblink.jelly.core.proto.v1.sparql.SparqlResultsOptions
+import eu.neverblink.jelly.convert.jena.JenaConverterFactory
+import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
+import eu.neverblink.jelly.core.proto.v1.*
+import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsOptions, SparqlResultsTrailer}
 import eu.neverblink.jelly.core.sparql.{JellySparqlConstants, JellySparqlOptions}
-import org.apache.jena.graph.{NodeFactory, Triple}
+import org.apache.jena.graph.{Node, NodeFactory, Triple}
 import org.apache.jena.sparql.core.Quad
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets.UTF_8
+import scala.jdk.CollectionConverters.*
 
 class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
 
@@ -43,10 +47,30 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
   private def toRdf(
       jelly: Array[Byte],
       options: RdfStreamOptions = defaultRdfOptions,
+      delimited: Boolean = true,
   ): Array[Byte] =
     val out = ByteArrayOutputStream()
-    RdfSparqlConverter.sparqlToRdf(ByteArrayInputStream(jelly), out, options, 256, true)
+    RdfSparqlConverter.sparqlToRdf(ByteArrayInputStream(jelly), out, options, 256, delimited)
     out.toByteArray
+
+  /** Reads each frame of a Jelly-RDF stream into its own set of quads. */
+  private def readRdfFrames(jelly: Array[Byte]): Seq[Set[Quad]] =
+    var current = Set[Quad]()
+    val handler = new AnyStatementHandler[Node]:
+      override def handleTriple(s: Node, p: Node, o: Node): Unit =
+        current += Quad.create(Quad.defaultGraphIRI, s, p, o)
+      override def handleQuad(s: Node, p: Node, o: Node, g: Node): Unit =
+        current += Quad.create(if Quad.isDefaultGraph(g) then Quad.defaultGraphIRI else g, s, p, o)
+    val decoder = JenaConverterFactory.getInstance()
+      .anyStatementDecoder(handler, JellyOptions.DEFAULT_SUPPORTED_OPTIONS)
+    JellyUtil.iterateRdfStream(ByteArrayInputStream(jelly)).map { frame =>
+      current = Set()
+      frame.getRows.forEach(decoder.ingestRow)
+      current
+    }.toSeq
+
+  private def rdfFrames(jelly: Array[Byte]): Seq[RdfStreamFrame] =
+    JellyUtil.iterateRdfStream(ByteArrayInputStream(jelly)).toSeq
 
   "rdfToSparql" should {
     "turn a TRIPLES stream into ?s ?p ?o solutions" in {
@@ -251,5 +275,94 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
 
     "reject a malformed input" in {
       intercept[InvalidJellyFile](toRdf("not Jelly".getBytes(UTF_8)))
+    }
+  }
+
+  "sparqlToRdf with a PUNCTUATED stream" should {
+    val spo = Seq("s", "p", "o")
+    val spog = Seq("s", "p", "o", "g")
+    val ab = sparqlJson(spo, Seq(statementRow("a", "p", "1"), statementRow("b", "p", "2")))
+    val empty = sparqlJson(spo, Nil)
+    val cd =
+      sparqlJson(spog, Seq(statementRow("c", "p", "3", Some("g")), statementRow("d", "p", "4")))
+    def quad(s: String, o: String, g: Option[String] = None) =
+      Quad.create(g.map(iri).getOrElse(Quad.defaultGraphIRI), iri(s), iri("p"), lit(o))
+    val abQuads = Set(quad("a", "1"), quad("b", "2"))
+    val cdQuads = Set(quad("c", "3", Some("g")), quad("d", "4"))
+
+    "write one frame per result set, as a GRAPHS stream for 3 variables" in {
+      val jelly = toRdf(writePunctuated(Seq(ab, empty, ab), valuesPerFrame = 1))
+      val options = rdfStreamOptions(jelly)
+      options.getPhysicalType shouldBe PhysicalStreamType.TRIPLES
+      options.getLogicalType shouldBe LogicalStreamType.GRAPHS
+      readRdfFrames(jelly) shouldBe Seq(abQuads, Set(), abQuads)
+    }
+
+    "write an empty first result set as a frame with only the stream options" in {
+      val jelly = toRdf(writePunctuated(Seq(empty, ab)))
+      val first = rdfFrames(jelly).head.getRows.asScala.toSeq
+      first.size shouldBe 1
+      first.head.hasOptions shouldBe true
+      readRdfFrames(jelly) shouldBe Seq(Set(), abQuads)
+    }
+
+    "write a DATASETS stream when the first result set has 4 variables" in {
+      val jelly = toRdf(writePunctuated(Seq(cd, ab)))
+      val options = rdfStreamOptions(jelly)
+      options.getPhysicalType shouldBe PhysicalStreamType.QUADS
+      options.getLogicalType shouldBe LogicalStreamType.DATASETS
+      readRdfFrames(jelly) shouldBe Seq(cdQuads, abQuads)
+    }
+
+    "end the graphs with each frame of a GRAPHS physical stream" in {
+      val jelly = toRdf(
+        writePunctuated(Seq(cd, ab, cd)),
+        defaultRdfOptions.setPhysicalType(PhysicalStreamType.GRAPHS),
+      )
+      val options = rdfStreamOptions(jelly)
+      options.getPhysicalType shouldBe PhysicalStreamType.GRAPHS
+      options.getLogicalType shouldBe LogicalStreamType.DATASETS
+      rdfFrames(jelly).map(_.getRows.asScala.last.hasGraphEnd) shouldBe Seq(true, true, true)
+      readRdfFrames(jelly) shouldBe Seq(cdQuads, abQuads, cdQuads)
+    }
+
+    "keep the logical type it is given" in {
+      val jelly = toRdf(
+        writePunctuated(Seq(ab, ab)),
+        defaultRdfOptions.setLogicalType(LogicalStreamType.SUBJECT_GRAPHS),
+      )
+      rdfStreamOptions(jelly).getLogicalType shouldBe LogicalStreamType.SUBJECT_GRAPHS
+    }
+
+    "refuse 4 variables after a first result set with 3" in {
+      val e = intercept[CriticalException](toRdf(writePunctuated(Seq(ab, cd))))
+      e.getMessage should include("Result set 1 has 4 variables")
+      e.getMessage should include("--opt.physical-type")
+    }
+
+    "reject an ASK result set" in {
+      val e = intercept[CriticalException](toRdf(writePunctuated(Seq(ab, askJson(true)))))
+      e.getMessage should include("Result set 1 is an ASK result")
+    }
+
+    "say which result set a solution that cannot be converted is in" in {
+      val noPredicate = sparqlJson(spo, Seq(Map("s" -> iriJson("a"), "o" -> litJson("v"))))
+      val e = intercept[CriticalException](toRdf(writePunctuated(Seq(ab, noPredicate))))
+      e.getMessage should include("Solution 0 of result set 1 has no value for ?p")
+    }
+
+    "refuse to write several frames as non-delimited output" in {
+      toRdf(writePunctuated(Seq(ab)), delimited = false)
+      val e = intercept[CriticalException](toRdf(writePunctuated(Seq(ab, ab)), delimited = false))
+      e.getMessage should include("more than one frame")
+    }
+
+    "report a result set that the producer could not complete" in {
+      val frames = readFrames(writePunctuated(Seq(ab, ab)))
+      val failed = frames.head.clone()
+        .setTrailer(SparqlResultsTrailer.newInstance().setError("query timeout"))
+      failed.resetCachedSize()
+      val e = intercept[CriticalException](toRdf(writeFrames(failed +: frames.tail)))
+      e.getMessage should include("query timeout")
     }
   }

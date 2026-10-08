@@ -5,13 +5,16 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.sparql.util.*
 import eu.neverblink.jelly.cli.util.io.{IoUtil, ProtoText}
 import eu.neverblink.jelly.convert.jena.sparql.JenaSparqlConverterFactory
-import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsFrame, SparqlResultsOptions}
+import eu.neverblink.jelly.core.proto.v1.sparql.{
+  SparqlResultsFrame,
+  SparqlResultsOptions,
+  SparqlStreamType,
+}
 import eu.neverblink.jelly.core.sparql.{JellySparqlOptions, SparqlResultsHandler}
 import org.apache.jena.graph.Node
 import org.apache.jena.riot.{Lang, RIOT}
-import org.apache.jena.riot.resultset.ResultSetReaderRegistry
+import org.apache.jena.riot.rowset.RowSetReaderRegistry
 import org.apache.jena.sparql.core.Var
-import org.apache.jena.sparql.engine.binding.Binding
 import org.apache.jena.sparql.util.FmtUtils
 
 import java.io.InputStream
@@ -47,12 +50,13 @@ case class SparqlValidateOptions(
     @Recurse
     common: JellyCommandOptions = JellyCommandOptions(),
     @HelpMessage(
-      "SPARQL results file to compare the input stream to. If not specified, no comparison is done.",
+      "SPARQL results file to compare the input stream to. Can be given several times, for the " +
+        "result sets of a PUNCTUATED stream. If not specified, no comparison is done.",
     )
-    compareToFile: Option[String] = None,
+    compareToFile: List[String] = Nil,
     @HelpMessage(
-      "Format of the SPARQL results file to compare the input stream to. If not specified, " +
-        "the format is inferred from the file name. Possible values: " +
+      "Format of the SPARQL results files to compare the input stream to. If not specified, " +
+        "the format is inferred from the file names. Possible values: " +
         SparqlValidatePrint.validFormatsString,
     )
     compareToFormat: Option[String] = None,
@@ -68,19 +72,15 @@ case class SparqlValidateOptions(
     delimited: String = "either",
     @HelpMessage(
       "Whether the stream must end with a trailer, which tells the reader that the result set " +
-        "is complete. Default: false",
+        "is complete. Producers must always write one, so a stream without it is most likely " +
+        "truncated. Use --require-trailer=false to check such a stream anyway. Default: true",
     )
-    requireTrailer: Boolean = false,
+    requireTrailer: Boolean = true,
 ) extends HasJellyCommandOptions
 
 object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
   private enum Delimiting:
     case Either, Delimited, Undelimited
-
-  /** The result set of the reference file. The solutions are read as they are compared. */
-  private enum Reference:
-    case Select(variables: Seq[Var], rows: Iterator[Binding])
-    case Ask(value: Boolean)
 
   override def names: List[List[String]] = List(List("sparql", "validate"))
 
@@ -98,18 +98,18 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
           Some("Valid values: true, false, either"),
         )
     val expectedOptions = options.optionsFile.map(SparqlJellyUtil.loadOptionsFromFile)
-    val referenceLang = options.compareToFile.map(referenceFormat(_, options.compareToFormat))
+    val referenceFiles =
+      options.compareToFile.map(f => f -> referenceFormat(f, options.compareToFormat))
     val (inputStream, _) = getIoStreamsFromOptions(remainingArgs.remaining.headOption, None)
     SparqlJellyUtil.translateErrors {
       val (delimited, frames) = SparqlJellyUtil.iterateSparqlStreamWithDelimitingInfo(inputStream)
       validateDelimiting(delimiting, delimited)
-      (options.compareToFile, referenceLang) match
-        case (Some(fileName), Some(lang)) =>
-          // Keep the reference file open while its solutions are compared
-          Using.resource(IoUtil.inputStream(fileName)) { is =>
-            validateContent(frames, expectedOptions, Some(readReference(is, lang)))
-          }
-        case _ => validateContent(frames, expectedOptions, None)
+      if referenceFiles.isEmpty then validateContent(frames, expectedOptions, None)
+      else
+        // Keep the reference files open while their solutions are compared
+        Using.resource(References(referenceFiles)) { references =>
+          validateContent(frames, expectedOptions, Some(references))
+        }
     }
 
   private def validateDelimiting(expected: Delimiting, delimited: Boolean): Unit =
@@ -134,6 +134,9 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
             s"Actual: ${printOptions(streamOptions)}",
         )
     }
+    validateVersion(streamOptions)
+
+  private def validateVersion(streamOptions: SparqlResultsOptions): Unit =
     if streamOptions.getVersion <= 0 then
       throw CriticalException(
         "The version field in SparqlResultsOptions is <= 0. " +
@@ -145,19 +148,20 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
 
   /** Pushes all frames through the decoder, which catches most of the errors, and checks the rest.
     *
-    * @param reference
-    *   the result set to compare the input to, if any
+    * @param references
+    *   the result sets to compare the input to, if any
     */
   private def validateContent(
       frames: Iterator[SparqlResultsFrame],
       expectedOptions: Option[SparqlResultsOptions],
-      reference: Option[Reference],
+      references: Option[References],
   ): Unit =
     if !frames.hasNext then throw CriticalException("Empty input stream")
-    val handler = ComparingHandler(reference)
+    val handler = ComparingHandler(references)
     // The stream options are compared with the expected ones separately. Here, we only make sure
     // that the decoder accepts lookup tables as large as the expected ones.
     val supported = JellySparqlOptions.DEFAULT_SUPPORTED_OPTIONS.clone()
+      .setStreamType(SparqlStreamType.PUNCTUATED)
     expectedOptions.foreach { e =>
       supported
         .setMaxNameTableSize(e.getMaxNameTableSize.max(supported.getMaxNameTableSize))
@@ -166,11 +170,12 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
     }
     val decoder = JenaSparqlConverterFactory.getInstance().decoder(handler, supported)
     var firstOptions: Option[SparqlResultsOptions] = None
-    // Whether the current stream ended with a trailer. Repeated options start a new stream.
+    // Whether the previous frame ended with a trailer. Repeated options in a FLAT stream start a
+    // new segment of a concatenated stream, which should also end with a trailer. In a PUNCTUATED
+    // stream, the decoder only accepts them after a trailer.
     var trailerSeen = false
     def checkTrailer(): Unit =
-      // An ASK result is complete on its own, so it does not need a trailer
-      if getOptions.requireTrailer && !trailerSeen && handler.askResult.isEmpty then
+      if getOptions.requireTrailer && !trailerSeen then
         throw CriticalException("The stream does not end with a trailer")
 
     for (frame, i) <- frames.zipWithIndex do
@@ -178,13 +183,11 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
         case Some(o) if firstOptions.isEmpty =>
           validateOptions(o, expectedOptions)
           firstOptions = Some(o)
+          handler.punctuated = o.getStreamType == SparqlStreamType.PUNCTUATED
         case Some(o) =>
-          if !firstOptions.contains(o) then
-            throw CriticalException(
-              s"Later occurrence of stream options in frame $i does not match the first",
-            )
+          // Repeated options need not be the same as the first ones, but must be valid on their own
+          validateVersion(o)
           checkTrailer()
-          trailerSeen = false
         case None if firstOptions.isEmpty =>
           throw CriticalException("First frame in the input stream does not contain stream options")
         case None => ()
@@ -192,32 +195,86 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
       Option(frame.getTrailer).foreach { trailer =>
         if trailer.getError.nonEmpty then
           throw CriticalException(
-            s"The trailer in frame $i says that the result set is incomplete: ${trailer.getError}",
+            s"The trailer in frame $i says that ${handler.resultSetName} is incomplete: " +
+              trailer.getError,
           )
-        trailerSeen = true
       }
+      trailerSeen = frame.getTrailer != null
     checkTrailer()
     handler.finish()
 
-  /** Checks what the decoder reads from the stream against the reference, if there is one. */
-  private class ComparingHandler(reference: Option[Reference]) extends SparqlResultsHandler[Node]:
-    var askResult: Option[Boolean] = None
-    private var variables: IndexedSeq[Var] = IndexedSeq()
-    // Number of solutions read so far
-    private var index = 0L
-    private val blankNodes = BlankNodeMapping()
+  /** The result sets of the reference files, in order, with the name of the file each one is from.
+    * The files are opened as they are needed, and the solutions are read as they are compared.
+    */
+  private class References(files: Seq[(String, Lang)])
+      extends Iterator[(String, SparqlResultSet)],
+        AutoCloseable:
+    private val remainingFiles = files.iterator
+    private val opened = mutable.ArrayBuffer[InputStream]()
+    private var fileName = ""
+    private var resultSets: Iterator[SparqlResultSet] = Iterator.empty
 
-    private def fileName = getOptions.compareToFile.getOrElse("")
+    override def hasNext: Boolean =
+      while !resultSets.hasNext && remainingFiles.hasNext do
+        val (name, lang) = remainingFiles.next()
+        val is = IoUtil.inputStream(name)
+        opened += is
+        fileName = name
+        resultSets = readReference(is, lang)
+      resultSets.hasNext
+
+    override def next(): (String, SparqlResultSet) =
+      if !hasNext then throw java.util.NoSuchElementException()
+      (fileName, resultSets.next())
+
+    override def close(): Unit = opened.foreach(_.close())
+
+  /** Checks what the decoder reads from the stream against the references, if there are any. */
+  private class ComparingHandler(references: Option[References]) extends SparqlResultsHandler[Node]:
+    // Set once the stream options are known
+    var punctuated = false
+    // Index of the current result set
+    private var resultSetIndex = -1L
+    // The result set to compare the current one to, and the file it is from
+    private var reference: Option[(String, SparqlResultSet)] = None
+    private var variables: IndexedSeq[Var] = IndexedSeq()
+    // Number of solutions read so far in the current result set
+    private var index = 0L
+    private var blankNodes = BlankNodeMapping()
+
+    /** How to refer to the current result set in messages. */
+    def resultSetName: String =
+      if punctuated then s"result set ${resultSetIndex.max(0)}" else "the result set"
+
+    // Only in a PUNCTUATED stream, where there may be several result sets
+    private def inResultSet: String = if punctuated then s" in result set $resultSetIndex" else ""
+
+    /** Moves on to the next result set, and the next reference. */
+    private def startResultSet(): Unit =
+      finishResultSet()
+      resultSetIndex += 1
+      index = 0
+      // Blank node labels are scoped to one result set
+      blankNodes = BlankNodeMapping()
+      reference = references.map { refs =>
+        if !refs.hasNext then
+          throw CriticalException(
+            s"Expected $resultSetIndex result sets, as in the reference files, " +
+              "but the input stream has more",
+          )
+        refs.next()
+      }
 
     override def handleVariables(variables: java.util.List[String]): Unit =
+      startResultSet()
       this.variables = variables.asScala.map(Var.alloc).toIndexedSeq
       reference match
-        case Some(Reference.Ask(_)) =>
-          throw CriticalException(s"Expected an ASK result, as in $fileName, but got solutions")
-        case Some(Reference.Select(expected, _)) if expected != this.variables =>
+        case Some((file, SparqlResultSet.Ask(_))) =>
+          throw CriticalException(s"Expected an ASK result, as in $file, but got solutions")
+        case Some((file, SparqlResultSet.Select(expected, _))) if expected != this.variables =>
           throw CriticalException(
-            s"Expected variables ${expected.mkString(" ")}, as in $fileName, " +
-              s"but got ${this.variables.mkString(" ")}",
+            s"Expected variables ${expected.mkString(" ")}, as in $file, " +
+              s"but got ${this.variables.mkString(" ")}$inResultSet",
           )
         case _ => ()
 
@@ -225,40 +282,56 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
 
     override def handleRow(row: Array[Node]): Unit =
       reference match
-        case Some(Reference.Select(_, rows)) =>
+        case Some((file, SparqlResultSet.Select(_, rows))) =>
           if !rows.hasNext then
             throw CriticalException(
-              s"Expected $index solutions, as in $fileName, but the input stream has more",
+              s"Expected $index solutions, as in $file, but the input stream has more" +
+                inResultSet,
             )
           val expected = rows.next()
-          val matches = variables.indices.forall { i =>
-            blankNodes.sameTerm(expected.get(variables(i)), row(i))
-          }
+          val matches = variables.indices.forall(i => blankNodes.sameTerm(expected(i), row(i)))
           if !matches then
             throw CriticalException(
-              s"Solution $index does not match the one in $fileName\n" +
-                s"Expected: ${formatRow(variables.map(expected.get))}\n" +
+              s"Solution $index$inResultSet does not match the one in $file\n" +
+                s"Expected: ${formatRow(expected.toIndexedSeq)}\n" +
                 s"Actual: ${formatRow(row.toIndexedSeq)}",
             )
         case _ => ()
       index += 1
 
     override def handleAskResult(value: Boolean): Unit =
-      askResult = Some(value)
+      startResultSet()
       reference match
-        case Some(Reference.Ask(expected)) if expected != value =>
-          throw CriticalException(s"Expected the ASK result to be $expected, but it was $value")
-        case Some(Reference.Select(_, _)) =>
-          throw CriticalException(s"Expected solutions, as in $fileName, but got an ASK result")
+        case Some((file, SparqlResultSet.Ask(expected))) if expected != value =>
+          throw CriticalException(
+            s"Expected the ASK result to be $expected, as in $file, but it was $value" +
+              inResultSet,
+          )
+        case Some((file, SparqlResultSet.Select(_, _))) =>
+          throw CriticalException(
+            s"Expected solutions, as in $file, but got an ASK result$inResultSet",
+          )
         case _ => ()
 
     /** Checks that the reference has no more solutions than the input. */
-    def finish(): Unit = reference match
-      case Some(Reference.Select(_, rows)) if rows.hasNext =>
+    private def finishResultSet(): Unit = reference match
+      case Some((file, SparqlResultSet.Select(_, rows))) if rows.hasNext =>
         throw CriticalException(
-          s"Expected ${index + rows.size} solutions, as in $fileName, but got $index",
+          s"Expected ${index + rows.size} solutions, as in $file, but got $index$inResultSet",
         )
       case _ => ()
+
+    /** Checks that the references have no more result sets or solutions than the input. */
+    def finish(): Unit =
+      finishResultSet()
+      references.foreach { refs =>
+        if refs.hasNext then
+          val count = resultSetIndex + 1
+          throw CriticalException(
+            s"Expected ${count + refs.size} result sets, as in the reference files, " +
+              s"but got $count",
+          )
+      }
 
     private def formatRow(values: Seq[Node]): String =
       variables.zip(values).map { (v, n) =>
@@ -311,13 +384,20 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
       case f => throw CriticalException(s"Cannot read $f for comparison")
 
   /** Starts reading the reference file. The solutions are read lazily, as they are compared. */
-  private def readReference(inputStream: InputStream, lang: Lang): Reference =
-    val result = ResultSetReaderRegistry.getFactory(lang).create(lang)
-      .readAny(inputStream, RIOT.getContext.copy())
-    if result.isBoolean then Reference.Ask(result.getBooleanResult.booleanValue)
+  private def readReference(inputStream: InputStream, lang: Lang): Iterator[SparqlResultSet] =
+    if lang == SparqlFormat.JellySparql.jenaLang then
+      SparqlResultSetReader(SparqlJellyUtil.iterateSparqlStream(inputStream))
     else
-      val rs = result.getResultSet
-      Reference.Select(
-        rs.getResultVars.asScala.map(Var.alloc).toSeq,
-        Iterator.continually(rs).takeWhile(_.hasNext).map(_.nextBinding()),
-      )
+      val result = RowSetReaderRegistry.getFactory(lang).create(lang)
+        .readAny(inputStream, RIOT.getContext.copy())
+      if result.isBoolean then Iterator(SparqlResultSet.Ask(result.booleanResult.booleanValue))
+      else
+        val rowSet = result.rowSet
+        val vars = rowSet.getResultVars.asScala.toIndexedSeq
+        Iterator(
+          SparqlResultSet.Select(
+            vars,
+            Iterator.continually(rowSet).takeWhile(_.hasNext).map(_.next())
+              .map(b => vars.map(b.get).toArray),
+          ),
+        )

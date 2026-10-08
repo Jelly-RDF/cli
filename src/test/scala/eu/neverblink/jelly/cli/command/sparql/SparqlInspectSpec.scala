@@ -40,6 +40,7 @@ class SparqlInspectSpec extends AnyWordSpec with TestFixtureHelper with Matchers
       val parsed = inspect(writeJelly(selectJson))
       val options = parsed.get("stream_options").asInstanceOf[YamlMap]
       options.get("stream_name") shouldBe ""
+      options.get("stream_type") shouldBe "FLAT (0)"
       options.get("max_name_table_size") shouldBe JellySparqlOptions.BIG.getMaxNameTableSize
       options.get("version") shouldBe 1
       options.get("rdf_version") shouldBe "RDF_VERSION_UNSPECIFIED (0)"
@@ -56,6 +57,7 @@ class SparqlInspectSpec extends AnyWordSpec with TestFixtureHelper with Matchers
       frames.get("trailer_count") shouldBe 1
       frames.get("ask_result_count") shouldBe 0
       frames.containsKey("trailer_error") shouldBe false
+      frames.containsKey("result_set_count") shouldBe false
     }
 
     "print the variables as a plain YAML list" in {
@@ -127,6 +129,36 @@ class SparqlInspectSpec extends AnyWordSpec with TestFixtureHelper with Matchers
       val parsed = inspect(writeJelly(json))
       parsed.get("variables").asInstanceOf[util.List[String]].asScala shouldBe empty
       aggregate(parsed).get("row_count") shouldBe 2
+    }
+
+    "count the result sets of a PUNCTUATED stream, instead of printing the variables" in {
+      val jelly = writePunctuated(Seq(selectJson, askJson(true), selectX()), valuesPerFrame = 4)
+      val parsed = inspect(jelly)
+      parsed.get("stream_options").asInstanceOf[YamlMap].get("stream_type") shouldBe
+        "PUNCTUATED (1)"
+      parsed.containsKey("variables") shouldBe false
+      parsed.containsKey("ask_result") shouldBe false
+      val frames = aggregate(parsed)
+      frames.get("result_set_count") shouldBe 3
+      frames.get("frame_count") shouldBe readFrames(jelly).size
+      frames.get("row_count") shouldBe 3
+      frames.get("trailer_count") shouldBe 3
+    }
+
+    "print the result set of each frame of a PUNCTUATED stream in --per-frame" in {
+      val jelly = writePunctuated(Seq(selectJson, askJson(true), selectX()), valuesPerFrame = 4)
+      val frames = perFrame(inspect(jelly, "--per-frame"))
+      frames.size should be > 3
+      val resultSets = frames.map(_.get("result_set_index"))
+      resultSets.distinct shouldBe Seq(0, 1, 2)
+      // The first frame of each result set has its variables or the ASK result
+      val firsts = frames.indices.filter(i => i == 0 || resultSets(i) != resultSets(i - 1))
+      frames(firsts(0)).get("variables").asInstanceOf[util.List[String]].asScala shouldBe
+        Seq("s", "label", "num", "bn")
+      frames(firsts(1)).get("ask_result") shouldBe true
+      frames(firsts(2)).get("variables").asInstanceOf[util.List[String]].asScala shouldBe Seq("x")
+      for i <- frames.indices if !firsts.contains(i) do
+        frames(i).containsKey("variables") shouldBe false
     }
 
     "complain about empty input" in {

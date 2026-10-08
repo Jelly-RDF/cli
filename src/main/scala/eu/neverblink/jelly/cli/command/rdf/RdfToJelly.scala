@@ -26,7 +26,9 @@ object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
     "The input can also be a Jelly-SPARQL result set (the jelly-sparql format) with 3 or 4 " +
     "variables, which are taken by position, not by name: subject, predicate, object, and graph. " +
     "Each solution becomes one statement. With 3 variables, the output is a TRIPLES stream, " +
-    "with 4 a QUADS stream, where an unbound graph means the default graph.\n" +
+    "with 4 a QUADS stream, where an unbound graph means the default graph. Each result set of " +
+    "a PUNCTUATED stream becomes one frame, and the logical type is GRAPHS or DATASETS, unless " +
+    "set with --opt.logical-type.\n" +
     "Note: this command works in a streaming manner and scales well to large files. ",
 )
 @ArgsName("<file-to-convert>")

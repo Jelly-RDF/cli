@@ -4,13 +4,19 @@ import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.sparql.util.*
 import eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter
-import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
+import eu.neverblink.jelly.cli.util.io.IoUtil
+import eu.neverblink.jelly.convert.jena.sparql.{
+  JellySparqlLanguage,
+  JenaSparqlConverterFactory,
+  RowSetWriterJelly,
+}
 import eu.neverblink.jelly.core.RdfProtoDeserializationError
-import eu.neverblink.jelly.core.proto.v1.sparql.SparqlResultsOptions
+import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsOptions, SparqlStreamType}
 import eu.neverblink.jelly.core.sparql.{JellySparqlConstants, JellySparqlOptions}
 import org.apache.jena.sparql.util.Context
 
 import java.io.{InputStream, OutputStream}
+import scala.util.Using
 
 object SparqlToJellyPrint:
   val validFormats: List[SparqlFormat] = SparqlFormat.readable
@@ -23,6 +29,8 @@ object SparqlToJellyPrint:
     "If no output file is specified, the output is written to stdout.\n" +
     "Both SELECT results (bindings) and ASK results (a boolean) are supported.\n" +
     "The input can also be in the jelly-sparql-text format, which is written by sparql from-jelly.\n" +
+    "With several input files, the output is a PUNCTUATED stream, with one result set per file, " +
+    "in order. jelly-sparql-text and jelly-rdf input can only be read from one file.\n" +
     "With the jelly-rdf input format, a Jelly-RDF stream is turned into a result set with one " +
     "solution per statement: ?s ?p ?o for TRIPLES streams, and ?s ?p ?o ?g for QUADS and GRAPHS " +
     "streams, where ?g is unbound for the default graph. Namespace declarations are dropped. " +
@@ -31,7 +39,7 @@ object SparqlToJellyPrint:
     "If an error is detected, the program will exit with a non-zero code.\n" +
     "Otherwise, the program will exit with code 0.",
 )
-@ArgsName("<file-to-convert>")
+@ArgsName("<files-to-convert>")
 case class SparqlToJellyOptions(
     @Recurse
     common: JellyCommandOptions = JellyCommandOptions(),
@@ -87,8 +95,10 @@ object SparqlToJelly extends SparqlSerDesCommand[SparqlToJellyOptions]:
   override protected def delimitedOutput: Boolean = getOptions.delimited
 
   override def doRun(options: SparqlToJellyOptions, remainingArgs: RemainingArgs): Unit =
-    val inputFile = remainingArgs.remaining.headOption
-    val inputFormat = resolveFormat(options.inputFormat, inputFile)
+    val inputFiles = remainingArgs.remaining
+    val inputFormats =
+      if inputFiles.isEmpty then Seq(resolveFormat(options.inputFormat, None))
+      else inputFiles.map(f => resolveFormat(options.inputFormat, Some(f)))
     if options.valuesPerFrame < 1 then
       throw InvalidArgument(
         "--values-per-frame",
@@ -97,9 +107,51 @@ object SparqlToJelly extends SparqlSerDesCommand[SparqlToJellyOptions]:
       )
     baseOptions = options.optionsFrom.map(SparqlJellyUtil.loadOptionsFromFile)
     streamOptions = options.jellySerializationOptions.toSparqlResultsOptions(baseOptions)
-    if !isQuietMode then checkAndWarnOptions(inputFormat)
-    val (inputStream, outputStream) = getIoStreamsFromOptions(inputFile, options.outputFile)
-    convert(inputFormat, SparqlFormat.JellySparql, inputStream, outputStream)
+    if inputFiles.size > 1 then
+      if options.jellySerializationOptions.streamType.contains(SparqlStreamType.FLAT) then
+        throw InvalidArgument(
+          "--opt.stream-type",
+          options.jellySerializationOptions.`opt.streamType`.get,
+          Some("Several input files can only be written as a PUNCTUATED stream"),
+        )
+      streamOptions = streamOptions.clone().setStreamType(SparqlStreamType.PUNCTUATED)
+      inputFormats.find(!_.isInstanceOf[SparqlFormat.Jena]).foreach { f =>
+        throw CriticalException(s"$f input can only be read from one file, not several.")
+      }
+    val punctuated = streamOptions.getStreamType == SparqlStreamType.PUNCTUATED
+    if punctuated && !options.delimited && inputFormats.head != SparqlFormat.JellySparqlText then
+      throw InvalidArgument(
+        "--delimited",
+        "false",
+        Some("PUNCTUATED streams are always written delimited"),
+      )
+    if !isQuietMode then checkAndWarnOptions(inputFormats.head)
+    val (inputStream, outputStream) =
+      getIoStreamsFromOptions(inputFiles.headOption, options.outputFile)
+    inputFormats.head match
+      case format: SparqlFormat.Jena if punctuated =>
+        val writer = resultSetsWriter(outputStream)
+        writeResultSet(writer, format, inputStream)
+        // The formats of the other files were checked above
+        for case (file, format: SparqlFormat.Jena) <- inputFiles.zip(inputFormats).drop(1) do
+          Using.resource(IoUtil.inputStream(file))(writeResultSet(writer, format, _))
+        outputStream.flush()
+      case format => convert(format, SparqlFormat.JellySparql, inputStream, outputStream)
+
+  private def resultSetsWriter(outputStream: OutputStream): RowSetWriterJelly.ResultSetsWriter =
+    RowSetWriterJelly(RowSetWriterJelly.Options(), JenaSparqlConverterFactory.getInstance())
+      .resultSetsWriter(outputStream, jenaContext)
+
+  private def writeResultSet(
+      writer: RowSetWriterJelly.ResultSetsWriter,
+      format: SparqlFormat.Jena,
+      inputStream: InputStream,
+  ): Unit =
+    SparqlJellyUtil.translateErrors {
+      val result = readResult(format, inputStream, jenaContext)
+      if result.isBoolean then writer.write(result.booleanResult.booleanValue)
+      else writer.write(result.rowSet)
+    }
 
   override protected def jellyRdfToSparql(
       inputStream: InputStream,
@@ -126,9 +178,11 @@ object SparqlToJelly extends SparqlSerDesCommand[SparqlToJellyOptions]:
         )
     else
       try
+        // Readers of PUNCTUATED streams must ask for them, so only the rest is checked here
         JellySparqlOptions.checkCompatibility(
           streamOptions,
-          JellySparqlOptions.DEFAULT_SUPPORTED_OPTIONS,
+          JellySparqlOptions.DEFAULT_SUPPORTED_OPTIONS.clone()
+            .setStreamType(streamOptions.getStreamType),
         )
       catch
         case e: RdfProtoDeserializationError =>

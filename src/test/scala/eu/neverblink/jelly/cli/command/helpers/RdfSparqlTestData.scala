@@ -84,12 +84,19 @@ object RdfSparqlTestData:
 
   /** Writes a SELECT result set with the given variables and rows (JSON terms) as Jelly-SPARQL. */
   def writeSparql(vars: Seq[String], rows: Seq[Map[String, String]]): Array[Byte] =
+    SparqlSerDesSpec.writeJelly(sparqlJson(vars, rows))
+
+  /** A SELECT result set with the given variables and rows (JSON terms) as SPARQL JSON. */
+  def sparqlJson(vars: Seq[String], rows: Seq[Map[String, String]]): String =
     val bindings = rows.map { row =>
       row.map((k, v) => s"\"$k\": $v").mkString("{ ", ", ", " }")
     }
-    val json = s"""{ "head": { "vars": [ ${vars.map(v => s"\"$v\"").mkString(", ")} ] },
-                  |  "results": { "bindings": [ ${bindings.mkString(", ")} ] } }""".stripMargin
-    SparqlSerDesSpec.writeJelly(json)
+    s"""{ "head": { "vars": [ ${vars.map(v => s"\"$v\"").mkString(", ")} ] },
+       |  "results": { "bindings": [ ${bindings.mkString(", ")} ] } }""".stripMargin
+
+  /** A solution of ?s ?p ?o, and optionally ?g, with IRIs and a literal object. */
+  def statementRow(s: String, p: String, o: String, g: Option[String] = None): Map[String, String] =
+    Map("s" -> iriJson(s), "p" -> iriJson(p), "o" -> litJson(o)) ++ g.map("g" -> iriJson(_))
 
   def iriJson(s: String): String = s"""{"type":"uri","value":"http://example.org/$s"}"""
   def litJson(s: String): String = s"""{"type":"literal","value":"$s"}"""

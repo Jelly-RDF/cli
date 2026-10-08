@@ -4,6 +4,7 @@ import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.FrameInfo
 import eu.neverblink.jelly.cli.command.sparql.util.*
+import eu.neverblink.jelly.core.proto.v1.sparql.SparqlStreamType
 
 import scala.jdk.CollectionConverters.*
 
@@ -12,6 +13,8 @@ import scala.jdk.CollectionConverters.*
     "The statistics are returned as a valid YAML. \n" +
     "If no input file is specified, the input is read from stdin.\n" +
     "If no output file is specified, the output is written to stdout.\n" +
+    "For a PUNCTUATED stream (a sequence of result sets), the number of result sets is printed " +
+    "instead of the variables.\n" +
     "If an error is detected, the program will exit with a non-zero code.\n",
   "Note: this command works in a streaming manner and scales well to large files. " +
     "It only reads the structure of the frames, it does not decode the RDF terms – " +
@@ -55,10 +58,16 @@ object SparqlInspect extends JellyCommand[SparqlInspectOptions]:
       val firstFrame = frames.head
       if firstFrame.getOptions == null then
         throw CriticalException("First frame in the input stream does not contain stream options")
+      val punctuated = firstFrame.getOptions.getStreamType == SparqlStreamType.PUNCTUATED
+      // In a PUNCTUATED stream, every frame after a trailer starts a new result set
+      var resultSetIndex = -1L
+      var resultSetStart = true
       val frameInfos = frames.zipWithIndex.map { (frame, i) =>
+        if resultSetStart then resultSetIndex += 1
         val metadata = frame.getMetadata.asScala.map(e => e.getKey -> e.getValue).toMap
-        val info = SparqlFrameInfo(i, metadata)
-        info.processFrame(frame)
+        val info = SparqlFrameInfo(i, metadata, Option.when(punctuated)(resultSetIndex))
+        info.processFrame(frame, resultSetStart)
+        resultSetStart = punctuated && frame.getTrailer != null
         info
       }
       if options.perFrame then

@@ -4,9 +4,11 @@ import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.sparql.util.{SparqlFormat, SparqlJellyUtil}
 import eu.neverblink.jelly.cli.util.io.ProtoText
+import eu.neverblink.jelly.convert.jena.sparql.{JenaSparqlConverterFactory, RowSetReaderJelly}
 import eu.neverblink.jelly.core.proto.v1.sparql.SparqlResultsFrame
 import org.apache.jena.riot.RIOT
-import org.apache.jena.riot.resultset.{ResultSetReaderRegistry, ResultSetWriterRegistry}
+import org.apache.jena.riot.rowset.{RowSetReaderRegistry, RowSetWriterRegistry}
+import org.apache.jena.sparql.exec.QueryExecResult
 import org.apache.jena.sparql.util.Context
 
 import java.io.{BufferedReader, InputStream, InputStreamReader, OutputStream}
@@ -61,7 +63,8 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
 
   /** Reads a result set in one format and writes it back out in another.
     *
-    * Both SELECT results (bindings) and ASK results (a single boolean) are handled.
+    * Both SELECT results (bindings) and ASK results (a single boolean) are handled. All result sets
+    * of a PUNCTUATED stream are written to the same output, one after another.
     */
   final def convert(
       from: SparqlFormat,
@@ -93,12 +96,26 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
       outputStream: OutputStream,
   ): Unit =
     val context = jenaContext
-    val reader = ResultSetReaderRegistry.getFactory(from.jenaLang).create(from.jenaLang)
-    val writer = ResultSetWriterRegistry.getFactory(to.jenaLang).create(to.jenaLang)
-    val result = reader.readAny(inputStream, context)
-    if result.isBoolean then
-      writer.write(outputStream, result.getBooleanResult.booleanValue, context)
-    else writer.write(outputStream, result.getResultSet, context)
+    val writer = RowSetWriterRegistry.getFactory(to.jenaLang).create(to.jenaLang)
+    def write(result: QueryExecResult): Unit =
+      if result.isBoolean then
+        writer.write(outputStream, result.booleanResult.booleanValue, context)
+      else writer.write(outputStream, result.rowSet, context)
+    from match
+      case SparqlFormat.JellySparql =>
+        // A PUNCTUATED stream has many result sets, which are written one after another
+        RowSetReaderJelly(RowSetReaderJelly.Options(), JenaSparqlConverterFactory.getInstance())
+          .readAll(inputStream, context, write)
+      case _ => write(readResult(from, inputStream, context))
+
+  /** Reads a result set in a format other than Jelly-SPARQL. */
+  protected final def readResult(
+      from: SparqlFormat.Jena,
+      inputStream: InputStream,
+      context: Context,
+  ): QueryExecResult =
+    RowSetReaderRegistry.getFactory(from.jenaLang).create(from.jenaLang)
+      .readAny(inputStream, context)
 
   private val frameCommentPrefix = "# Frame"
 
