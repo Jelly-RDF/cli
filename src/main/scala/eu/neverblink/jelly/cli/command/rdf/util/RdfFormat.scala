@@ -94,9 +94,13 @@ object RdfFormat:
     override val supportsBaseIri: Boolean = true
     override val supportsQuads: Boolean = true
 
-  // We do not ever want to write or read from Jelly to Jelly
-  // So better not have it as Writeable or Readable, just mark that it's integrated into Jena
-  case object JellyBinary extends RdfFormat.Jena, RdfFormat.SupportsGeneralizedRdf:
+  /** Jelly-RDF. Reading it in rdf to-jelly and writing it in rdf from-jelly re-encodes the stream
+    * with new options.
+    */
+  case object JellyBinary
+      extends RdfFormat.Jena.Readable,
+        RdfFormat.Writeable,
+        RdfFormat.SupportsGeneralizedRdf:
     override val fullName: String = "Jelly binary"
     override val cliOptions: List[String] = List("jelly")
     override val jenaLang: Lang = JellyLanguage.JELLY

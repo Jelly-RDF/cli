@@ -411,16 +411,6 @@ class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       }
     }
 
-    "reject a format it cannot write" in {
-      val e = intercept[ExitException] {
-        SparqlFromJelly.setStdIn(ByteArrayInputStream(Array()))
-        SparqlFromJelly.runTestCommand(
-          List("sparql", "from-jelly", "--out-format", "jelly-sparql"),
-        )
-      }
-      e.getCause shouldBe a[InvalidFormatSpecified]
-    }
-
     "report a malformed Jelly file" in {
       withFile("this is definitely not Jelly", ".jellys") { f =>
         val e = intercept[ExitException] {
@@ -647,12 +637,96 @@ class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
     )
     SparqlToJelly.getOutBytes
 
+  "Jelly-SPARQL format" should {
+    // Smaller than the default, so that a change of the options is visible
+    val smallTables = List("--opt.max-name-table-size=200")
+    val punctuatedInputs =
+      Seq(selectJson, askJson(true), selectX("""{"type":"uri","value":"http://example.org/x"}"""))
+
+    def fromJelly(jelly: Array[Byte], args: List[String] = Nil): Array[Byte] =
+      SparqlFromJelly.setStdIn(ByteArrayInputStream(jelly))
+      SparqlFromJelly.runTestCommand(
+        List("sparql", "from-jelly", "--out-format", "jelly-sparql") ++ args,
+      )
+      SparqlFromJelly.getOutBytes
+
+    def reEncode(jelly: Array[Byte], args: List[String]): Array[Byte] =
+      withBytesFile(jelly, ".jellys") { f =>
+        SparqlToJelly.runTestCommand(List("sparql", "to-jelly", f) ++ args)
+        SparqlToJelly.getOutBytes
+      }
+
+    "be re-encoded by from-jelly with the default options" in {
+      val out = fromJelly(toJelly(selectJson, ".srj", smallTables))
+      val options = readFrames(out).head.getOptions
+      options.getMaxNameTableSize shouldBe JellySparqlOptions.BIG.getMaxNameTableSize
+      options.getStreamType shouldBe SparqlStreamType.FLAT
+      sameResultSets(readResultSets(out), Seq(selectJson)) shouldBe true
+    }
+
+    "keep a PUNCTUATED stream PUNCTUATED in from-jelly" in {
+      val out = fromJelly(writePunctuated(punctuatedInputs))
+      readFrames(out).head.getOptions.getStreamType shouldBe SparqlStreamType.PUNCTUATED
+      sameResultSets(readResultSets(out), punctuatedInputs) shouldBe true
+    }
+
+    "be inferred from the .jellys extension in from-jelly" in {
+      withEmptyFile(".jellys") { target =>
+        SparqlFromJelly.setStdIn(ByteArrayInputStream(writeJelly(selectJson)))
+        SparqlFromJelly.runTestCommand(List("sparql", "from-jelly", "--to", target))
+        val out = Files.readAllBytes(Path.of(target))
+        sameResultSets(readResultSets(out), Seq(selectJson)) shouldBe true
+      }
+    }
+
+    "be re-encoded by to-jelly with the given options" in {
+      val out = reEncode(writeJelly(selectJson), smallTables)
+      readFrames(out).head.getOptions.getMaxNameTableSize shouldBe 200
+      sameResultSets(readResultSets(out), Seq(selectJson)) shouldBe true
+    }
+
+    "keep the stream type and RDF version of the input in to-jelly" in {
+      val input = writePunctuated(punctuatedInputs)
+      val out = reEncode(input, smallTables)
+      val options = readFrames(out).head.getOptions
+      options.getStreamType shouldBe SparqlStreamType.PUNCTUATED
+      options.getRdfVersion shouldBe readFrames(input).head.getOptions.getRdfVersion
+      options.getMaxNameTableSize shouldBe 200
+      sameResultSets(readResultSets(out), punctuatedInputs) shouldBe true
+    }
+
+    "not write several result sets as a FLAT stream in to-jelly" in {
+      val e = intercept[ExitException] {
+        reEncode(writePunctuated(punctuatedInputs), List("--opt.stream-type=flat"))
+      }
+      e.getCause shouldBe a[CriticalException]
+      e.getCause.getMessage should include("more than one result set")
+    }
+
+    "not write a PUNCTUATED stream non-delimited in to-jelly" in {
+      val e = intercept[ExitException] {
+        reEncode(writePunctuated(punctuatedInputs), List("--delimited=false"))
+      }
+      e.getCause shouldBe a[InvalidArgument]
+    }
+
+    "write all result sets of each input file in to-jelly" in {
+      val out = withBytesFile(writePunctuated(punctuatedInputs), ".jellys") { jellys =>
+        withFile(selectJson, ".srj") { json =>
+          SparqlToJelly.runTestCommand(List("sparql", "to-jelly", jellys, json))
+          SparqlToJelly.getOutBytes
+        }
+      }
+      sameResultSets(readResultSets(out), punctuatedInputs :+ selectJson) shouldBe true
+    }
+  }
+
   "Jelly-SPARQL text format" should {
     "be written by from-jelly, one commented block per frame" in {
       val text = toText(toJelly(selectJson, ".srj"))
       text should startWith("# Frame 0\n")
       text should not include "# Frame 1"
-      for expected <- Seq("options {", "variables {", "name: \"label\"", "row_count: 3") do
+      for expected <- Seq("options {", "variables: \"label\"", "columns {", "row_count: 3") do
         text should include(expected)
       // Non-ASCII text is written without escaping
       text should include("cześć")

@@ -6,6 +6,7 @@ import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
 import eu.neverblink.jelly.cli.util.io.ProtoText
+import eu.neverblink.jelly.cli.util.jena.riot.JellyWriterUtil
 import eu.neverblink.jelly.cli.util.jena.{
   JenaSystemOptions,
   RdfSparqlConverter,
@@ -107,6 +108,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       format: RdfFormat.Writeable,
   ): Option[WriteAction] =
     (format, getOptions.combine) match
+      case (RdfFormat.JellyBinary, _) => Some(jellyToJelly)
       case (j: RdfFormat.Jena.StreamWriteable, _) =>
         Some((in, out, opt) =>
           jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang), j, opt),
@@ -121,6 +123,24 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
         Some((in, out, opt) => jellyToLang(in, StreamRdfBatchWriter(out, j.jenaLang), j, opt))
       case (RdfFormat.JellyText, _) => Some(jellyBinaryToText)
       case (RdfFormat.JellySparql, _) => Some(jellyToSparql)
+
+  /** Re-encodes the Jelly-RDF stream with the default options of rdf to-jelly. Each input frame is
+    * written as one or more output frames.
+    */
+  private def jellyToJelly(
+      inputStream: InputStream,
+      outputStream: OutputStream,
+      opt: RdfFromJellyOptions,
+  ): Unit =
+    val writer = JellyWriterUtil.createWriter(
+      RdfJellySerializationOptions.defaultFor(RdfFormat.JellyBinary),
+      RdfJellySerializationOptions.defaultRowsPerFrame,
+      enableNamespaceDeclarations = false,
+      delimited = true,
+      outputStream,
+    )
+    writer.start()
+    jellyToLang(inputStream, writer, RdfFormat.JellyBinary, opt)
 
   /** Converts the Jelly-RDF stream to a Jelly-SPARQL result set of ?s ?p ?o (?g), with the default
     * options. To set them, use sparql to-jelly --in-format jelly-rdf.

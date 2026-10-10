@@ -4,7 +4,7 @@ import com.google.protobuf.ByteString
 import eu.neverblink.jelly.cli.command.rdf.util.FrameInfo
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
-import eu.neverblink.jelly.core.proto.v1.RdfLookupEntryPacked
+import eu.neverblink.jelly.core.proto.v1.{RdfColumn, RdfLookupEntryPacked}
 import eu.neverblink.jelly.core.proto.v1.sparql.*
 import eu.neverblink.protoc.java.runtime.ProtoMessage
 
@@ -43,7 +43,8 @@ final class SparqlFrameInfo(
     var iri: Long = 0
     var bnode: Long = 0
     var literal: Long = 0
-    var poly: Long = 0
+    var tripleTerm: Long = 0
+    var layout: Long = 0
     var askResult: Long = 0
     var trailer: Long = 0
 
@@ -61,7 +62,8 @@ final class SparqlFrameInfo(
     this.stat.iri += other.stat.iri
     this.stat.bnode += other.stat.bnode
     this.stat.literal += other.stat.literal
-    this.stat.poly += other.stat.poly
+    this.stat.tripleTerm += other.stat.tripleTerm
+    this.stat.layout += other.stat.layout
     this.stat.askResult += other.stat.askResult
     this.stat.trailer += other.stat.trailer
     this
@@ -75,13 +77,9 @@ final class SparqlFrameInfo(
     if isCount then entries.iterator.map(_.getValues.size.toLong).sum
     else measureAll(entries)
 
-  /** Measures a list of columns: the number of values in them, or their size. */
-  private def measureColumns[C <: ProtoMessage[?]](
-      columns: Iterable[C],
-      valueCount: C => Long,
-  ): Long =
-    if isCount then columns.iterator.map(valueCount).sum
-    else measureAll(columns)
+  /** The number of values of one kind in a column, or the size of the fields holding them. */
+  private def measureValues(count: Int, size: => Long): Long =
+    if isCount then count else size
 
   /** @param resultSetStart
     *   whether this is the first frame of a result set
@@ -93,28 +91,33 @@ final class SparqlFrameInfo(
     stat.frame += statCollector.measure(frame)
     stat.row += frame.getRowCount
     Option(frame.getOptions).foreach(o => stat.option += statCollector.measure(o))
-    stat.variable += measureAll(frame.getVariables.asScala)
+    stat.variable += frame.getVariables.asScala.iterator.map(statCollector.measure).sum
     stat.name += measureLookup(frame.getNames.asScala)
     stat.prefix += measureLookup(frame.getPrefixes.asScala)
     stat.datatype += measureLookup(frame.getDatatypes.asScala)
-    stat.iri += measureColumns(frame.getIriColumns.asScala, iriValues)
-    stat.bnode += measureColumns(frame.getBnodeColumns.asScala, bnodeValues)
-    stat.literal += measureColumns(frame.getLiteralColumns.asScala, literalValues)
-    stat.poly += measureColumns(frame.getPolyColumns.asScala, polyValues)
+    frame.getColumns.asScala.foreach(processColumn)
     Option(frame.getAskResult).foreach(r => stat.askResult += statCollector.measure(r))
     Option(frame.getTrailer).foreach { t =>
       stat.trailer += statCollector.measure(t)
       if t.getError.nonEmpty then trailerError = Some(t.getError)
     }
 
-  private def iriValues(c: SparqlIriColumn): Long = c.getNameIds.size
-  private def bnodeValues(c: SparqlBnodeColumn): Long = c.getValues.size
-  private def literalValues(c: SparqlLiteralColumn): Long = c.getLexValues.size
-  private def polyValues(c: SparqlPolyColumn): Long =
-    Option(c.getIris).map(iriValues).getOrElse(0L) +
-      Option(c.getBnodes).map(bnodeValues).getOrElse(0L) +
-      Option(c.getLiterals).map(literalValues).getOrElse(0L) +
-      c.getTripleTerms.size
+  private def processColumn(c: RdfColumn): Unit =
+    stat.iri += measureValues(
+      c.getNameIds.size,
+      c.getNameIds.computeUInt32SizeNoTag + c.getPrefixIds.computeUInt32SizeNoTag,
+    )
+    stat.literal += measureValues(
+      c.getLexValues.size,
+      c.getLexValues.computeStringSizeNoTag + c.getLiteralKinds.computeUInt32SizeNoTag +
+        c.getLangtags.computeStringSizeNoTag + c.getLangtagDirections.computeUInt32SizeNoTag,
+    )
+    stat.bnode += measureValues(c.getBnodes.size, c.getBnodes.computeStringSizeNoTag)
+    stat.tripleTerm += measureValues(c.getTripleTerms.size, measureAll(c.getTripleTerms.asScala))
+    stat.layout += measureValues(
+      c.getLayouts.size,
+      c.getLayouts.computeUInt32SizeNoTag + c.getKinds.size,
+    )
 
   def format(): Seq[(String, YamlValue)] =
     val name = statCollector.name()
@@ -130,7 +133,8 @@ final class SparqlFrameInfo(
       "iri_value_" + name -> YamlLong(stat.iri),
       "bnode_value_" + name -> YamlLong(stat.bnode),
       "literal_value_" + name -> YamlLong(stat.literal),
-      "poly_value_" + name -> YamlLong(stat.poly),
+      "triple_term_value_" + name -> YamlLong(stat.tripleTerm),
+      "layout_" + name -> YamlLong(stat.layout),
       "ask_result_" + name -> YamlLong(stat.askResult),
       "trailer_" + name -> YamlLong(stat.trailer),
     ) ++ trailerError.map(e => "trailer_error" -> YamlString(e))
@@ -150,7 +154,7 @@ object SparqlMetricsPrinter:
       case Some(ask) =>
         Seq("ask_result" -> YamlBool(ask.getValue))
       case None =>
-        val vars = frame.getVariables.asScala.map(v => YamlListElem(YamlString(v.getName)))
+        val vars = frame.getVariables.asScala.map(v => YamlListElem(YamlString(v)))
         Seq("variables" -> YamlList(vars.toSeq))
 
   private def isPunctuated(firstFrame: SparqlResultsFrame): Boolean =

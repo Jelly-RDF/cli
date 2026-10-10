@@ -2,7 +2,7 @@ package eu.neverblink.jelly.cli.command.sparql
 
 import caseapp.*
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.util.RdfJellySerializationOptions
+import eu.neverblink.jelly.cli.command.rdf.util.{RdfFormat, RdfJellySerializationOptions}
 import eu.neverblink.jelly.cli.command.sparql.util.SparqlFormat
 import eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter
 
@@ -67,7 +67,7 @@ object SparqlFromJelly extends SparqlSerDesCommand[SparqlFromJellyOptions]:
     RdfSparqlConverter.sparqlToRdf(
       inputStream,
       outputStream,
-      RdfJellySerializationOptions().asRdfStreamOptions,
-      rowsPerFrame = 256,
+      RdfJellySerializationOptions.defaultFor(RdfFormat.JellySparql),
+      RdfJellySerializationOptions.defaultRowsPerFrame,
       delimited = true,
     )

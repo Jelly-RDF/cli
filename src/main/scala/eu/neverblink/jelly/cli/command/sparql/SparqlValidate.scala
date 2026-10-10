@@ -388,16 +388,9 @@ object SparqlValidate extends JellyCommand[SparqlValidateOptions]:
     if lang == SparqlFormat.JellySparql.jenaLang then
       SparqlResultSetReader(SparqlJellyUtil.iterateSparqlStream(inputStream))
     else
-      val result = RowSetReaderRegistry.getFactory(lang).create(lang)
-        .readAny(inputStream, RIOT.getContext.copy())
-      if result.isBoolean then Iterator(SparqlResultSet.Ask(result.booleanResult.booleanValue))
-      else
-        val rowSet = result.rowSet
-        val vars = rowSet.getResultVars.asScala.toIndexedSeq
-        Iterator(
-          SparqlResultSet.Select(
-            vars,
-            Iterator.continually(rowSet).takeWhile(_.hasNext).map(_.next())
-              .map(b => vars.map(b.get).toArray),
-          ),
-        )
+      Iterator(
+        SparqlResultSet(
+          RowSetReaderRegistry.getFactory(lang).create(lang)
+            .readAny(inputStream, RIOT.getContext.copy()),
+        ),
+      )

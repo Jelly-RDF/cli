@@ -46,6 +46,42 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
   protected val testCardinality: Int = 33
 
   "rdf to-jelly command" should {
+    "re-encode Jelly with the given options" when {
+      "the format is given explicitly" in withFullJellyFile { j =>
+        RdfToJelly.runTestCommand(
+          List(
+            "rdf",
+            "to-jelly",
+            j,
+            "--in-format",
+            "jelly",
+            "--opt.max-name-table-size=16",
+            "--opt.physical-type=QUADS",
+            "--rows-per-frame=5",
+          ),
+        )
+        val bytes = RdfToJelly.getOutBytes
+        val frames = readJellyFile(ByteArrayInputStream(bytes))
+        val options = frames.head.getRows.asScala.head.getOptions
+        options.getMaxNameTableSize should be(16)
+        options.getPhysicalType should be(PhysicalStreamType.QUADS)
+        // Inferred from the input format
+        options.getGeneralizedStatements should be(true)
+        frames.size should be > 1
+        translateJellyBack(ByteArrayInputStream(bytes))
+          .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
+      }
+
+      "the format is inferred from the input file name" in withFullJellyFile { j =>
+        RdfToJelly.runTestCommand(List("rdf", "to-jelly", j, "--opt.max-name-table-size=16"))
+        val bytes = RdfToJelly.getOutBytes
+        readJellyFile(ByteArrayInputStream(bytes)).head.getRows.asScala.head.getOptions
+          .getMaxNameTableSize should be(16)
+        translateJellyBack(ByteArrayInputStream(bytes))
+          .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
+      }
+    }
+
     "handle conversion of NQuads to Jelly" when {
       "a file to output stream" in withFullJenaFile { f =>
         val (out, err) =
@@ -807,18 +843,6 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val cause = e.cause.get.asInstanceOf[InvalidFormatSpecified]
         cause.validFormats should be(RdfToJellyPrint.validFormatsString)
         cause.format should be("invalid")
-      }
-
-      "invalid format out of existing is specified" in withFullJenaFile { f =>
-        val e =
-          intercept[ExitException] {
-            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--in-format", "jelly"))
-          }
-        e.code should be(1)
-        e.cause.get shouldBe a[InvalidFormatSpecified]
-        val cause = e.cause.get.asInstanceOf[InvalidFormatSpecified]
-        cause.validFormats should be(RdfToJellyPrint.validFormatsString)
-        cause.format should be("jelly")
       }
 
       "invalid logical stream type is specified" in withFullJenaFile { f =>

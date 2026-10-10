@@ -3,20 +3,28 @@ package eu.neverblink.jelly.cli.command.rdf
 import com.google.protobuf.InvalidProtocolBufferException
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
-import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
-import eu.neverblink.jelly.convert.jena.riot.JellyFormat
+import eu.neverblink.jelly.cli.command.rdf.util.{RdfFormat, RdfJellySerializationOptions}
+import eu.neverblink.jelly.convert.jena.riot.{JellyFormat, JellyLanguage}
 import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
 import org.apache.jena.query.DatasetFactory
 import org.apache.jena.rdf.model.ModelFactory
-import org.apache.jena.riot.{RDFDataMgr, RDFWriter}
+import org.apache.jena.riot.system.StreamRDFLib
+import org.apache.jena.riot.{RDFDataMgr, RDFParser, RDFWriter}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileOutputStream}
+import java.io.{
+  ByteArrayInputStream,
+  ByteArrayOutputStream,
+  File,
+  FileInputStream,
+  FileOutputStream,
+}
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Paths}
 import scala.io.Source
+import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
 class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
@@ -38,6 +46,48 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
   }
 
   "rdf from-jelly command" should {
+    "re-encode Jelly with the default options of rdf to-jelly" when {
+      "the format is given explicitly" in withFullJellyFile(
+        j => {
+          RdfFromJelly.runTestCommand(List("rdf", "from-jelly", j, "--out-format", "jelly"))
+          val bytes = RdfFromJelly.getOutBytes
+          val frames = RdfToJellySpec.readJellyFile(ByteArrayInputStream(bytes))
+          val options = frames.head.getRows.asScala.head.getOptions
+          val expected = RdfJellySerializationOptions.defaultFor(RdfFormat.JellyBinary)
+          options.getMaxNameTableSize should be(expected.getMaxNameTableSize)
+          options.getGeneralizedStatements should be(true)
+          options.getRdfStar should be(true)
+          options.getPhysicalType should be(PhysicalStreamType.TRIPLES)
+          // The input has frames of 10 rows, which are kept as they are
+          frames.size should be > 1
+          RdfToJellySpec.translateJellyBack(ByteArrayInputStream(bytes))
+            .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
+        },
+        frameSize = 10,
+      )
+
+      "the format is inferred from the output file name" in withFullJellyFile { j =>
+        withEmptyJellyFile { q =>
+          RdfFromJelly.runTestCommand(List("rdf", "from-jelly", j, "--to", q))
+          RdfToJellySpec.translateJellyBack(FileInputStream(q))
+            .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
+        }
+      }
+
+      "only some frames are taken" in {
+        RdfFromJelly.setStdIn(ByteArrayInputStream(input10Frames))
+        RdfFromJelly.runTestCommand(
+          List("rdf", "from-jelly", "--out-format", "jelly", "--take-frames", "3..5"),
+        )
+        val counter = StreamRDFLib.count()
+        RDFParser.source(ByteArrayInputStream(RdfFromJelly.getOutBytes))
+          .lang(JellyLanguage.JELLY)
+          .parse(counter)
+        // Frames 3 and 4, both the same as the others
+        counter.countTriples() should be(2 * testCardinality)
+      }
+    }
+
     "handle conversion of Jelly to NTriples" when {
       "a file to output stream" in withFullJellyFile { j =>
         val nQuadString = DataGenHelper.generateJenaString(testCardinality)
@@ -363,31 +413,6 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
               )
             }
           val msg = InvalidFormatSpecified("invalid", RdfFromJellyPrint.validFormatsString)
-          RdfFromJelly.getErrString should include(msg.getMessage)
-          exception.code should be(1)
-        }
-      }
-
-      "invalid but known output format supplied" in withFullJellyFile { j =>
-        withEmptyJellyFile { q =>
-          val exception =
-            intercept[ExitException] {
-              RdfFromJelly.runTestCommand(
-                List(
-                  "rdf",
-                  "from-jelly",
-                  j,
-                  "--to",
-                  q,
-                  "--out-format",
-                  RdfFormat.JellyBinary.cliOptions.head,
-                ),
-              )
-            }
-          val msg = InvalidFormatSpecified(
-            RdfFormat.JellyBinary.cliOptions.head,
-            RdfFromJellyPrint.validFormatsString,
-          )
           RdfFromJelly.getErrString should include(msg.getMessage)
           exception.code should be(1)
         }
