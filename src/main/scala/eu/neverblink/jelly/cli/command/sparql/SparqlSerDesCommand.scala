@@ -2,10 +2,23 @@ package eu.neverblink.jelly.cli.command.sparql
 
 import caseapp.*
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.sparql.util.{SparqlFormat, SparqlJellyUtil}
+import eu.neverblink.jelly.cli.command.sparql.util.{
+  SparqlFormat,
+  SparqlJellyUtil,
+  SparqlResultSetReader,
+}
 import eu.neverblink.jelly.cli.util.io.ProtoText
-import eu.neverblink.jelly.convert.jena.sparql.{JenaSparqlConverterFactory, RowSetReaderJelly}
-import eu.neverblink.jelly.core.proto.v1.sparql.SparqlResultsFrame
+import eu.neverblink.jelly.convert.jena.sparql.{
+  JellySparqlLanguage,
+  JenaSparqlConverterFactory,
+  RowSetReaderJelly,
+  RowSetWriterJelly,
+}
+import eu.neverblink.jelly.core.proto.v1.sparql.{
+  SparqlResultsFrame,
+  SparqlResultsOptions,
+  SparqlStreamType,
+}
 import org.apache.jena.riot.RIOT
 import org.apache.jena.riot.rowset.{RowSetReaderRegistry, RowSetWriterRegistry}
 import org.apache.jena.sparql.exec.QueryExecResult
@@ -50,8 +63,14 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
     */
   protected def jenaContext: Context = RIOT.getContext.copy()
 
-  /** Whether the Jelly-SPARQL text format should be converted to delimited Jelly-SPARQL. */
+  /** Whether the Jelly-SPARQL output should be delimited. */
   protected def delimitedOutput: Boolean = true
+
+  /** Stream options of the Jelly-SPARQL output, made from the options of the Jelly-SPARQL input.
+    * Commands that let the user set the options override this.
+    */
+  protected def jellySparqlOutputOptions(inputOptions: SparqlResultsOptions): SparqlResultsOptions =
+    SparqlJellyUtil.defaultOptions(inputOptions)
 
   /** Converts Jelly-RDF to Jelly-SPARQL. Commands that read Jelly-RDF override this. */
   protected def jellyRdfToSparql(inputStream: InputStream, outputStream: OutputStream): Unit =
@@ -82,6 +101,8 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
           jellyRdfToSparql(inputStream, outputStream)
         case (SparqlFormat.JellySparql, SparqlFormat.JellyRdf) =>
           jellySparqlToRdf(inputStream, outputStream)
+        case (SparqlFormat.JellySparql, SparqlFormat.JellySparql) =>
+          jellySparqlToSparql(inputStream, outputStream)
         case (f: SparqlFormat.Jena, t: SparqlFormat.Jena) =>
           jenaConvert(f, t, inputStream, outputStream)
         case _ =>
@@ -96,26 +117,79 @@ abstract class SparqlSerDesCommand[T <: HasJellyCommandOptions: {Parser, Help}]
       outputStream: OutputStream,
   ): Unit =
     val context = jenaContext
-    val writer = RowSetWriterRegistry.getFactory(to.jenaLang).create(to.jenaLang)
-    def write(result: QueryExecResult): Unit =
-      if result.isBoolean then
-        writer.write(outputStream, result.booleanResult.booleanValue, context)
-      else writer.write(outputStream, result.rowSet, context)
-    from match
-      case SparqlFormat.JellySparql =>
-        // A PUNCTUATED stream has many result sets, which are written one after another
-        RowSetReaderJelly(RowSetReaderJelly.Options(), JenaSparqlConverterFactory.getInstance())
-          .readAll(inputStream, context, write)
-      case _ => write(readResult(from, inputStream, context))
+    // The result sets of a PUNCTUATED stream are written one after another
+    readResults(from, inputStream, context)(write(to, outputStream, context, _))
 
-  /** Reads a result set in a format other than Jelly-SPARQL. */
-  protected final def readResult(
+  /** Reads the result sets of the input, in order. A Jelly-SPARQL stream may have many of them,
+    * other formats have one.
+    */
+  protected final def readResults(
       from: SparqlFormat.Jena,
       inputStream: InputStream,
       context: Context,
-  ): QueryExecResult =
-    RowSetReaderRegistry.getFactory(from.jenaLang).create(from.jenaLang)
-      .readAny(inputStream, context)
+  )(consumer: QueryExecResult => Unit): Unit =
+    from match
+      case SparqlFormat.JellySparql =>
+        RowSetReaderJelly(RowSetReaderJelly.Options(), JenaSparqlConverterFactory.getInstance())
+          .readAll(inputStream, context, consumer(_))
+      case _ =>
+        consumer(
+          RowSetReaderRegistry.getFactory(from.jenaLang).create(from.jenaLang)
+            .readAny(inputStream, context),
+        )
+
+  /** Writes one result set, as a whole stream in the given format. */
+  private def write(
+      to: SparqlFormat.Jena,
+      outputStream: OutputStream,
+      context: Context,
+      result: QueryExecResult,
+  ): Unit =
+    val writer = RowSetWriterRegistry.getFactory(to.jenaLang).create(to.jenaLang)
+    if result.isBoolean then writer.write(outputStream, result.booleanResult.booleanValue, context)
+    else writer.write(outputStream, result.rowSet, context)
+
+  /** Starts a PUNCTUATED Jelly-SPARQL stream, with the options in the context. */
+  protected final def resultSetsWriter(
+      outputStream: OutputStream,
+      context: Context,
+  ): RowSetWriterJelly.ResultSetsWriter =
+    RowSetWriterJelly(RowSetWriterJelly.Options(), JenaSparqlConverterFactory.getInstance())
+      .resultSetsWriter(outputStream, context)
+
+  /** Writes the result set as the next one of a PUNCTUATED stream. */
+  protected final def writeNext(
+      writer: RowSetWriterJelly.ResultSetsWriter,
+      result: QueryExecResult,
+  ): Unit =
+    if result.isBoolean then writer.write(result.booleanResult.booleanValue)
+    else writer.write(result.rowSet)
+
+  /** Re-encodes a Jelly-SPARQL stream, with the options from [[jellySparqlOutputOptions]].
+    *
+    * All result sets of a PUNCTUATED output go into one stream. A FLAT output can only have one.
+    */
+  private def jellySparqlToSparql(inputStream: InputStream, outputStream: OutputStream): Unit =
+    val resultSets = SparqlResultSetReader(SparqlJellyUtil.iterateSparqlStream(inputStream))
+    if !resultSets.hasNext then throw CriticalException("Empty input stream")
+    val options = jellySparqlOutputOptions(resultSets.options)
+    val context = jenaContext.set(JellySparqlLanguage.SYMBOL_STREAM_OPTIONS, options)
+    if options.getStreamType == SparqlStreamType.PUNCTUATED then
+      if !delimitedOutput then
+        throw InvalidArgument(
+          "--delimited",
+          "false",
+          Some("PUNCTUATED streams are always written delimited"),
+        )
+      val writer = resultSetsWriter(outputStream, context)
+      resultSets.foreach(r => writeNext(writer, r.toQueryExecResult))
+    else
+      write(SparqlFormat.JellySparql, outputStream, context, resultSets.next().toQueryExecResult)
+      if resultSets.hasNext then
+        throw CriticalException(
+          "The input has more than one result set, so it can only be written as a PUNCTUATED " +
+            "stream.",
+        )
 
   private val frameCommentPrefix = "# Frame"
 

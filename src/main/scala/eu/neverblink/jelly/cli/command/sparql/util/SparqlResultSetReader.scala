@@ -10,6 +10,8 @@ import eu.neverblink.jelly.core.proto.v1.sparql.{
 import eu.neverblink.jelly.core.sparql.{JellySparqlOptions, SparqlResultsHandler}
 import org.apache.jena.graph.Node
 import org.apache.jena.sparql.core.Var
+import org.apache.jena.sparql.engine.binding.BindingFactory
+import org.apache.jena.sparql.exec.{QueryExecResult, RowSetStream}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -19,6 +21,30 @@ import scala.jdk.CollectionConverters.*
 enum SparqlResultSet:
   case Select(variables: IndexedSeq[Var], rows: Iterator[Array[Node]])
   case Ask(value: Boolean)
+
+  /** The result set as Jena's result. The rows are read as Jena asks for them. */
+  def toQueryExecResult: QueryExecResult = this match
+    case Ask(value) => QueryExecResult(value)
+    case Select(variables, rows) =>
+      val bindings = rows.map { row =>
+        val builder = BindingFactory.builder()
+        for i <- variables.indices if row(i) != null do builder.add(variables(i), row(i))
+        builder.build()
+      }
+      QueryExecResult(RowSetStream.create(variables.asJava, bindings.asJava))
+
+object SparqlResultSet:
+  /** Jena's result as a result set. The rows are read as they are asked for. */
+  def apply(result: QueryExecResult): SparqlResultSet =
+    if result.isBoolean then Ask(result.booleanResult.booleanValue)
+    else
+      val rowSet = result.rowSet
+      val variables = rowSet.getResultVars.asScala.toIndexedSeq
+      Select(
+        variables,
+        Iterator.continually(rowSet).takeWhile(_.hasNext).map(_.next())
+          .map(b => variables.map(b.get).toArray),
+      )
 
 /** Reads the result sets of a Jelly-SPARQL stream one by one.
   *
@@ -57,9 +83,14 @@ final class SparqlResultSetReader(
   // Rows of the current result set, which must be skipped before the next one starts
   private var rows: Iterator[Array[Node]] = Iterator.empty
 
+  /** Stream options of the input, or null before the first frame. Known once [[hasNext]] was
+    * called.
+    */
+  def options: SparqlResultsOptions = decoder.getSparqlOptions
+
   /** Whether the stream is PUNCTUATED. Known once [[hasNext]] was called. */
   def isPunctuated: Boolean =
-    Option(decoder.getSparqlOptions).exists(_.getStreamType == SparqlStreamType.PUNCTUATED)
+    Option(options).exists(_.getStreamType == SparqlStreamType.PUNCTUATED)
 
   /** Reads frames until the decoder reports something, or the stream ends. */
   private def peek: Option[Event] =

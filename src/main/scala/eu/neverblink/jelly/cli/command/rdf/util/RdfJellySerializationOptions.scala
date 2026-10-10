@@ -13,6 +13,15 @@ private val `default.opt.maxPrefixTableSize`: Int = JellyOptions.BIG_STRICT.getM
 private val `default.opt.maxDatatypeTableSize`: Int =
   JellyOptions.BIG_STRICT.getMaxDatatypeTableSize
 
+object RdfJellySerializationOptions:
+  val defaultRowsPerFrame: Int = 256
+
+  /** The stream options rdf to-jelly would use for input in this format, with no options set. */
+  def defaultFor(inputFormat: RdfFormat): RdfStreamOptions =
+    val options = RdfJellySerializationOptions()
+    options.inferGeneralized(Some(inputFormat.cliOptions.head), None)
+    options.asRdfStreamOptions
+
 /** Options for serializing in Jelly-RDF */
 case class RdfJellySerializationOptions(
     @HelpMessage("Name of the output stream (in metadata). Default: (empty)")

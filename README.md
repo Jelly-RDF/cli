@@ -78,6 +78,12 @@ The `rdf transcode` command turns one or more input Jelly streams into a single 
 jelly-cli rdf transcode input.jelly > output.jelly
 ```
 
+If you need other options than that, use `rdf to-jelly` with Jelly input instead. It fully decodes and re-encodes the stream, so it's slower, but you can set any `--opt.*` options. The same works for Jelly-SPARQL with `sparql to-jelly --in-format jelly-sparql`.
+
+```shell
+jelly-cli rdf to-jelly input.jelly --opt.max-name-table-size=256 > output.jelly
+```
+
 ### Inspect Jelly files
 
 To inspect a Jelly file and get basic information describing its contents, such as stream options or number of triples in the file, run:

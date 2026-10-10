@@ -5,11 +5,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.sparql.util.*
 import eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter
 import eu.neverblink.jelly.cli.util.io.IoUtil
-import eu.neverblink.jelly.convert.jena.sparql.{
-  JellySparqlLanguage,
-  JenaSparqlConverterFactory,
-  RowSetWriterJelly,
-}
+import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
 import eu.neverblink.jelly.core.RdfProtoDeserializationError
 import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsOptions, SparqlStreamType}
 import eu.neverblink.jelly.core.sparql.{JellySparqlConstants, JellySparqlOptions}
@@ -130,28 +126,29 @@ object SparqlToJelly extends SparqlSerDesCommand[SparqlToJellyOptions]:
       getIoStreamsFromOptions(inputFiles.headOption, options.outputFile)
     inputFormats.head match
       case format: SparqlFormat.Jena if punctuated =>
-        val writer = resultSetsWriter(outputStream)
-        writeResultSet(writer, format, inputStream)
+        val context = jenaContext
+        val writer = resultSetsWriter(outputStream, context)
+        def writeAll(format: SparqlFormat.Jena, inputStream: InputStream): Unit =
+          SparqlJellyUtil.translateErrors {
+            readResults(format, inputStream, context)(writeNext(writer, _))
+          }
+        writeAll(format, inputStream)
         // The formats of the other files were checked above
         for case (file, format: SparqlFormat.Jena) <- inputFiles.zip(inputFormats).drop(1) do
-          Using.resource(IoUtil.inputStream(file))(writeResultSet(writer, format, _))
+          Using.resource(IoUtil.inputStream(file))(writeAll(format, _))
         outputStream.flush()
       case format => convert(format, SparqlFormat.JellySparql, inputStream, outputStream)
 
-  private def resultSetsWriter(outputStream: OutputStream): RowSetWriterJelly.ResultSetsWriter =
-    RowSetWriterJelly(RowSetWriterJelly.Options(), JenaSparqlConverterFactory.getInstance())
-      .resultSetsWriter(outputStream, jenaContext)
+  /** The options set by the user, on top of `options-from` or the given default. */
+  private def outputOptions(default: SparqlResultsOptions): SparqlResultsOptions =
+    getOptions.jellySerializationOptions.toSparqlResultsOptions(
+      Some(baseOptions.getOrElse(default)),
+    )
 
-  private def writeResultSet(
-      writer: RowSetWriterJelly.ResultSetsWriter,
-      format: SparqlFormat.Jena,
-      inputStream: InputStream,
-  ): Unit =
-    SparqlJellyUtil.translateErrors {
-      val result = readResult(format, inputStream, jenaContext)
-      if result.isBoolean then writer.write(result.booleanResult.booleanValue)
-      else writer.write(result.rowSet)
-    }
+  override protected def jellySparqlOutputOptions(
+      inputOptions: SparqlResultsOptions,
+  ): SparqlResultsOptions =
+    outputOptions(SparqlJellyUtil.defaultOptions(inputOptions))
 
   override protected def jellyRdfToSparql(
       inputStream: InputStream,
@@ -160,10 +157,7 @@ object SparqlToJelly extends SparqlSerDesCommand[SparqlToJellyOptions]:
     RdfSparqlConverter.rdfToSparql(
       inputStream,
       outputStream,
-      inputOptions =>
-        getOptions.jellySerializationOptions.toSparqlResultsOptions(
-          Some(baseOptions.getOrElse(RdfSparqlConverter.defaultSparqlOptions(inputOptions))),
-        ),
+      inputOptions => outputOptions(RdfSparqlConverter.defaultSparqlOptions(inputOptions)),
       getOptions.valuesPerFrame,
       getOptions.delimited,
     )

@@ -53,10 +53,10 @@ object SparqlFormat:
     override val cliOptions: List[String] = List("text")
     override val jenaLang: Lang = ResultSetLang.RS_Text
 
-  /** We never convert Jelly to Jelly, so this is neither Readable nor Writeable – it is only here
-    * so that the other side of the conversion has a name.
+  /** Converting Jelly-SPARQL to Jelly-SPARQL re-encodes the stream with new options. This does not
+    * go through Jena, see [[eu.neverblink.jelly.cli.command.sparql.SparqlSerDesCommand]].
     */
-  case object JellySparql extends SparqlFormat.Jena:
+  case object JellySparql extends SparqlFormat.Jena, SparqlFormat.Readable, SparqlFormat.Writeable:
     override val fullName: String = "Jelly-SPARQL"
     override val cliOptions: List[String] = List("jelly-sparql")
     override val jenaLang: Lang = JellySparqlLanguage.JELLY_SPARQL

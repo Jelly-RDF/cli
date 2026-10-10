@@ -5,7 +5,7 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.util.io.IoUtil
 import eu.neverblink.jelly.core.{RdfProtoDeserializationError, RdfProtoSerializationError}
 import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsFrame, SparqlResultsOptions}
-import eu.neverblink.jelly.core.sparql.JellySparqlIoUtils
+import eu.neverblink.jelly.core.sparql.{JellySparqlIoUtils, JellySparqlOptions}
 import org.apache.jena.riot.RiotException
 
 import java.io.InputStream
@@ -36,6 +36,15 @@ object SparqlJellyUtil:
       val frame = SparqlResultsFrame.parseFrom(input)
       // An empty input parses as an empty frame, but it's really an empty stream
       (false, if frame.getSerializedSize == 0 then Iterator.empty else Iterator(frame))
+
+  /** Default options of a Jelly-SPARQL output, for the given Jelly-SPARQL input options.
+    *
+    * This is the BIG preset, with the stream type and RDF version of the input.
+    */
+  def defaultOptions(inputOptions: SparqlResultsOptions): SparqlResultsOptions =
+    JellySparqlOptions.BIG.clone()
+      .setStreamType(inputOptions.getStreamType)
+      .setRdfVersion(inputOptions.getRdfVersion)
 
   /** Reads the stream options from the first frame of a Jelly-SPARQL file.
     *

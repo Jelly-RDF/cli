@@ -52,9 +52,10 @@ case class RdfToJellyOptions(
     )
     optionsFrom: Option[String] = None,
     @HelpMessage(
-      "Target number of rows per frame – the writer may slightly exceed that. Default: 256",
+      "Target number of rows per frame – the writer may slightly exceed that. Default: " +
+        RdfJellySerializationOptions.defaultRowsPerFrame,
     )
-    rowsPerFrame: Int = 256,
+    rowsPerFrame: Int = RdfJellySerializationOptions.defaultRowsPerFrame,
     @HelpMessage(
       "Whether to preserve explicit namespace declarations in the output (PREFIX: in Turtle). " +
         "Default: false",
