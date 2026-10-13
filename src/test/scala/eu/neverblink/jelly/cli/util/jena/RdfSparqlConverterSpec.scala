@@ -44,13 +44,25 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
   /** The options the CLI uses when no --opt.* option is given. */
   private def defaultRdfOptions = RdfJellySerializationOptions().asRdfStreamOptions.clone()
 
+  /** The options the CLI uses with only --opt.jelly-version=1.1. */
+  private def rowLayoutRdfOptions =
+    RdfJellySerializationOptions(`opt.jellyVersion` = Some("1.1")).asRdfStreamOptions.clone()
+
   private def toRdf(
       jelly: Array[Byte],
       options: RdfStreamOptions = defaultRdfOptions,
       delimited: Boolean = true,
+      streamTypeSet: Boolean = false,
   ): Array[Byte] =
     val out = ByteArrayOutputStream()
-    RdfSparqlConverter.sparqlToRdf(ByteArrayInputStream(jelly), out, options, 256, delimited)
+    RdfSparqlConverter.sparqlToRdf(
+      ByteArrayInputStream(jelly),
+      out,
+      options,
+      streamTypeSet,
+      256,
+      delimited,
+    )
     out.toByteArray
 
   /** Reads each frame of a Jelly-RDF stream into its own set of quads. */
@@ -65,7 +77,7 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
       .anyStatementDecoder(handler, JellyOptions.DEFAULT_SUPPORTED_OPTIONS)
     JellyUtil.iterateRdfStream(ByteArrayInputStream(jelly)).map { frame =>
       current = Set()
-      frame.getRows.forEach(decoder.ingestRow)
+      decoder.ingestFrame(frame)
       current
     }.toSeq
 
@@ -128,16 +140,28 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
       rows.flatMap(_.get("g")).toSet shouldBe Set(iri("g1"), iri("g2"))
     }
 
-    "announce the RDF version based on the input options by default" in {
+    "announce the RDF version of a Jelly-RDF 1.2 input by default" in {
+      for version <- Seq(
+          RdfVersion.RDF_VERSION_UNSPECIFIED,
+          RdfVersion.RDF_VERSION_1_1,
+          RdfVersion.RDF_VERSION_1_2,
+        )
+      do
+        val jelly = toSparql(writeRdf(PhysicalStreamType.TRIPLES, triples, rdfVersion = version))
+        val options = readFrames(jelly).head.getOptions
+        options.getRdfVersion shouldBe version
+        options.getMaxNameTableSize shouldBe JellySparqlOptions.BIG.getMaxNameTableSize
+    }
+
+    "announce the RDF version based on the triple terms flag of a Jelly-RDF 1.1 input" in {
       for (tripleTerms, version) <- Seq(
           false -> RdfVersion.RDF_VERSION_1_1,
           true -> RdfVersion.RDF_VERSION_1_2,
         )
       do
-        val jelly = toSparql(writeRdf(PhysicalStreamType.TRIPLES, triples, rdfStar = tripleTerms))
-        val options = readFrames(jelly).head.getOptions
-        options.getRdfVersion shouldBe version
-        options.getMaxNameTableSize shouldBe JellySparqlOptions.BIG.getMaxNameTableSize
+        val rdf =
+          writeRdf(PhysicalStreamType.TRIPLES, triples, rdfStar = tripleTerms, rowLayout = true)
+        readFrames(toSparql(rdf)).head.getOptions.getRdfVersion shouldBe version
     }
 
     "use the output options it is given" in {
@@ -204,7 +228,7 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
     "keep the physical type it is given" in {
       val quadsSparql = toSparql(writeRdf(PhysicalStreamType.QUADS, quads = quads))
       val graphs =
-        toRdf(quadsSparql, defaultRdfOptions.setPhysicalType(PhysicalStreamType.GRAPHS))
+        toRdf(quadsSparql, rowLayoutRdfOptions.setPhysicalType(PhysicalStreamType.GRAPHS))
       rdfStreamOptions(graphs).getPhysicalType shouldBe PhysicalStreamType.GRAPHS
       readRdf(graphs) shouldBe quads.toSet
       // 3 variables in a QUADS stream end up in the default graph
@@ -248,8 +272,11 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
         Seq(Map("s" -> litJson("lit"), "p" -> iriJson("p"), "o" -> litJson("v"))),
       )
       val e = intercept[CriticalException](toRdf(sparql))
-      e.getMessage should include("--opt.generalized-statements=true")
-      val jelly = toRdf(sparql, defaultRdfOptions.setGeneralizedStatements(true))
+      e.getMessage should include("Jelly-RDF 1.2 cannot store generalized statements")
+      e.getMessage should include("--opt.jelly-version=1.1 --opt.generalized-statements=true")
+      val e2 = intercept[CriticalException](toRdf(sparql, rowLayoutRdfOptions))
+      e2.getMessage should include("Use --opt.generalized-statements=true")
+      val jelly = toRdf(sparql, rowLayoutRdfOptions.setGeneralizedStatements(true))
       rdfStreamOptions(jelly).getGeneralizedStatements shouldBe true
     }
 
@@ -269,8 +296,12 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
       val sparql = toSparql(
         writeRdf(PhysicalStreamType.TRIPLES, Seq(Triple.create(iri("a"), iri("says"), tripleTerm))),
       )
-      val e = intercept[CriticalException](toRdf(sparql, defaultRdfOptions.setRdfStar(false)))
-      e.getMessage should include("--opt.triple-terms=true")
+      val e = intercept[CriticalException](
+        toRdf(sparql, defaultRdfOptions.setRdfVersion(RdfVersion.RDF_VERSION_1_2_BASIC)),
+      )
+      e.getMessage should include("--opt.rdf-version=1.2")
+      val e2 = intercept[CriticalException](toRdf(sparql, rowLayoutRdfOptions.setRdfStar(false)))
+      e2.getMessage should include("--opt.triple-terms=true")
     }
 
     "reject a malformed input" in {
@@ -290,34 +321,67 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
     val abQuads = Set(quad("a", "1"), quad("b", "2"))
     val cdQuads = Set(quad("c", "3", Some("g")), quad("d", "4"))
 
-    "write one frame per result set, as a GRAPHS stream for 3 variables" in {
+    "write one RDF Message per result set" in {
       val jelly = toRdf(writePunctuated(Seq(ab, empty, ab), valuesPerFrame = 1))
+      val options = rdfStreamOptions(jelly)
+      options.getPhysicalType shouldBe PhysicalStreamType.TRIPLES
+      options.getStreamType shouldBe RdfStreamType.MESSAGES
+      readRdfMessages(jelly) shouldBe Seq(abQuads, Set(), abQuads)
+    }
+
+    "write an empty first result set as an empty message" in {
+      readRdfMessages(toRdf(writePunctuated(Seq(empty, ab)))) shouldBe Seq(Set(), abQuads)
+    }
+
+    "write a QUADS stream when the first result set has 4 variables" in {
+      val jelly = toRdf(writePunctuated(Seq(cd, ab)))
+      val options = rdfStreamOptions(jelly)
+      options.getPhysicalType shouldBe PhysicalStreamType.QUADS
+      options.getStreamType shouldBe RdfStreamType.MESSAGES
+      readRdfMessages(jelly) shouldBe Seq(cdQuads, abQuads)
+    }
+
+    "write all result sets as one dataset, if the FLAT stream type is set" in {
+      val jelly = toRdf(writePunctuated(Seq(cd, ab)), streamTypeSet = true)
+      rdfStreamOptions(jelly).getStreamType shouldBe RdfStreamType.FLAT
+      readRdf(jelly) shouldBe cdQuads ++ abQuads
+    }
+
+    "write all result sets in one frame, if the output is not delimited" in {
+      val jelly = toRdf(writePunctuated(Seq(ab, empty, ab)), delimited = false)
+      RdfStreamFrame.parseFrom(jelly).getColumns.getRowCount shouldBe 4
+      readRdfMessages(jelly) shouldBe Seq(abQuads, Set(), abQuads)
+    }
+
+    "in Jelly-RDF 1.1, write one frame per result set, as a GRAPHS stream for 3 variables" in {
+      val jelly =
+        toRdf(writePunctuated(Seq(ab, empty, ab), valuesPerFrame = 1), rowLayoutRdfOptions)
       val options = rdfStreamOptions(jelly)
       options.getPhysicalType shouldBe PhysicalStreamType.TRIPLES
       options.getLogicalType shouldBe LogicalStreamType.GRAPHS
       readRdfFrames(jelly) shouldBe Seq(abQuads, Set(), abQuads)
     }
 
-    "write an empty first result set as a frame with only the stream options" in {
-      val jelly = toRdf(writePunctuated(Seq(empty, ab)))
+    "in Jelly-RDF 1.1, write an empty first result set as a frame with only the stream options" in {
+      val jelly = toRdf(writePunctuated(Seq(empty, ab)), rowLayoutRdfOptions)
       val first = rdfFrames(jelly).head.getRows.asScala.toSeq
       first.size shouldBe 1
       first.head.hasOptions shouldBe true
       readRdfFrames(jelly) shouldBe Seq(Set(), abQuads)
     }
 
-    "write a DATASETS stream when the first result set has 4 variables" in {
-      val jelly = toRdf(writePunctuated(Seq(cd, ab)))
+    "in Jelly-RDF 1.1, write a DATASETS stream when the first result set has 4 variables" in {
+      val jelly = toRdf(writePunctuated(Seq(cd, ab)), rowLayoutRdfOptions)
       val options = rdfStreamOptions(jelly)
       options.getPhysicalType shouldBe PhysicalStreamType.QUADS
       options.getLogicalType shouldBe LogicalStreamType.DATASETS
       readRdfFrames(jelly) shouldBe Seq(cdQuads, abQuads)
     }
 
-    "end the graphs with each frame of a GRAPHS physical stream" in {
+    "in Jelly-RDF 1.1, end the graphs with each frame of a GRAPHS physical stream" in {
       val jelly = toRdf(
         writePunctuated(Seq(cd, ab, cd)),
-        defaultRdfOptions.setPhysicalType(PhysicalStreamType.GRAPHS),
+        rowLayoutRdfOptions.setPhysicalType(PhysicalStreamType.GRAPHS),
       )
       val options = rdfStreamOptions(jelly)
       options.getPhysicalType shouldBe PhysicalStreamType.GRAPHS
@@ -326,10 +390,10 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
       readRdfFrames(jelly) shouldBe Seq(cdQuads, abQuads, cdQuads)
     }
 
-    "keep the logical type it is given" in {
+    "in Jelly-RDF 1.1, keep the logical type it is given" in {
       val jelly = toRdf(
         writePunctuated(Seq(ab, ab)),
-        defaultRdfOptions.setLogicalType(LogicalStreamType.SUBJECT_GRAPHS),
+        rowLayoutRdfOptions.setLogicalType(LogicalStreamType.SUBJECT_GRAPHS),
       )
       rdfStreamOptions(jelly).getLogicalType shouldBe LogicalStreamType.SUBJECT_GRAPHS
     }
@@ -351,9 +415,11 @@ class RdfSparqlConverterSpec extends AnyWordSpec with TestFixtureHelper with Mat
       e.getMessage should include("Solution 0 of result set 1 has no value for ?p")
     }
 
-    "refuse to write several frames as non-delimited output" in {
-      toRdf(writePunctuated(Seq(ab)), delimited = false)
-      val e = intercept[CriticalException](toRdf(writePunctuated(Seq(ab, ab)), delimited = false))
+    "in Jelly-RDF 1.1, refuse to write several frames as non-delimited output" in {
+      toRdf(writePunctuated(Seq(ab)), rowLayoutRdfOptions, delimited = false)
+      val e = intercept[CriticalException](
+        toRdf(writePunctuated(Seq(ab, ab)), rowLayoutRdfOptions, delimited = false),
+      )
       e.getMessage should include("more than one frame")
     }
 

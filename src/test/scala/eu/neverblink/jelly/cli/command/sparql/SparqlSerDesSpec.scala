@@ -521,10 +521,9 @@ class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       sameResultSets(readResultSets(back), Seq(selectJson, askJson(false), second)) shouldBe true
     }
 
-    "be written by from-jelly as Jelly-RDF, one frame per result set" in {
+    "be written by from-jelly as Jelly-RDF, one RDF Message per result set" in {
       import eu.neverblink.jelly.cli.command.helpers.RdfSparqlTestData.*
-      import eu.neverblink.jelly.cli.command.rdf.util.JellyUtil
-      import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType}
+      import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamType}
       val resultSets = Seq(
         sparqlJson(Seq("s", "p", "o", "g"), Seq(statementRow("a", "p", "v", Some("g")))),
         sparqlJson(Seq("s", "p", "o"), Seq(statementRow("b", "p", "w"))),
@@ -534,11 +533,10 @@ class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       val rdf = SparqlFromJelly.getOutBytes
       val options = rdfStreamOptions(rdf)
       options.getPhysicalType shouldBe PhysicalStreamType.QUADS
-      options.getLogicalType shouldBe LogicalStreamType.DATASETS
-      JellyUtil.iterateRdfStream(ByteArrayInputStream(rdf)).size shouldBe 2
-      readRdf(rdf) shouldBe Set(
-        Quad.create(iri("g"), iri("a"), iri("p"), lit("v")),
-        Quad.create(Quad.defaultGraphIRI, iri("b"), iri("p"), lit("w")),
+      options.getStreamType shouldBe RdfStreamType.MESSAGES
+      readRdfMessages(rdf) shouldBe Seq(
+        Set(Quad.create(iri("g"), iri("a"), iri("p"), lit("v"))),
+        Set(Quad.create(Quad.defaultGraphIRI, iri("b"), iri("p"), lit("w"))),
       )
     }
   }
@@ -571,7 +569,8 @@ class SparqlSerDesSpec extends AnyWordSpec with TestFixtureHelper with Matchers:
     }
 
     "get the RDF version from the input in to-jelly, unless --opt.rdf-version is set" in {
-      val rdf = writeRdf(PhysicalStreamType.TRIPLES, triples, rdfStar = false)
+      val rdf =
+        writeRdf(PhysicalStreamType.TRIPLES, triples, rdfVersion = RdfVersion.RDF_VERSION_1_1)
       SparqlToJelly.setStdIn(ByteArrayInputStream(rdf))
       SparqlToJelly.runTestCommand(
         List("sparql", "to-jelly", "--in-format", "jelly-rdf", "--opt.stream-name=x"),

@@ -127,7 +127,7 @@ class TermValidationSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
       val frame = readJellyFile(newIn)
       frame.size should be(1)
-      frame.head.getRows.size() should be > 3
+      frame.head.getColumns.getRowCount should be > 0
       err shouldBe empty
     }
 
@@ -141,7 +141,7 @@ class TermValidationSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       val newIn = new ByteArrayInputStream(RdfToJelly.getOutBytes)
       val frame = readJellyFile(newIn)
       frame.size should be(1)
-      frame.head.getRows.size() should be > 3
+      frame.head.getColumns.getRowCount should be > 0
       err shouldBe empty
     }
 

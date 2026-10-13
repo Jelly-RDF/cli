@@ -1,5 +1,6 @@
 package eu.neverblink.jelly.cli.command.rdf.util
 
+import eu.neverblink.jelly.cli.CriticalException
 import eu.neverblink.jelly.cli.util.io.IoUtil
 import eu.neverblink.jelly.core.utils.IoUtils
 import eu.neverblink.jelly.core.proto.v1.{RdfStreamFrame, RdfStreamOptions}
@@ -40,6 +41,21 @@ object JellyUtil:
       // In this case, we can only read one frame
       (false, Iterator(RdfStreamFrame.parseFrom(delimitingResponse.newInput)))
   }
+
+  /** The stream options in the first row of the stream, if it is an options row. */
+  def firstOptions(frames: collection.BufferedIterator[RdfStreamFrame]): Option[RdfStreamOptions] =
+    frames.headOption.flatMap(f => Option.when(!f.getRows.isEmpty)(f.getRows.iterator.next()))
+      .filter(_.hasOptions).map(_.getOptions)
+
+  /** The stream options in the first row of the stream.
+    *
+    * @throws CriticalException
+    *   if the stream is empty, or does not start with an options row
+    */
+  def requireFirstOptions(frames: collection.BufferedIterator[RdfStreamFrame]): RdfStreamOptions =
+    if !frames.hasNext || frames.head.getRows.isEmpty && frames.head.getColumns == null then
+      throw CriticalException("Empty input stream")
+    firstOptions(frames).getOrElse(throw CriticalException("First input row is not an options row"))
 
   /** Reads the stream options from the first row of a Jelly-RDF file.
     * @param fileName

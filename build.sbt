@@ -11,7 +11,7 @@ resolvers +=
   "Sonatype OSS Snapshots" at "https://central.sonatype.com/repository/maven-snapshots"
 
 lazy val jenaV = "6.2.0"
-lazy val jellyV = "3.7.3+80-0f51136f-SNAPSHOT"
+lazy val jellyV = "3.7.3+85-45406b30-SNAPSHOT"
 lazy val graalvmV = "25.4.4.1.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
@@ -23,8 +23,8 @@ def isDevBuild: Boolean =
 
 lazy val graalOptions = Seq(
   // Do a fast build if it's a dev build
-  // For the release build, optimize for speed and make a build report
-  if (isDevBuild) Seq("-Ob") else Seq("-O3", "--emit build-report"),
+  // For the release build, optimize for speed
+  if (isDevBuild) Seq("-Ob") else Seq("-O3"),
 ).flatten ++ Seq(
   // If using dependencies on Scala <3.8 and JDK >=24, we need to allow unsafe memory access.
   // Otherwise, we get annoying warnings on startup.
@@ -42,7 +42,6 @@ lazy val graalOptions = Seq(
   "--initialize-at-build-time=org.glassfish.json.UnicodeDetectingInputStream",
   "-H:+TrackPrimitiveValues", // SkipFlow optimization
   "-H:+UsePredicates", // SkipFlow optimization
-  "-H:+MLCallCountProfileInference", // ML inference for hot/cold method detection
   // Make sure we don't include stuff that should be unreachable in the native image
   "-H:AbortOnMethodReachable=*UUID.randomUUID*",
   // Include XML error messages

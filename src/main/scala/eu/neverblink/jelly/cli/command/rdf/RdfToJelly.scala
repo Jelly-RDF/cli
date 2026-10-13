@@ -7,11 +7,16 @@ import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.io.ProtoText
 import eu.neverblink.jelly.cli.util.jena.{JenaSystemOptions, RdfSparqlConverter}
 import eu.neverblink.jelly.cli.util.jena.riot.{JellyWriterUtil, RiotParserUtil}
-import eu.neverblink.jelly.core.{JellyOptions, RdfProtoDeserializationError}
+import eu.neverblink.jelly.core.{
+  JellyOptions,
+  RdfProtoDeserializationError,
+  RdfProtoSerializationError,
+}
 import eu.neverblink.jelly.core.proto.v1.*
 
 import java.io.{BufferedReader, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.StandardCharsets.UTF_8
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Using
 
 object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
@@ -27,8 +32,8 @@ object RdfToJellyPrint extends RdfCommandPrintUtil[RdfFormat.Readable]:
     "variables, which are taken by position, not by name: subject, predicate, object, and graph. " +
     "Each solution becomes one statement. With 3 variables, the output is a TRIPLES stream, " +
     "with 4 a QUADS stream, where an unbound graph means the default graph. Each result set of " +
-    "a PUNCTUATED stream becomes one frame, and the logical type is GRAPHS or DATASETS, unless " +
-    "set with --opt.logical-type.\n" +
+    "a PUNCTUATED stream becomes one RDF Message (stream type messages), unless the stream type " +
+    "is set with --opt.stream-type.\n" +
     "Note: this command works in a streaming manner and scales well to large files. ",
 )
 @ArgsName("<file-to-convert>")
@@ -52,10 +57,14 @@ case class RdfToJellyOptions(
     )
     optionsFrom: Option[String] = None,
     @HelpMessage(
-      "Target number of rows per frame – the writer may slightly exceed that. Default: " +
-        RdfJellySerializationOptions.defaultRowsPerFrame,
+      "Target number of statements per frame (in Jelly-RDF 1.1: rows, and the writer may " +
+        "slightly exceed that). Default: " +
+        RdfJellySerializationOptions.defaultRowsPerFrame(rowLayout =
+          false,
+        ) + " (in Jelly-RDF 1.1: " +
+        RdfJellySerializationOptions.defaultRowsPerFrame(rowLayout = true) + ")",
     )
-    rowsPerFrame: Int = RdfJellySerializationOptions.defaultRowsPerFrame,
+    rowsPerFrame: Option[Int] = None,
     @HelpMessage(
       "Whether to preserve explicit namespace declarations in the output (PREFIX: in Turtle). " +
         "Default: false",
@@ -68,7 +77,10 @@ case class RdfToJellyOptions(
     delimited: Boolean = true,
     @Recurse
     rdfPerformanceOptions: RdfPerformanceOptions = RdfPerformanceOptions(),
-) extends HasJellyCommandOptions
+) extends HasJellyCommandOptions:
+  def frameSize: Int = rowsPerFrame.getOrElse(
+    RdfJellySerializationOptions.defaultRowsPerFrame(jellySerializationOptions.isRowLayout),
+  )
 
 object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable]:
 
@@ -123,7 +135,8 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       inputStream,
       outputStream,
       getOptions.jellySerializationOptions.asRdfStreamOptions,
-      getOptions.rowsPerFrame,
+      streamTypeSet = getOptions.jellySerializationOptions.`opt.streamType`.isDefined,
+      getOptions.frameSize,
       getOptions.delimited,
     )
 
@@ -142,7 +155,8 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       opt: RdfToJellyOptions,
   ): Unit =
     val jellyOpt = getOptions.jellySerializationOptions.asRdfStreamOptions
-    if jellyOpt.getPhysicalType == PhysicalStreamType.UNSPECIFIED && !isQuietMode &&
+    if StreamOptionsUtil.isRowLayout(jellyOpt) &&
+      jellyOpt.getPhysicalType == PhysicalStreamType.UNSPECIFIED && !isQuietMode &&
       isLogicalGrouped(jellyOpt)
     then
       printLine(
@@ -153,19 +167,26 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       )
     val jellyWriter = JellyWriterUtil.createWriter(
       jellyOpt,
-      getOptions.rowsPerFrame,
+      getOptions.frameSize,
       getOptions.enableNamespaceDeclarations,
       getOptions.delimited,
       outputStream,
     )
 
-    RiotParserUtil.parse(
-      getOptions.rdfPerformanceOptions.resolveIris,
-      format,
-      inputStream,
-      jellyWriter,
-    )
-    jellyWriter.finish()
+    try
+      RiotParserUtil.parse(
+        getOptions.rdfPerformanceOptions.resolveIris,
+        format,
+        inputStream,
+        jellyWriter,
+      )
+      jellyWriter.finish()
+    catch
+      // Generalized statements and RDF-star can only be written in Jelly-RDF 1.1
+      case e: RdfProtoSerializationError if e.getMessage.contains("Jelly-RDF 1.1") =>
+        throw JellySerializationError(
+          e.getMessage + " Use --opt.jelly-version=1.1 to write Jelly-RDF 1.1.",
+        )
 
   /** Convert Jelly text to Jelly binary.
     * @param inputStream
@@ -196,24 +217,26 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
       }
     }
 
+  /** Warns about logical types that do not fit the physical type (only Jelly-RDF 1.1). */
   private def checkAndWarnTypeCombination(): Unit = {
 
     val rdfStreamOptions = getOptions.jellySerializationOptions.asRdfStreamOptions
     val physicalType = rdfStreamOptions.getPhysicalType
     val logicalType = rdfStreamOptions.getLogicalType
 
-    try {
-      // This check will find physical/logical clashes, since all other fields are checked with <=,
-      // so they pass when compared against themselves
-      JellyOptions.checkCompatibility(rdfStreamOptions, rdfStreamOptions)
-    } catch {
-      case _: RdfProtoDeserializationError =>
-        printLine(
-          s"WARNING: Selected combination of logical/physical stream types ($logicalType/$physicalType) is unsupported. " +
-            "Use --quiet to silence this warning.",
-          true,
-        )
-    }
+    if StreamOptionsUtil.isRowLayout(rdfStreamOptions) then
+      try {
+        // This check will find physical/logical clashes, since all other fields are checked with <=,
+        // so they pass when compared against themselves
+        JellyOptions.checkCompatibility(rdfStreamOptions, rdfStreamOptions)
+      } catch {
+        case _: RdfProtoDeserializationError =>
+          printLine(
+            s"WARNING: Selected combination of logical/physical stream types ($logicalType/$physicalType) is unsupported. " +
+              "Use --quiet to silence this warning.",
+            true,
+          )
+      }
   }
 
   /** Check if the logical type is defined and grouped.
@@ -256,5 +279,20 @@ object RdfToJelly extends RdfSerDesCommand[RdfToJellyOptions, RdfFormat.Readable
 
     // The only options we can respect in this mode are the frame size and the delimited flag
     // The others are ignored, because we are doing a 1:1 conversion
-    if getOptions.delimited then rows.grouped(getOptions.rowsPerFrame).map(_.mkString("\n"))
-    else Iterator(rows.mkString("\n"))
+    if !getOptions.delimited then Iterator(rows.mkString("\n"))
+    else
+      // Rows are grouped into frames of the given size. A Jelly-RDF 1.2 frame ends with its
+      // column batch, so the rows (stream options) before it go into the same frame.
+      val frameSize = getOptions.rowsPerFrame
+        .getOrElse(RdfJellySerializationOptions.defaultRowsPerFrame(rowLayout = true))
+      val frame = ArrayBuffer[String]()
+      def isColumns(block: String) =
+        block.linesIterator.find(!_.startsWith("#")).exists(_.startsWith("columns"))
+      rows.flatMap { block =>
+        frame += block
+        if isColumns(block) || frame.size >= frameSize then
+          val text = frame.mkString("\n")
+          frame.clear()
+          Some(text)
+        else None
+      } ++ Iterator.single(()).flatMap(_ => Option.when(frame.nonEmpty)(frame.mkString("\n")))

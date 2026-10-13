@@ -4,21 +4,120 @@ import eu.neverblink.jelly.cli.command.helpers.{RdfAdapter, TestFixtureHelper}
 import eu.neverblink.jelly.cli.command.helpers.RdfAdapter.*
 import eu.neverblink.jelly.cli.{CriticalException, ExitException}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
-import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
 import eu.neverblink.jelly.core.memory.RowBuffer
 import eu.neverblink.jelly.core.proto.v1.*
-import eu.neverblink.jelly.core.{JellyOptions, ProtoEncoder, RdfProtoDeserializationError}
+import eu.neverblink.jelly.cli.util.jena.riot.JellyWriterUtil
+import eu.neverblink.jelly.core.{
+  JellyConstants,
+  JellyOptions,
+  ProtoEncoder,
+  RdfProtoDeserializationError,
+}
 import org.apache.jena.graph.{NodeFactory, Triple}
 import org.apache.jena.riot.Lang
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream}
+import scala.annotation.nowarn
 import scala.util.Using
 import scala.jdk.CollectionConverters.*
 
+// Some tests build Jelly-RDF 1.1 streams with the deprecated row layout encoder
+@nowarn("cat=deprecation")
 class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
   protected val testCardinality: Int = 37
+
+  /** For the tests that build Jelly-RDF 1.1 frames row by row. */
+  private def withRowLayoutJellyFile(testCode: String => Any): Unit =
+    withFullJellyFile(testCode, rowLayout = true)
+
+  /** Writes the triples as Jelly-RDF 1.1, which allows generalized statements and RDF-star. */
+  private def writeRowLayout(triples: Seq[Triple]): Array[Byte] =
+    val out = ByteArrayOutputStream()
+    val writer = JellyWriterUtil.createWriter(
+      JellyOptions.SMALL_ALL_FEATURES.clone().setPhysicalType(PhysicalStreamType.TRIPLES)
+        .setVersion(JellyConstants.PROTO_VERSION_1_1_X),
+      256,
+      false,
+      true,
+      out,
+    )
+    triples.foreach(writer.triple)
+    writer.finish()
+    out.toByteArray
+
+  /** Writes the triples as Jelly-RDF 1.2 with the given options. */
+  private def writeColumnLayout(triples: Seq[Triple], options: RdfStreamOptions): Array[Byte] =
+    val out = ByteArrayOutputStream()
+    val writer = JellyWriterUtil.createWriter(
+      options.clone().setPhysicalType(PhysicalStreamType.TRIPLES),
+      256,
+      false,
+      true,
+      out,
+    )
+    triples.foreach(writer.triple)
+    writer.finish()
+    out.toByteArray
+
+  private val tripleWithTripleTerm = Triple.create(
+    NodeFactory.createURI("http://example.org/s"),
+    NodeFactory.createURI("http://example.org/says"),
+    NodeFactory.createTripleTerm(
+      Triple.create(
+        NodeFactory.createURI("http://example.org/a"),
+        NodeFactory.createURI("http://example.org/b"),
+        NodeFactory.createLiteralString("c"),
+      ),
+    ),
+  )
+
+  "rdf validate command, for Jelly-RDF 1.2 streams" should {
+    "accept a stream with a triple term" in {
+      val jelly = writeColumnLayout(Seq(tripleWithTripleTerm), JellyOptions.SMALL_STRICT)
+      RdfValidate.setStdIn(ByteArrayInputStream(jelly))
+      val (_, err) = RdfValidate.runTestCommand(List("rdf", "validate"))
+      err shouldBe empty
+    }
+
+    "reject a triple term in a stream that declares RDF 1.1" in {
+      val frame = RdfStreamFrame.parseDelimitedFrom(
+        ByteArrayInputStream(
+          writeColumnLayout(Seq(tripleWithTripleTerm), JellyOptions.SMALL_STRICT),
+        ),
+      )
+      val options = frame.getRows.asScala.head.getOptions.clone()
+        .setRdfVersion(RdfVersion.RDF_VERSION_1_1)
+      val changed = RdfStreamFrame.newInstance()
+        .addRows(RdfStreamRow.newInstance().setOptions(options))
+        .setColumns(frame.getColumns)
+      RdfValidate.setStdIn(ByteArrayInputStream(changed.toByteArray))
+      val e = intercept[ExitException] {
+        RdfValidate.runTestCommand(List("rdf", "validate"))
+      }
+      e.getMessage should include("RDF 1.1")
+    }
+
+    "accept concatenated streams whose options differ in the lookup sizes" in {
+      val small = writeColumnLayout(Seq(tripleWithTripleTerm), JellyOptions.SMALL_STRICT)
+      val big = writeColumnLayout(Seq(tripleWithTripleTerm), JellyOptions.BIG_STRICT)
+      RdfValidate.setStdIn(ByteArrayInputStream(small ++ big))
+      val (_, err) = RdfValidate.runTestCommand(List("rdf", "validate"))
+      err shouldBe empty
+    }
+
+    "check the options against an --options-file" in withFullJellyFile { j =>
+      RdfValidate.setStdIn(FileInputStream(j))
+      RdfValidate.runTestCommand(List("rdf", "validate", "--options-file", j))
+      val big = writeColumnLayout(Seq(tripleWithTripleTerm), JellyOptions.BIG_STRICT)
+      RdfValidate.setStdIn(ByteArrayInputStream(big))
+      val e = intercept[ExitException] {
+        RdfValidate.runTestCommand(List("rdf", "validate", "--options-file", j))
+      }
+      e.cause.get.getMessage should include("Stream options do not match the expected options")
+    }
+  }
 
   "rdf validate command" should {
     "complain about empty input" in {
@@ -399,7 +498,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         e.cause.get.getMessage should include("The version field in RdfStreamOptions is <= 0")
       }
 
-      "same input options supplied as in the validation source" in withFullJellyFile { j =>
+      "same input options supplied as in the validation source" in withRowLayoutJellyFile { j =>
         val f = rdfStreamFrame(
           Seq(
             rdfStreamRow(
@@ -415,24 +514,25 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
         RdfValidate.runTestCommand(List("rdf", "validate", "--options-file", j))
       }
 
-      "different input options supplied as in the validation source" in withFullJellyFile { j =>
-        val f = rdfStreamFrame(
-          Seq(
-            rdfStreamRow(
-              JellyOptions.BIG_STRICT
-                .clone.setPhysicalType(PhysicalStreamType.TRIPLES)
-                .setVersion(1),
+      "different input options supplied as in the validation source" in withRowLayoutJellyFile {
+        j =>
+          val f = rdfStreamFrame(
+            Seq(
+              rdfStreamRow(
+                JellyOptions.BIG_STRICT
+                  .clone.setPhysicalType(PhysicalStreamType.TRIPLES)
+                  .setVersion(1),
+              ),
             ),
-          ),
-        )
-        RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
-        val e = intercept[ExitException] {
-          RdfValidate.runTestCommand(List("rdf", "validate", "--options-file", j))
-        }
-        e.cause.get shouldBe a[CriticalException]
-        e.cause.get.getMessage should include("Stream options do not match the expected options")
-        e.cause.get.getMessage should include("Stream options do not match the expected options")
-        e.cause.get.getMessage should include("""Expected: stream_name: "Stream"
+          )
+          RdfValidate.setStdIn(ByteArrayInputStream(f.toByteArray))
+          val e = intercept[ExitException] {
+            RdfValidate.runTestCommand(List("rdf", "validate", "--options-file", j))
+          }
+          e.cause.get shouldBe a[CriticalException]
+          e.cause.get.getMessage should include("Stream options do not match the expected options")
+          e.cause.get.getMessage should include("Stream options do not match the expected options")
+          e.cause.get.getMessage should include("""Expected: stream_name: "Stream"
             |physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
             |generalized_statements: true
             |rdf_star: true
@@ -442,11 +542,13 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
             |logical_type: LOGICAL_STREAM_TYPE_FLAT_TRIPLES
             |version: 1""".stripMargin)
 
-        e.cause.get.getMessage should include("""Actual: physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
+          e.cause.get.getMessage should include(
+            """Actual: physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
             |max_name_table_size: 4000
             |max_prefix_table_size: 150
             |max_datatype_table_size: 32
-            |version: 1""".stripMargin)
+            |version: 1""".stripMargin,
+          )
       }
     }
 
@@ -511,7 +613,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
 
       "content matches the reference RDF file, using a slice of the stream" in withFullJenaFile {
         jenaF =>
-          withFullJellyFile { jellyF =>
+          withRowLayoutJellyFile { jellyF =>
             val frame1 = Using.resource(FileInputStream(jellyF)) { is =>
               RdfStreamFrame.parseDelimitedFrom(is)
             }
@@ -546,7 +648,7 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
       }
 
       "content does not match the reference RDF file, using slices" in withFullJenaFile { jenaF =>
-        withFullJellyFile { jellyF =>
+        withRowLayoutJellyFile { jellyF =>
           val frame1 = Using.resource(FileInputStream(jellyF)) { is =>
             RdfStreamFrame.parseDelimitedFrom(is)
           }
@@ -617,19 +719,19 @@ class RdfValidateSpec extends AnyWordSpec, Matchers, TestFixtureHelper:
           NodeFactory.createURI("http://example.org/predicate"),
           NodeFactory.createBlankNode(),
         )
+        // A triple term in the subject position is only allowed in Jelly-RDF 1.1
+        val jelly = writeRowLayout(Seq(t))
         withJenaFileOfContent(Seq(t), Lang.NT) { ntFile =>
-          withJenaFileOfContent(Seq(t), JellyLanguage.JELLY) { jellyFile =>
-            val (out, err) = RdfValidate.runTestCommand(
-              List(
-                "rdf",
-                "validate",
-                "--compare-to-rdf-file=" + ntFile,
-                "--compare-ordered=true",
-                jellyFile,
-              ),
-            )
-            err shouldBe empty
-          }
+          RdfValidate.setStdIn(ByteArrayInputStream(jelly))
+          val (out, err) = RdfValidate.runTestCommand(
+            List(
+              "rdf",
+              "validate",
+              "--compare-to-rdf-file=" + ntFile,
+              "--compare-ordered=true",
+            ),
+          )
+          err shouldBe empty
         }
       }
 

@@ -11,9 +11,8 @@ import scala.jdk.CollectionConverters.*
 import java.io.InputStream
 @HelpMessage(
   "Prints statistics about a Jelly-RDF stream.\n" +
-    "Statistics include: Jelly stream options and counts/sizes of various row types, " +
-    "including triples, quads, names, prefixes, " +
-    "namespaces, datatypes, and graphs.\n" +
+    "Statistics include: Jelly stream options and counts of statements and the different types " +
+    "of RDF terms.\n" +
     "Output statistics are returned as a valid YAML. \n" +
     "If no input file is specified, the input is read from stdin.\n" +
     "If no output file is specified, the output is written to stdout.\n" +
@@ -77,21 +76,25 @@ object RdfInspect extends JellyCommand[RdfInspectOptions]:
       detail: Boolean,
   )(using FrameInfo.StatisticCollector): (RdfStreamOptions, Iterator[FrameInfo]) =
 
-    inline def computeMetrics(
-        frame: RdfStreamFrame,
-        frameIndex: Int,
-    ): FrameInfo =
-      val metadata = frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap
-      val metrics =
-        if detail then new FrameDetailInfo(frameIndex, metadata)
-        else FrameInfo(frameIndex, metadata)
-      metrics.processFrame(frame)
-      metrics
-
     try {
       val allRows = JellyUtil.iterateRdfStream(inputStream).buffered
       // we need to check if the first frame contains options
       val streamOptions = checkOptions(allRows.headOption)
+      val rowLayout = StreamOptionsUtil.isRowLayout(streamOptions)
+      val messages = streamOptions.getStreamType == RdfStreamType.MESSAGES
+
+      def computeMetrics(
+          frame: RdfStreamFrame,
+          frameIndex: Int,
+      ): FrameInfo =
+        val metadata = frame.getMetadata.asScala.map(entry => entry.getKey -> entry.getValue).toMap
+        val metrics =
+          if !rowLayout then ColumnFrameInfo(frameIndex, metadata, messages, detail)
+          else if detail then new FrameDetailInfo(frameIndex, metadata)
+          else FrameInfo(frameIndex, metadata)
+        metrics.processFrame(frame)
+        metrics
+
       // We compute the metrics for each frame
       // and then sum them all during the printing if desired
       val frameIterator = allRows.zipWithIndex.map { case (maybeFrame, frameIndex) =>

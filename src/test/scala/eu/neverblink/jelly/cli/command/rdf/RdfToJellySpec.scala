@@ -1,11 +1,12 @@
 package eu.neverblink.jelly.cli.command.rdf
 
-import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, TestFixtureHelper}
-import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
+import eu.neverblink.jelly.cli.command.helpers.{DataGenHelper, RdfSparqlTestData, TestFixtureHelper}
+import eu.neverblink.jelly.cli.command.rdf.util.{JellyUtil, RdfFormat}
+import eu.neverblink.jelly.cli.command.sparql.SparqlSerDesSpec
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
-import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, PhysicalStreamType, RdfStreamFrame}
-import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.proto.v1.*
+import eu.neverblink.jelly.core.{JellyConstants, JellyOptions}
 import eu.neverblink.jelly.cli.util.io.ProtoText
 import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.irix.IRIs
@@ -16,6 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{ByteArrayInputStream, FileInputStream, InputStream}
+import java.nio.file.Files
 import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
@@ -45,6 +47,12 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
 
   protected val testCardinality: Int = 33
 
+  private def withBytesFile[T](content: Array[Byte])(testCode: String => T): T =
+    val file = Files.createTempFile("jelly-cli-test", ".jelly")
+    Files.write(file, content)
+    try testCode(file.toString)
+    finally Files.deleteIfExists(file)
+
   "rdf to-jelly command" should {
     "re-encode Jelly with the given options" when {
       "the format is given explicitly" in withFullJellyFile { j =>
@@ -55,7 +63,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             j,
             "--in-format",
             "jelly",
-            "--opt.max-name-table-size=16",
+            "--opt.max-name-table-size=200",
             "--opt.physical-type=QUADS",
             "--rows-per-frame=5",
           ),
@@ -63,20 +71,31 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val bytes = RdfToJelly.getOutBytes
         val frames = readJellyFile(ByteArrayInputStream(bytes))
         val options = frames.head.getRows.asScala.head.getOptions
-        options.getMaxNameTableSize should be(16)
+        options.getMaxNameTableSize should be(200)
         options.getPhysicalType should be(PhysicalStreamType.QUADS)
-        // Inferred from the input format
-        options.getGeneralizedStatements should be(true)
+        options.getVersion should be(JellyConstants.PROTO_VERSION_1_2_X)
         frames.size should be > 1
         translateJellyBack(ByteArrayInputStream(bytes))
           .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
       }
 
+      "the input is Jelly-RDF 1.1, which becomes 1.2" in withFullJellyFile(
+        j => {
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", j))
+          val bytes = RdfToJelly.getOutBytes
+          readJellyFile(ByteArrayInputStream(bytes)).head.getRows.asScala.head.getOptions
+            .getVersion should be(JellyConstants.PROTO_VERSION_1_2_X)
+          translateJellyBack(ByteArrayInputStream(bytes))
+            .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
+        },
+        rowLayout = true,
+      )
+
       "the format is inferred from the input file name" in withFullJellyFile { j =>
-        RdfToJelly.runTestCommand(List("rdf", "to-jelly", j, "--opt.max-name-table-size=16"))
+        RdfToJelly.runTestCommand(List("rdf", "to-jelly", j, "--opt.max-name-table-size=200"))
         val bytes = RdfToJelly.getOutBytes
         readJellyFile(ByteArrayInputStream(bytes)).head.getRows.asScala.head.getOptions
-          .getMaxNameTableSize should be(16)
+          .getMaxNameTableSize should be(200)
         translateJellyBack(ByteArrayInputStream(bytes))
           .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
       }
@@ -148,11 +167,21 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           .toSet should be(Set("b1", "b2", "b3"))
       }
 
+      "input stream to output stream, generalized RDF in Jelly-RDF 1.2 (error)" in {
+        RdfToJelly.setStdIn(getClass.getResourceAsStream("/generalized.nt"))
+        val e = intercept[ExitException] {
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--in-format=nt"))
+        }
+        e.getCause shouldBe a[JellySerializationError]
+        e.getCause.getMessage should include("cannot be")
+        e.getCause.getMessage should include("--opt.jelly-version=1.1")
+      }
+
       "input stream to output stream, generalized RDF (N-Triples)" in {
         val inputStream = getClass.getResourceAsStream("/generalized.nt")
         RdfToJelly.setStdIn(inputStream)
         val (out, err) = RdfToJelly.runTestCommand(
-          List("rdf", "to-jelly", "--in-format=nt"),
+          List("rdf", "to-jelly", "--in-format=nt", "--opt.jelly-version=1.1"),
         )
         val bytes = RdfToJelly.getOutBytes
         val content = translateJellyBack(new ByteArrayInputStream(bytes))
@@ -166,7 +195,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         val inputStream = getClass.getResourceAsStream("/generalized.nq")
         RdfToJelly.setStdIn(inputStream)
         val (out, err) = RdfToJelly.runTestCommand(
-          List("rdf", "to-jelly", "--in-format=nq"),
+          List("rdf", "to-jelly", "--in-format=nq", "--opt.jelly-version=1.1"),
         )
         val bytes = RdfToJelly.getOutBytes
         val ds = DatasetGraphFactory.create()
@@ -186,7 +215,13 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         )
         RdfToJelly.setStdIn(inputStream)
         val (out, err) = RdfToJelly.runTestCommand(
-          List("rdf", "to-jelly", "--in-format=nq", "--opt.physical-type=GRAPHS"),
+          List(
+            "rdf",
+            "to-jelly",
+            "--in-format=nq",
+            "--opt.physical-type=GRAPHS",
+            "--opt.jelly-version=1.1",
+          ),
         )
         val ds = DatasetGraphFactory.create()
         val bytes = RdfToJelly.getOutBytes
@@ -219,6 +254,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
             "--in-format=nq",
             "--opt.physical-type=GRAPHS",
             "--opt.logical-type=DATASETS",
+            "--opt.jelly-version=1.1",
           ),
         )
         val ds = DatasetGraphFactory.create()
@@ -258,6 +294,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 "--opt.max-prefix-table-size=100",
                 "--opt.max-datatype-table-size=100",
                 "--opt.logical-type=FLAT_QUADS",
+                "--opt.jelly-version=1.1",
                 "--to",
                 j,
               ),
@@ -288,6 +325,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 "to-jelly",
                 f,
                 "--opt.logical-type=https://w3id.org/stax/ontology#flatQuadStream",
+                "--opt.jelly-version=1.1",
                 "--to",
                 j,
               ),
@@ -320,6 +358,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                   f,
                   "--opt.physical-type=QUADS",
                   "--opt.logical-type=DATASETS",
+                  "--opt.jelly-version=1.1",
                   "--to",
                   j,
                 ),
@@ -390,7 +429,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           // TODO: test if the namespace declarations are preserved with Turtle or RDF/XML input.
           val frames = readJellyFile(new FileInputStream(j))
           val opts = frames.head.getRows.asScala.head.getOptions
-          opts.getVersion should be(2)
+          opts.getVersion should be(JellyConstants.PROTO_VERSION_1_2_X)
         }
       }
 
@@ -441,6 +480,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                     f,
                     "--opt.physical-type=TRIPLES",
                     "--opt.logical-type=GRAPHS",
+                    "--opt.jelly-version=1.1",
                     "--to",
                     j,
                   ),
@@ -477,6 +517,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                     "to-jelly",
                     f,
                     "--opt.logical-type=GRAPHS",
+                    "--opt.jelly-version=1.1",
                     "--to",
                     j,
                   ),
@@ -754,10 +795,192 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           val delimitingResponse = IoUtils.autodetectDelimiting(new FileInputStream(outFile))
           delimitingResponse.isDelimited should be(true)
           val frames = readJellyFile(new FileInputStream(outFile))
-          frames.size should be > testCardinality
-          for frame <- frames do frame.getRows.size should be(1)
+          // The stream options, and then the column batch, which is never split
+          frames.size should be(2)
+          frames(0).getRows.size should be(1)
+          frames(1).getColumns.getRowCount should be(testCardinality)
         }
       }
+
+      "Jelly-RDF 1.1 text format (delimited, multiple frames)" in withFullJellyTextFile(
+        inFile =>
+          withEmptyJellyFile { outFile =>
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", inFile, "--rows-per-frame=1", "--to", outFile),
+            )
+            val frames = readJellyFile(new FileInputStream(outFile))
+            frames.size should be > testCardinality
+            for frame <- frames do frame.getRows.size should be(1)
+          },
+        rowLayout = true,
+      )
+    }
+
+    "choose the Jelly-RDF version and its options" when {
+      def outOptions(): RdfStreamOptions =
+        readJellyFile(ByteArrayInputStream(RdfToJelly.getOutBytes)).head.getRows.asScala.head
+          .getOptions
+
+      "--opt.jelly-version=1.2 is given explicitly" in withFullJenaFile { f =>
+        RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.jelly-version=1.2"))
+        outOptions().getVersion should be(JellyConstants.PROTO_VERSION_1_2_X)
+      }
+
+      "--opt.jelly-version has an unknown value" in withFullJenaFile { f =>
+        val e = intercept[ExitException] {
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.jelly-version=2.0"))
+        }
+        e.cause.get shouldBe a[InvalidArgument]
+        e.cause.get.getMessage should include("--opt.jelly-version")
+        e.cause.get.getMessage should include("Must be one of: 1.2, 1.1")
+      }
+
+      "--opt.stream-type=messages is given" in withFullJenaFile { f =>
+        RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.stream-type=messages"))
+        val bytes = RdfToJelly.getOutBytes
+        val options =
+          readJellyFile(ByteArrayInputStream(bytes)).head.getRows.asScala.head.getOptions
+        options.getStreamType should be(RdfStreamType.MESSAGES)
+        // The whole input is one message
+        RdfSparqlTestData.readRdfMessages(bytes).map(_.size) should be(Seq(testCardinality))
+      }
+
+      "--opt.stream-type=flat is given for a PUNCTUATED Jelly-SPARQL input" in {
+        import RdfSparqlTestData.*
+        val result = sparqlJson(Seq("s", "p", "o"), Seq(statementRow("a", "p", "1")))
+        val other = sparqlJson(Seq("s", "p", "o"), Seq(statementRow("b", "p", "2")))
+        RdfToJelly.setStdIn(
+          ByteArrayInputStream(SparqlSerDesSpec.writePunctuated(Seq(result, other))),
+        )
+        RdfToJelly.runTestCommand(
+          List("rdf", "to-jelly", "--in-format", "jelly-sparql", "--opt.stream-type=FLAT"),
+        )
+        val bytes = RdfToJelly.getOutBytes
+        rdfStreamOptions(bytes).getStreamType should be(RdfStreamType.FLAT)
+        // Without message boundaries, both result sets are one graph
+        readRdfMessages(bytes).map(_.size) should be(Seq(2))
+      }
+
+      "--opt.stream-type has an unknown value" in withFullJenaFile { f =>
+        val e = intercept[ExitException] {
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.stream-type=graphs"))
+        }
+        e.cause.get shouldBe a[InvalidArgument]
+        e.cause.get.getMessage should include("Must be one of: flat, messages")
+      }
+
+      "options of Jelly-RDF 1.2 are given for Jelly-RDF 1.1 output" in withFullJenaFile { f =>
+        for arg <- Seq("--opt.stream-type=messages", "--opt.rdf-version=1.2") do
+          val e = intercept[ExitException] {
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.jelly-version=1.1", arg))
+          }
+          e.cause.get shouldBe a[InvalidArgument]
+          e.cause.get.getMessage should include("only valid in Jelly-RDF 1.2 output")
+      }
+
+      "--opt.rdf-version is given" in withFullJenaFile { f =>
+        RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.rdf-version=1.2-basic"))
+        outOptions().getRdfVersion should be(RdfVersion.RDF_VERSION_1_2_BASIC)
+      }
+
+      "--options-from is a Jelly-RDF 1.1 file, and 1.2 is asked for" in withSpecificJellyFile(
+        optionsFile =>
+          withFullJenaFile { f =>
+            RdfToJelly.runTestCommand(
+              List(
+                "rdf",
+                "to-jelly",
+                "--options-from",
+                optionsFile,
+                "--opt.jelly-version=1.2",
+                "--opt.max-prefix-table-size=100",
+                f,
+              ),
+            )
+            val from = JellyUtil.loadOptionsFromFile(optionsFile)
+            val opts = outOptions()
+            opts.getVersion should be(JellyConstants.PROTO_VERSION_1_2_X)
+            // Taken from the file
+            opts.getStreamName should be(from.getStreamName)
+            opts.getPhysicalType should be(from.getPhysicalType)
+            opts.getMaxNameTableSize should be(from.getMaxNameTableSize)
+            opts.getMaxDatatypeTableSize should be(from.getMaxDatatypeTableSize)
+            // Overridden
+            opts.getMaxPrefixTableSize should be(100)
+            // The fields of Jelly-RDF 1.1 are not taken
+            opts.getLogicalType should be(LogicalStreamType.UNSPECIFIED)
+            opts.getGeneralizedStatements should be(false)
+            opts.getRdfStar should be(false)
+          },
+        fileName = "options.jelly",
+      )
+
+      "--options-from is a Jelly-RDF 1.1 GRAPHS file, and 1.2 is asked for" in withFullJenaFile {
+        f =>
+          // A GRAPHS stream with 1.1 options, as the source of the options
+          RdfToJelly.runTestCommand(
+            List(
+              "rdf",
+              "to-jelly",
+              f,
+              "--opt.jelly-version=1.1",
+              "--opt.physical-type=GRAPHS",
+              "--opt.stream-name=graphs",
+            ),
+          )
+          withBytesFile(RdfToJelly.getOutBytes) { optionsFile =>
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", "--options-from", optionsFile, "--opt.jelly-version=1.2", f),
+            )
+            val opts = outOptions()
+            opts.getVersion should be(JellyConstants.PROTO_VERSION_1_2_X)
+            opts.getStreamName should be("graphs")
+            // Jelly-RDF 1.2 has no GRAPHS streams
+            opts.getPhysicalType should be(PhysicalStreamType.QUADS)
+          }
+      }
+
+      "--options-from is a Jelly-RDF 1.2 file, and 1.1 is asked for" in withFullJellyFile { j =>
+        withFullJenaFile(
+          f => {
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", "--options-from", j, "--opt.jelly-version=1.1", f),
+            )
+            val from = JellyUtil.loadOptionsFromFile(j)
+            val opts = outOptions()
+            JellyConstants.isRowLayout(opts.getVersion) should be(true)
+            opts.getStreamName should be(from.getStreamName)
+            opts.getMaxNameTableSize should be(from.getMaxNameTableSize)
+            // The defaults of Jelly-RDF 1.1, with generalized statements inferred from N-Triples
+            opts.getRdfStar should be(true)
+            opts.getGeneralizedStatements should be(true)
+          },
+          jenaLang = RDFLanguages.NTRIPLES,
+        )
+      }
+
+      "--options-from is a Jelly-RDF 1.1 file, and no version is given" in withSpecificJellyFile(
+        optionsFile =>
+          withFullJenaFile { f =>
+            RdfToJelly.runTestCommand(List("rdf", "to-jelly", "--options-from", optionsFile, f))
+            JellyConstants.isRowLayout(outOptions().getVersion) should be(true)
+            // Options of Jelly-RDF 1.2 are then refused
+            val e = intercept[ExitException] {
+              RdfToJelly.runTestCommand(
+                List(
+                  "rdf",
+                  "to-jelly",
+                  "--options-from",
+                  optionsFile,
+                  "--opt.stream-type=messages",
+                  f,
+                ),
+              )
+            }
+            e.cause.get.getMessage should include("only valid in Jelly-RDF 1.2 output")
+          },
+        fileName = "options.jelly",
+      )
     }
 
     "infer stream options" when {
@@ -772,6 +995,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                   f,
                   "--in-format",
                   RdfFormat.RdfProto.cliOptions.head,
+                  "--opt.jelly-version=1.1",
                   "--to",
                   j,
                 ),
@@ -788,7 +1012,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
           testCode = { f =>
             val (out, err) =
               RdfToJelly.runTestCommand(
-                List("rdf", "to-jelly", f, "--to", j),
+                List("rdf", "to-jelly", f, "--opt.jelly-version=1.1", "--to", j),
               )
             val frames = readJellyFile(new FileInputStream(j))
             val opts = frames.head.getRows.asScala.head.getOptions
@@ -798,15 +1022,19 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         ),
       )
       "format is Jelly Text" in withEmptyJellyFile(j =>
-        withFullJellyTextFile(testCode = { f =>
-          val (out, err) =
-            RdfToJelly.runTestCommand(
-              List("rdf", "to-jelly", f, "--to", j),
-            )
-          val frames = readJellyFile(new FileInputStream(j))
-          val opts = frames.head.getRows.asScala.head.getOptions
-          opts.getGeneralizedStatements should be(true)
-        }),
+        withFullJellyTextFile(
+          testCode = { f =>
+            val (out, err) =
+              RdfToJelly.runTestCommand(
+                List("rdf", "to-jelly", f, "--to", j),
+              )
+            val frames = readJellyFile(new FileInputStream(j))
+            val opts = frames.head.getRows.asScala.head.getOptions
+            // The options are copied from the text as they are
+            opts.getGeneralizedStatements should be(true)
+          },
+          rowLayout = true,
+        ),
       )
       "format is Jelly Text and options present" in withSpecificJellyFile(
         initialJellyFile => {
@@ -848,7 +1076,9 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
       "invalid logical stream type is specified" in withFullJenaFile { f =>
         val e =
           intercept[ExitException] {
-            RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.logical-type", "test"))
+            RdfToJelly.runTestCommand(
+              List("rdf", "to-jelly", f, "--opt.jelly-version=1.1", "--opt.logical-type", "test"),
+            )
           }
         e.cause.get shouldBe a[InvalidArgument]
         val cause = e.cause.get.asInstanceOf[InvalidArgument]
@@ -857,9 +1087,20 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         e.code should be(1)
       }
 
-      "name table with size < 8 specified" in withFullJenaFile { f =>
+      "name table with size < 128 specified" in withFullJenaFile { f =>
         val e = intercept[ExitException] {
-          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.max-name-table-size=5"))
+          RdfToJelly.runTestCommand(List("rdf", "to-jelly", f, "--opt.max-name-table-size=100"))
+        }
+        e.cause.get shouldBe a[InvalidArgument]
+        e.cause.get.getMessage should include("Must be at least 128")
+        e.code should be(1)
+      }
+
+      "name table with size < 8 specified, in Jelly-RDF 1.1" in withFullJenaFile { f =>
+        val e = intercept[ExitException] {
+          RdfToJelly.runTestCommand(
+            List("rdf", "to-jelly", f, "--opt.jelly-version=1.1", "--opt.max-name-table-size=5"),
+          )
         }
         e.cause.get shouldBe a[JellySerializationError]
         val cause = e.cause.get.asInstanceOf[JellySerializationError]
@@ -888,6 +1129,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
               "to-jelly",
               "--opt.logical-type=SUBJECT_GRAPHS",
               "--opt.physical-type=QUADS",
+              "--opt.jelly-version=1.1",
               f,
             ),
           )
@@ -910,6 +1152,7 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
                 "--quiet",
                 "--opt.logical-type=SUBJECT_GRAPHS",
                 "--opt.physical-type=QUADS",
+                "--opt.jelly-version=1.1",
                 f,
               ),
             )
@@ -1039,7 +1282,14 @@ class RdfToJellySpec extends AnyWordSpec with TestFixtureHelper with Matchers:
         ByteArrayInputStream(sparqlOf(writeRdf(PhysicalStreamType.QUADS, quads = quads))),
       )
       RdfToJelly.runTestCommand(
-        List("rdf", "to-jelly", "--in-format", "jelly-sparql", "--opt.physical-type=GRAPHS"),
+        List(
+          "rdf",
+          "to-jelly",
+          "--in-format",
+          "jelly-sparql",
+          "--opt.physical-type=GRAPHS",
+          "--opt.jelly-version=1.1",
+        ),
       )
       rdfStreamOptions(RdfToJelly.getOutBytes).getPhysicalType shouldBe PhysicalStreamType.GRAPHS
     }

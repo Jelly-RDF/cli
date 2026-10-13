@@ -4,6 +4,7 @@ import com.google.protobuf.{ByteString, CodedOutputStream}
 import scala.jdk.CollectionConverters.*
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
+import eu.neverblink.jelly.core.JellyConstants
 import eu.neverblink.jelly.core.proto.v1.*
 import eu.neverblink.protoc.java.runtime.ProtoMessage
 
@@ -25,6 +26,14 @@ object FrameInfo:
     override def measure(r: ProtoMessage[?]): Long = r.getSerializedSize
     override def measure(r: String): Long = CodedOutputStream.computeStringSizeNoTag(r)
     override def name(): String = "size"
+
+  /** Measures packed lookup entries: counts their values, or sums the size of the entries. */
+  def measureLookup(entries: java.lang.Iterable[RdfLookupEntryPacked])(using
+      statCollector: StatisticCollector,
+  ): Long =
+    if statCollector == CountStatistic then
+      entries.asScala.iterator.map(_.getValues.size.toLong).sum
+    else entries.asScala.iterator.map(statCollector.measure).sum
 
 /** This class is used to store the metrics for a single frame
   */
@@ -228,31 +237,57 @@ type Formatter = FrameInfo => Seq[(String, YamlValue)]
 type DetailFormatter = FrameDetailInfo => Seq[(String, YamlValue)]
 
 object MetricsPrinter:
-  private def withFallback(formatter: DetailFormatter): Formatter = {
+  /** @param formatter
+    *   formats the details of a Jelly-RDF 1.1 frame
+    * @param columnFormatter
+    *   formats the details of a Jelly-RDF 1.2 frame
+    */
+  private def withFallback(
+      formatter: DetailFormatter,
+      columnFormatter: ColumnFrameInfo => Seq[(String, YamlValue)],
+  ): Formatter = {
+    case frame @ (columnInfo: ColumnFrameInfo) =>
+      frame.format().map(_ -> YamlLong(_)) ++
+        (if columnInfo.detail then columnFormatter(columnInfo) else Seq())
     case frame @ (detailInfo: FrameDetailInfo) =>
       frame.format().map(_ -> YamlLong(_)) ++ formatter(detailInfo)
     case frame @ (frameInfo: FrameInfo) => frame.format().map(_ -> YamlLong(_))
   }
 
-  val allFormatter: Formatter = withFallback(detailInfo => {
-    val splitToTriples = detailInfo.formatAll().map((k, v) => {
-      val split = k.split("_", 2)
-      (split(0), split(1), v)
-    })
-    val groupedByTerm =
-      splitToTriples.groupMap((term, _, _) => term)((_, node, value) => (node, YamlLong(value)))
-    val mapOfYamlMaps = groupedByTerm.map(_ -> YamlMap(_*))
-    val order = IndexedSeq("subject", "predicate", "object", "graph")
-    mapOfYamlMaps.toSeq.sorted(using Ordering.by[(String, Any), Int](x => order.indexOf(x._1)))
-  })
+  private def yamlLongs(stats: Seq[(String, Long)]): YamlMap = YamlMap(stats.map(_ -> YamlLong(_))*)
 
-  val termGroupFormatter: Formatter = withFallback(detailInfo => {
-    Seq("term_details" -> YamlMap(detailInfo.formatGroupByTerm().map(_ -> YamlLong(_))*))
-  })
+  val allFormatter: Formatter = withFallback(
+    detailInfo => {
+      val splitToTriples = detailInfo.formatAll().map((k, v) => {
+        val split = k.split("_", 2)
+        (split(0), split(1), v)
+      })
+      val groupedByTerm =
+        splitToTriples.groupMap((term, _, _) => term)((_, node, value) => (node, YamlLong(value)))
+      val mapOfYamlMaps = groupedByTerm.map(_ -> YamlMap(_*))
+      val order = IndexedSeq("subject", "predicate", "object", "graph")
+      mapOfYamlMaps.toSeq.sorted(using Ordering.by[(String, Any), Int](x => order.indexOf(x._1)))
+    },
+    columnInfo =>
+      columnInfo.valuesByColumn
+        .map((column, info) => column -> info.format().filter(_._2 > 0))
+        .filter(_._2.nonEmpty)
+        .map((column, stats) => column -> yamlLongs(stats)),
+  )
 
-  val nodeGroupFormatter: Formatter = withFallback(detailInfo => {
-    Seq("node_details" -> YamlMap(detailInfo.formatGroupByNode().map(_ -> YamlLong(_))*))
-  })
+  val termGroupFormatter: Formatter = withFallback(
+    detailInfo => {
+      Seq("term_details" -> YamlMap(detailInfo.formatGroupByTerm().map(_ -> YamlLong(_))*))
+    },
+    columnInfo => Seq("term_details" -> yamlLongs(columnInfo.formatTotalsByColumn())),
+  )
+
+  val nodeGroupFormatter: Formatter = withFallback(
+    detailInfo => {
+      Seq("node_details" -> YamlMap(detailInfo.formatGroupByNode().map(_ -> YamlLong(_))*))
+    },
+    columnInfo => Seq("node_details" -> yamlLongs(columnInfo.valuesByKind.format())),
+  )
 
 class MetricsPrinter(val formatter: Formatter):
   def printPerFrame(
@@ -306,20 +341,33 @@ class MetricsPrinter(val formatter: Formatter):
     o.write(fullString.getBytes)
     o.write(System.lineSeparator().getBytes)
 
+  /** The stream options, with the fields of the stream's version of Jelly-RDF. */
   private def formatOptions(
       options: RdfStreamOptions,
   ): YamlMap =
-    YamlMap(
-      "stream_name" -> YamlString(options.getStreamName),
-      "physical_type" -> YamlEnum(options.getPhysicalType.toString, options.getPhysicalTypeValue),
-      "generalized_statements" -> YamlBool(options.getGeneralizedStatements),
-      "triple_terms" -> YamlBool(options.getRdfStar),
+    val tables = Seq(
       "max_name_table_size" -> YamlInt(options.getMaxNameTableSize),
       "max_prefix_table_size" -> YamlInt(options.getMaxPrefixTableSize),
       "max_datatype_table_size" -> YamlInt(options.getMaxDatatypeTableSize),
-      "logical_type" -> YamlEnum(options.getLogicalType.toString, options.getLogicalTypeValue),
-      "version" -> YamlInt(options.getVersion),
     )
+    val fields =
+      if JellyConstants.isRowLayout(options.getVersion) then
+        Seq(
+          "stream_name" -> YamlString(options.getStreamName),
+          "physical_type" -> YamlEnum(options.getPhysicalType, options.getPhysicalTypeValue),
+          "generalized_statements" -> YamlBool(options.getGeneralizedStatements),
+          "triple_terms" -> YamlBool(options.getRdfStar),
+        ) ++ tables ++ Seq(
+          "logical_type" -> YamlEnum(options.getLogicalType, options.getLogicalTypeValue),
+        )
+      else
+        Seq(
+          "stream_name" -> YamlString(options.getStreamName),
+          "physical_type" -> YamlEnum(options.getPhysicalType, options.getPhysicalTypeValue),
+          "stream_type" -> YamlEnum(options.getStreamType, options.getStreamTypeValue),
+          "rdf_version" -> YamlEnum(options.getRdfVersion, options.getRdfVersionValue),
+        ) ++ tables
+    YamlMap(fields ++ Seq("version" -> YamlInt(options.getVersion))*)
 
   private def formatStatsIndex(
       frame: FrameInfo,

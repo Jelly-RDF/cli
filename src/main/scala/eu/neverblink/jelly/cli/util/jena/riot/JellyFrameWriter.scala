@@ -10,6 +10,7 @@ import org.apache.jena.riot.system.StreamRDF
 import org.apache.jena.sparql.core.Quad
 
 import java.io.OutputStream
+import scala.annotation.nowarn
 
 /** Writes Jelly-RDF, ending a frame only when [[endFrame]] is called. This is for grouped streams,
   * where each frame is one graph or dataset.
@@ -24,6 +25,8 @@ import java.io.OutputStream
 final class JellyFrameWriter(options: RdfStreamOptions, delimited: Boolean, out: OutputStream)
     extends StreamRDF:
   private val buffer = RowBuffer.newLazyImmutable()
+  // The Jelly-RDF 1.1 encoder is deprecated, but still needed for --opt.jelly-version=1.1
+  @nowarn("cat=deprecation")
   private val encoder = JenaConverterFactory.getInstance().encoder(
     ProtoEncoder.Params.of(options, false, buffer),
   )

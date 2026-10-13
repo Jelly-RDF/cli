@@ -2,10 +2,9 @@ package eu.neverblink.jelly.cli.command.sparql.util
 
 import caseapp.*
 import eu.neverblink.jelly.cli.InvalidArgument
-import eu.neverblink.jelly.core.proto.v1.RdfVersion
+import eu.neverblink.jelly.cli.util.args.StreamOptionArgs
 import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsOptions, SparqlStreamType}
 import eu.neverblink.jelly.core.sparql.JellySparqlOptions
-import eu.neverblink.jelly.core.utils.RdfVersionUtils
 
 private val defaultOptions: SparqlResultsOptions = JellySparqlOptions.BIG
 
@@ -22,11 +21,7 @@ case class SparqlJellySerializationOptions(
         "sets). Default: flat, or punctuated if there is more than one input file",
     )
     `opt.streamType`: Option[String] = None,
-    @HelpMessage(
-      "Version of RDF whose terms may occur in the stream. One of: 1.1 (no triple terms, " +
-        "no base directions), 1.2-basic (base directions, no triple terms), 1.2 (all RDF 1.2 " +
-        "terms), unspecified. Default: unspecified",
-    )
+    @HelpMessage(StreamOptionArgs.rdfVersionHelp + " Default: unspecified")
     `opt.rdfVersion`: Option[String] = None,
     @HelpMessage(
       "Maximum size of the name lookup table. Must be at least " +
@@ -57,25 +52,6 @@ case class SparqlJellySerializationOptions(
         )
     }
 
-  private def rdfVersion: Option[RdfVersion] =
-    `opt.rdfVersion`.map(_.trim.toLowerCase).map {
-      case "unspecified" => RdfVersion.RDF_VERSION_UNSPECIFIED
-      case label =>
-        try RdfVersionUtils.rdfVersionFromLabel(label)
-        catch
-          case _: IllegalArgumentException =>
-            throw InvalidArgument(
-              "--opt.rdf-version",
-              `opt.rdfVersion`.get,
-              Some("Must be one of: 1.1, 1.2-basic, 1.2, unspecified"),
-            )
-    }
-
-  private def checkTableSize(argument: String, size: Option[Int], minSize: Int): Unit =
-    size.filter(_ < minSize).foreach { s =>
-      throw InvalidArgument(argument, s.toString, Some(f"Must be at least $minSize"))
-    }
-
   /** Builds the stream options, starting from `base` (or the default preset) and applying the
     * options set on the command line on top.
     *
@@ -85,17 +61,21 @@ case class SparqlJellySerializationOptions(
     *   if any of the options is invalid
     */
   def toSparqlResultsOptions(base: Option[SparqlResultsOptions] = None): SparqlResultsOptions =
-    checkTableSize(
+    StreamOptionArgs.checkTableSize(
       "--opt.max-name-table-size",
       `opt.maxNameTableSize`,
       JellySparqlOptions.MIN_NAME_TABLE_SIZE,
     )
-    checkTableSize("--opt.max-prefix-table-size", `opt.maxPrefixTableSize`, 0)
-    checkTableSize("--opt.max-datatype-table-size", `opt.maxDatatypeTableSize`, 0)
+    StreamOptionArgs.checkTableSize("--opt.max-prefix-table-size", `opt.maxPrefixTableSize`, 0)
+    StreamOptionArgs.checkTableSize(
+      "--opt.max-datatype-table-size",
+      `opt.maxDatatypeTableSize`,
+      0,
+    )
     val options = base.getOrElse(defaultOptions).clone()
     `opt.streamName`.foreach(options.setStreamName)
     streamType.foreach(options.setStreamType)
-    rdfVersion.foreach(options.setRdfVersion)
+    `opt.rdfVersion`.map(StreamOptionArgs.rdfVersion).foreach(options.setRdfVersion)
     `opt.maxNameTableSize`.foreach(options.setMaxNameTableSize)
     `opt.maxPrefixTableSize`.foreach(options.setMaxPrefixTableSize)
     `opt.maxDatatypeTableSize`.foreach(options.setMaxDatatypeTableSize)

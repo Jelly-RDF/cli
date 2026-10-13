@@ -4,7 +4,9 @@ import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat
 import org.apache.jena.irix.IRIs
 import org.apache.jena.riot.lang.LabelToNode
 import org.apache.jena.riot.{RDFParser, RDFParserRegistry, RIOT}
-import org.apache.jena.riot.system.StreamRDF
+import org.apache.jena.graph.Triple
+import org.apache.jena.riot.system.{StreamRDF, StreamRDFWrapper}
+import org.apache.jena.sparql.core.Quad
 
 import java.io.InputStream
 
@@ -15,8 +17,9 @@ object RiotParserUtil:
       resolveIris: Boolean,
       format: RdfFormat.Jena,
       source: InputStream,
-      output: StreamRDF,
+      sink: StreamRDF,
   ): Unit = {
+    val output = SkipFinishOnFailure(sink)
     // Only really enable IRI resolution if the format supports it
     if resolveIris && format.supportsBaseIri then
       // Parser with full IRI resolution.
@@ -38,3 +41,21 @@ object RiotParserUtil:
         .create(format.jenaLang, FastParserProfile())
         .read(source, "", format.jenaLang.getContentType, output, RIOT.getContext)
   }
+
+/** Jena's parsers call finish() on the output even if the output failed. A Jelly writer that failed
+  * throws again in finish(), which would hide the first error, so finish() is skipped then.
+  */
+private final class SkipFinishOnFailure(out: StreamRDF) extends StreamRDFWrapper(out):
+  private var failed = false
+
+  private def guard(f: => Unit): Unit =
+    try f
+    catch
+      case e: Throwable =>
+        failed = true
+        throw e
+
+  override def triple(triple: Triple): Unit = guard(super.triple(triple))
+  override def quad(quad: Quad): Unit = guard(super.quad(quad))
+  override def prefix(prefix: String, iri: String): Unit = guard(super.prefix(prefix, iri))
+  override def finish(): Unit = if !failed then super.finish()

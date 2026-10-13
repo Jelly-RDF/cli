@@ -5,7 +5,8 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.util.io.IoUtil
 import eu.neverblink.jelly.core.{RdfProtoDeserializationError, RdfProtoSerializationError}
 import eu.neverblink.jelly.core.proto.v1.sparql.{SparqlResultsFrame, SparqlResultsOptions}
-import eu.neverblink.jelly.core.sparql.{JellySparqlIoUtils, JellySparqlOptions}
+import eu.neverblink.jelly.core.sparql.JellySparqlOptions
+import eu.neverblink.jelly.core.utils.IoUtils
 import org.apache.jena.riot.RiotException
 
 import java.io.InputStream
@@ -25,7 +26,7 @@ object SparqlJellyUtil:
   def iterateSparqlStreamWithDelimitingInfo(
       inputStream: InputStream,
   ): (Boolean, Iterator[SparqlResultsFrame]) =
-    val response = JellySparqlIoUtils.autodetectDelimiting(inputStream)
+    val response = IoUtils.autodetectDelimiting(inputStream, SparqlResultsFrame.getDescriptor)
     val input = response.newInput()
     if response.isDelimited then
       (

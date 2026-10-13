@@ -10,6 +10,7 @@ import org.apache.jena.riot.system.StreamRDF
 import org.apache.jena.sparql.core.Quad
 
 import java.io.OutputStream
+import scala.annotation.nowarn
 
 /** A stream writer that writes RDF data in Jelly format, using the GRAPHS physical stream type.
   *
@@ -20,6 +21,8 @@ final class JellyStreamWriterGraphs(opt: JellyFormatVariant, out: OutputStream) 
   private val buffer = RowBuffer.newLazyImmutable()
   // We don't set any options here – it is the responsibility of the caller to set
   // a valid stream type (GRAPHS).
+  // The Jelly-RDF 1.1 encoder is deprecated, but still needed for --opt.jelly-version=1.1
+  @nowarn("cat=deprecation")
   private val encoder = JenaConverterFactory.getInstance().encoder(
     ProtoEncoder.Params.of(
       opt.getOptions,
