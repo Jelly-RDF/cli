@@ -120,6 +120,8 @@ abstract class JellyCommand[T <: HasJellyCommandOptions: {Parser, Help}] extends
     else System.in
 
   final def setStdIn(data: InputStream): Unit =
+    // Entering the test mode resets the input, so do it before setting it
+    if !isTest then testMode(true)
     in = data
 
   final def getOutStream: OutputStream =

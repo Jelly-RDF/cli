@@ -327,6 +327,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -343,6 +348,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -355,6 +365,11 @@
           "com.github.benmanes.caffeine.cache.AsyncCacheLoader",
           "boolean"
         ]
+      }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
       }
     ]
   },
@@ -372,6 +387,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -387,6 +407,11 @@
           "com.github.benmanes.caffeine.cache.AsyncCacheLoader",
           "boolean"
         ]
+      }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
       }
     ]
   },
@@ -404,6 +429,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -419,6 +449,11 @@
           "com.github.benmanes.caffeine.cache.AsyncCacheLoader",
           "boolean"
         ]
+      }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
       }
     ]
   },
@@ -436,6 +471,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -451,6 +491,11 @@
           "com.github.benmanes.caffeine.cache.AsyncCacheLoader",
           "boolean"
         ]
+      }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
       }
     ]
   },
@@ -468,6 +513,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -483,6 +533,11 @@
           "com.github.benmanes.caffeine.cache.AsyncCacheLoader",
           "boolean"
         ]
+      }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
       }
     ]
   },
@@ -522,6 +577,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -538,6 +598,11 @@
           "boolean"
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
+      }
     ]
   },
   {
@@ -553,6 +618,11 @@
           "com.github.benmanes.caffeine.cache.AsyncCacheLoader",
           "boolean"
         ]
+      }
+    ],
+    "fields": [
+      {
+        "name": "FACTORY"
       }
     ]
   },

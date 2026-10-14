@@ -5,7 +5,8 @@ import eu.neverblink.jelly.cli.util.io.ProtoText
 import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
 import org.apache.jena.query.{Dataset, DatasetFactory}
 import org.apache.jena.rdf.model.{Model, ModelFactory, ResourceFactory}
-import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages}
+import org.apache.jena.riot.{Lang, RDFDataMgr, RDFLanguages, RDFWriter}
+import eu.neverblink.jelly.core.{JellyConstants, JellyOptions}
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
@@ -62,10 +63,18 @@ object DataGenHelper:
     * @return
     *   String
     */
-  def generateJellyBytes(nTriples: Int): Array[Byte] =
+  def generateJellyBytes(nTriples: Int, rowLayout: Boolean = false): Array[Byte] =
     val model = generateTripleModel(nTriples)
     val outputStream = new ByteArrayOutputStream()
-    RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
+    if rowLayout then
+      // Jelly-RDF 1.1, with generalized statements and RDF-star allowed
+      RDFWriter.create().lang(JellyLanguage.JELLY).source(model)
+        .set(
+          JellyLanguage.SYMBOL_STREAM_OPTIONS,
+          JellyOptions.BIG_ALL_FEATURES.clone().setVersion(JellyConstants.PROTO_VERSION_1_1_X),
+        )
+        .output(outputStream)
+    else RDFDataMgr.write(outputStream, model, JellyLanguage.JELLY)
     outputStream.toByteArray
 
   /** Generate a Jelly frame in the Text Format.
@@ -74,8 +83,8 @@ object DataGenHelper:
     * @return
     *   String
     */
-  def generateJellyText(nTriples: Int): String =
-    val bytes = generateJellyBytes(nTriples)
+  def generateJellyText(nTriples: Int, rowLayout: Boolean = false): String =
+    val bytes = generateJellyBytes(nTriples, rowLayout)
     val frame = RdfStreamFrame.parseDelimitedFrom(ByteArrayInputStream(bytes))
     ProtoText.print(RdfStreamFrame.getDescriptor, frame.toByteArray)
 

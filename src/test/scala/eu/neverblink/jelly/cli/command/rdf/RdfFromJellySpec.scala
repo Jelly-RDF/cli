@@ -5,8 +5,9 @@ import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.helpers.*
 import eu.neverblink.jelly.cli.command.rdf.util.{RdfFormat, RdfJellySerializationOptions}
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormat, JellyLanguage}
-import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame}
-import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory}
+import eu.neverblink.jelly.cli.command.sparql.SparqlSerDesSpec
+import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame, RdfStreamType}
+import eu.neverblink.jelly.core.{JellyConstants, JellyOptions, JellyTranscoderFactory}
 import org.apache.jena.query.DatasetFactory
 import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.riot.system.StreamRDFLib
@@ -45,6 +46,19 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
     os.toByteArray
   }
 
+  // A stream of 3 RDF Messages, the second one empty
+  private lazy val messageStream: Array[Byte] = {
+    import RdfSparqlTestData.*
+    val sparql = SparqlSerDesSpec.writePunctuated(
+      Seq(
+        sparqlJson(Seq("s", "p", "o"), Seq(statementRow("a", "p", "1"))),
+        sparqlJson(Seq("s", "p", "o"), Nil),
+        sparqlJson(Seq("s", "p", "o"), Seq(statementRow("b", "p", "2"))),
+      ),
+    )
+    sparqlToRdfMessages(sparql)
+  }
+
   "rdf from-jelly command" should {
     "re-encode Jelly with the default options of rdf to-jelly" when {
       "the format is given explicitly" in withFullJellyFile(
@@ -53,18 +67,41 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           val bytes = RdfFromJelly.getOutBytes
           val frames = RdfToJellySpec.readJellyFile(ByteArrayInputStream(bytes))
           val options = frames.head.getRows.asScala.head.getOptions
-          val expected = RdfJellySerializationOptions.defaultFor(RdfFormat.JellyBinary)
+          val expected = RdfJellySerializationOptions.defaultOptions
           options.getMaxNameTableSize should be(expected.getMaxNameTableSize)
-          options.getGeneralizedStatements should be(true)
-          options.getRdfStar should be(true)
+          options.getVersion should be(JellyConstants.PROTO_VERSION_1_2_X)
+          options.getStreamType should be(RdfStreamType.FLAT)
           options.getPhysicalType should be(PhysicalStreamType.TRIPLES)
-          // The input has frames of 10 rows, which are kept as they are
+          // The input has frames of 10 statements, which are kept as they are
           frames.size should be > 1
           RdfToJellySpec.translateJellyBack(ByteArrayInputStream(bytes))
             .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
         },
         frameSize = 10,
       )
+
+      "the input is Jelly-RDF 1.1" in withFullJellyFile(
+        j => {
+          RdfFromJelly.runTestCommand(List("rdf", "from-jelly", j, "--out-format", "jelly"))
+          val bytes = RdfFromJelly.getOutBytes
+          val frames = RdfToJellySpec.readJellyFile(ByteArrayInputStream(bytes))
+          frames.head.getRows.asScala.head.getOptions.getVersion should be(
+            JellyConstants.PROTO_VERSION_1_2_X,
+          )
+          RdfToJellySpec.translateJellyBack(ByteArrayInputStream(bytes))
+            .isIsomorphicWith(DataGenHelper.generateTripleModel(testCardinality)) should be(true)
+        },
+        rowLayout = true,
+      )
+
+      "the input is a stream of RDF Messages, which stays one" in {
+        val messages = RdfSparqlTestData.readRdfMessages(messageStream)
+        RdfFromJelly.setStdIn(ByteArrayInputStream(messageStream))
+        RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--out-format", "jelly"))
+        val bytes = RdfFromJelly.getOutBytes
+        RdfSparqlTestData.rdfStreamOptions(bytes).getStreamType should be(RdfStreamType.MESSAGES)
+        RdfSparqlTestData.readRdfMessages(bytes) should be(messages)
+      }
 
       "the format is inferred from the output file name" in withFullJellyFile { j =>
         withEmptyJellyFile { q =>
@@ -201,17 +238,16 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
                           |  options {
                           |    stream_name: "Stream"
                           |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
-                          |    generalized_statements: true
-                          |    rdf_star: true
                           |    max_name_table_size: 128
                           |    max_prefix_table_size: 16
                           |    max_datatype_table_size: 16
-                          |    logical_type: LOGICAL_STREAM_TYPE_FLAT_TRIPLES
-                          |    version: 1
+                          |    version: 3
                           |  }
-                          |}""".stripMargin
+                          |}
+                          |columns {
+                          |  row_count: 33""".stripMargin
         out should include(outString)
-        "rows".r.findAllIn(out).length should be(70)
+        "rows".r.findAllIn(out).length should be(1)
         "http://example.org/predicate/".r.findAllIn(out).length should be(1)
       }
 
@@ -236,17 +272,16 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
               |  options {
               |    stream_name: "Stream"
               |    physical_type: PHYSICAL_STREAM_TYPE_TRIPLES
-              |    generalized_statements: true
-              |    rdf_star: true
               |    max_name_table_size: 128
               |    max_prefix_table_size: 16
               |    max_datatype_table_size: 16
-              |    logical_type: LOGICAL_STREAM_TYPE_FLAT_TRIPLES
-              |    version: 1
+              |    version: 3
               |  }
-              |}""".stripMargin
+              |}
+              |columns {
+              |  row_count: 33""".stripMargin
           inTxt should include(outString)
-          "rows".r.findAllIn(inTxt).length should be(70)
+          "rows".r.findAllIn(inTxt).length should be(1)
           "http://example.org/predicate/".r.findAllIn(inTxt).length should be(1)
         }
       }
@@ -266,7 +301,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         out should include("# Frame 3")
         out should include("# Frame 4")
         out should include("# Frame 5")
-        "rows".r.findAllIn(out).length should be(3 * testCardinality)
+        s"row_count: $testCardinality".r.findAllIn(out).length should be(3)
       }
     }
 
@@ -443,7 +478,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           withEmptyJellyFile { j =>
             RDFWriter
               .source(testDs)
-              .format(JellyFormat.JELLY_BIG_ALL_FEATURES)
+              .format(JellyFormat.JELLY_BIG_STRICT)
               .build()
               .output(FileOutputStream(File(j)))
 
@@ -476,7 +511,7 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
           withEmptyJellyFile { j =>
             RDFWriter
               .source(testDs)
-              .format(JellyFormat.JELLY_BIG_ALL_FEATURES)
+              .format(JellyFormat.JELLY_BIG_STRICT)
               .build()
               .output(FileOutputStream(File(j)))
 
@@ -524,8 +559,9 @@ class RdfFromJellySpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       }
     }
 
-    "use the default options, with the RDF version inferred from the input" in {
-      val rdf = writeRdf(PhysicalStreamType.TRIPLES, triples, rdfStar = false)
+    "use the default options, with the RDF version of the input" in {
+      val rdf =
+        writeRdf(PhysicalStreamType.TRIPLES, triples, rdfVersion = RdfVersion.RDF_VERSION_1_1)
       RdfFromJelly.setStdIn(ByteArrayInputStream(rdf))
       RdfFromJelly.runTestCommand(List("rdf", "from-jelly", "--out-format", "jelly-sparql"))
       val options = readFrames(RdfFromJelly.getOutBytes).head.getOptions

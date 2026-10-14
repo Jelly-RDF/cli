@@ -12,13 +12,14 @@ object JellyWriterUtil:
 
   /** Creates a StreamRDF that writes Jelly-RDF with the given options.
     *
-    * If the physical type is unspecified, the writer picks TRIPLES or QUADS based on the first
-    * statement it gets.
+    * The writer writes Jelly-RDF 1.2 by default, unless the protocol version in the options is set
+    * to 1 or 2. If the physical type is unspecified, the writer picks TRIPLES or QUADS based on the
+    * first statement it gets.
     *
     * @param jellyOpt
     *   stream options of the output
     * @param frameSize
-    *   target number of rows per frame
+    *   target number of statements (Jelly-RDF 1.2) or rows (Jelly-RDF 1.1) per frame
     * @param enableNamespaceDeclarations
     *   whether to write namespace declarations
     * @param delimited
@@ -34,6 +35,7 @@ object JellyWriterUtil:
       out: OutputStream,
   ): StreamRDF =
     jellyOpt.getPhysicalType match
+      // Only in Jelly-RDF 1.1, Jelly-RDF 1.2 has no GRAPHS streams
       case PhysicalStreamType.GRAPHS =>
         JellyStreamWriterGraphs(
           JellyFormatVariant

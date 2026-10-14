@@ -1,13 +1,17 @@
 package eu.neverblink.jelly.cli.util.jena
 
 import eu.neverblink.jelly.cli.*
-import eu.neverblink.jelly.cli.command.rdf.util.JellyUtil
+import eu.neverblink.jelly.cli.command.rdf.util.{JellyUtil, StreamOptionsUtil}
 import eu.neverblink.jelly.cli.command.sparql.util.{
   SparqlJellyUtil,
   SparqlResultSet,
   SparqlResultSetReader,
 }
-import eu.neverblink.jelly.cli.util.jena.riot.{JellyFrameWriter, JellyWriterUtil}
+import eu.neverblink.jelly.cli.util.jena.riot.{
+  JellyFrameWriter,
+  JellyMessageWriter,
+  JellyWriterUtil,
+}
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
 import eu.neverblink.jelly.core.JellyOptions
@@ -41,7 +45,9 @@ object RdfSparqlConverter:
     */
   def defaultSparqlOptions(inputOptions: RdfStreamOptions): SparqlResultsOptions =
     JellySparqlOptions.BIG.clone().setRdfVersion(
-      if inputOptions.getRdfStar then RdfVersion.RDF_VERSION_1_2 else RdfVersion.RDF_VERSION_1_1,
+      if !StreamOptionsUtil.isRowLayout(inputOptions) then inputOptions.getRdfVersion
+      else if inputOptions.getRdfStar then RdfVersion.RDF_VERSION_1_2
+      else RdfVersion.RDF_VERSION_1_1,
     )
 
   /** Converts a Jelly-RDF stream to a Jelly-SPARQL result set, one solution per statement.
@@ -86,10 +92,7 @@ object RdfSparqlConverter:
       inputStream: InputStream,
   ): (RdfStreamOptions, Seq[Var], Iterator[Binding]) =
     val frames = JellyUtil.iterateRdfStream(inputStream).buffered
-    val inputOptions = frames.headOption.flatMap(_.getRows.asScala.headOption) match
-      case Some(row) if row.hasOptions => row.getOptions
-      case Some(_) => throw CriticalException("First input row is not an options row")
-      case None => throw CriticalException("Empty input stream")
+    val inputOptions = JellyUtil.requireFirstOptions(frames)
     val quads = inputOptions.getPhysicalType match
       case PhysicalStreamType.TRIPLES => false
       case PhysicalStreamType.QUADS | PhysicalStreamType.GRAPHS => true
@@ -118,21 +121,24 @@ object RdfSparqlConverter:
     val bindings = frames.flatMap { (frame: RdfStreamFrame) =>
       // A new buffer for every frame, so that the iterator can take the old one as it is
       buffer = ArrayBuffer[Binding]()
-      frame.getRows.forEach(decoder.ingestRow)
+      decoder.ingestFrame(frame)
       buffer
     }
     (inputOptions, vars, bindings)
 
   /** Converts a Jelly-SPARQL stream to a Jelly-RDF stream, one statement per solution.
     *
-    * A FLAT stream gives a stream with frames of `rowsPerFrame` rows. A PUNCTUATED stream gives one
-    * frame per result set, with the logical type set to GRAPHS (TRIPLES output) or DATASETS
-    * (otherwise), unless it was set already.
+    * A FLAT stream is a stream with frames of `rowsPerFrame` rows. A PUNCTUATED stream in Jelly-RDF
+    * 1.2 is a stream of RDF Messages with one message per result set, unless the stream type was
+    * set. In Jelly-RDF 1.1, it yields one frame per result set, with the logical type set to GRAPHS
+    * (TRIPLES output) or DATASETS (otherwise), unless it was set already.
     *
     * @param outputOptions
     *   stream options of the output. The physical type may be unspecified.
+    * @param streamTypeSet
+    *   whether the stream type in `outputOptions` was set by the user, and must be kept
     * @param rowsPerFrame
-    *   target number of rows per output frame, for FLAT input
+    *   target number of statements (Jelly-RDF 1.2) or rows (Jelly-RDF 1.1) per output frame
     * @param delimited
     *   whether the output should be delimited
     */
@@ -140,6 +146,7 @@ object RdfSparqlConverter:
       inputStream: InputStream,
       outputStream: OutputStream,
       outputOptions: RdfStreamOptions,
+      streamTypeSet: Boolean,
       rowsPerFrame: Int,
       delimited: Boolean,
   ): Unit =
@@ -148,7 +155,17 @@ object RdfSparqlConverter:
       if !resultSets.hasNext then throw CriticalException("Empty input stream")
       val first = selectResult(resultSets.next(), 0)
       val jellyOpt = withPhysicalType(outputOptions, first.variables.size == 4)
-      if resultSets.isPunctuated then
+      val rowLayout = StreamOptionsUtil.isRowLayout(jellyOpt)
+      if resultSets.isPunctuated && !rowLayout && !streamTypeSet then
+        jellyOpt.setStreamType(RdfStreamType.MESSAGES)
+      if !rowLayout && jellyOpt.getStreamType == RdfStreamType.MESSAGES then
+        val writer = JellyMessageWriter(jellyOpt, rowsPerFrame, delimited, outputStream)
+        writeStatements(first, writer, jellyOpt, Option.when(resultSets.isPunctuated)(0))
+        for (resultSet, i) <- resultSets.zipWithIndex do
+          writer.endMessage()
+          writeStatements(selectResult(resultSet, i + 1), writer, jellyOpt, Some(i + 1))
+        writer.finish()
+      else if resultSets.isPunctuated && rowLayout then
         if jellyOpt.getLogicalType == LogicalStreamType.UNSPECIFIED then
           jellyOpt.setLogicalType(
             if jellyOpt.getPhysicalType == PhysicalStreamType.TRIPLES then LogicalStreamType.GRAPHS
@@ -171,6 +188,9 @@ object RdfSparqlConverter:
         )
         writer.start()
         writeStatements(first, writer, jellyOpt)
+        // With the FLAT stream type set, all result sets are written as one graph or dataset
+        for (resultSet, i) <- resultSets.zipWithIndex do
+          writeStatements(selectResult(resultSet, i + 1), writer, jellyOpt, Some(i + 1))
         writer.finish()
       outputStream.flush()
     }
@@ -210,7 +230,7 @@ object RdfSparqlConverter:
     if quads && triples then
       throw CriticalException(
         s"Result set${resultSetIndex.map(" " + _).getOrElse("")} has 4 variables, but the output is a " +
-          "TRIPLES stream. Use --opt.physical-type=QUADS or GRAPHS.",
+          "TRIPLES stream. Use --opt.physical-type=QUADS.",
       )
     var index = 0L
     for row <- resultSet.rows do
@@ -262,7 +282,7 @@ object RdfSparqlConverter:
         throw InvalidArgument(
           "--opt.physical-type",
           "TRIPLES",
-          Some("The result set has 4 variables, so the output must be QUADS or GRAPHS"),
+          Some("The result set has 4 variables, so the output must be QUADS"),
         )
       case _ => jellyOpt
 
@@ -273,13 +293,13 @@ object RdfSparqlConverter:
       solution: String,
       opt: RdfStreamOptions,
   ): Unit =
-    if !opt.getGeneralizedStatements && generalized then
+    if generalized && !StreamOptionsUtil.allowsGeneralized(opt) then
       throw CriticalException(
         s"Solution $solution is not a valid RDF statement: $statement. " +
-          "Use --opt.generalized-statements=true to allow generalized statements.",
+          StreamOptionsUtil.generalizedHint(opt),
       )
-    if !opt.getRdfStar && tripleTerms then
+    if tripleTerms && !StreamOptionsUtil.allowsTripleTerms(opt) then
       throw CriticalException(
         s"Solution $solution contains a triple term: $statement. " +
-          "Use --opt.triple-terms=true to allow triple terms.",
+          StreamOptionsUtil.tripleTermsHint(opt),
       )

@@ -3,11 +3,10 @@ package eu.neverblink.jelly.cli.command.rdf
 import caseapp.*
 import eu.neverblink.jelly.cli.*
 import eu.neverblink.jelly.cli.command.rdf.util.*
-import eu.neverblink.jelly.core.proto.v1.{LogicalStreamType, RdfStreamOptions}
+import eu.neverblink.jelly.core.proto.v1.RdfStreamOptions
 import eu.neverblink.jelly.core.{JellyOptions, JellyTranscoderFactory, RdfProtoTranscodingError}
 
 import java.io.{InputStream, OutputStream}
-import scala.jdk.CollectionConverters.*
 
 @HelpMessage(
   "Quickly transcodes the input Jelly file into another Jelly file.\n" +
@@ -15,6 +14,8 @@ import scala.jdk.CollectionConverters.*
     "The input may be a concatenation of multiple Jelly streams.\n" +
     "Currently only frame-by-frame transcoding is supported.\n" +
     "The output's options must be greater than or equal to the input options.\n" +
+    "Only Jelly-RDF 1.2 streams can be transcoded. To turn a Jelly-RDF 1.1 stream into 1.2, " +
+    "use rdf to-jelly with Jelly input, which fully decodes and re-encodes it.\n" +
     "Note: this command works in a streaming manner and scales well to large files.",
 )
 @ArgsName("<file-to-transcode>")
@@ -40,6 +41,12 @@ object RdfTranscode extends JellyCommand[RdfTranscodeOptions]:
   override final def group = "rdf"
 
   override def doRun(options: RdfTranscodeOptions, remainingArgs: RemainingArgs): Unit =
+    if options.jellySerializationOptions.isRowLayout then
+      throw InvalidArgument(
+        "--opt.jelly-version",
+        "1.1",
+        Some("rdf transcode only writes Jelly-RDF 1.2"),
+      )
     val outOpt = options.jellySerializationOptions.asRdfStreamOptions
     val (inputStream, outputStream) =
       getIoStreamsFromOptions(remainingArgs.remaining.headOption, options.outputFile)
@@ -60,22 +67,20 @@ object RdfTranscode extends JellyCommand[RdfTranscodeOptions]:
       outOpt: RdfStreamOptions,
   ): Unit =
     val in = JellyUtil.iterateRdfStream(inputStream).buffered
-    val head = in.head
-    if head.getRows.asScala.isEmpty then throw CriticalException("Empty input stream")
-    if !head.getRows.asScala.head.hasOptions then
-      throw CriticalException("First input row is not an options row")
-    val inOpt = head.getRows.asScala.head.getOptions
+    val inOpt = JellyUtil.requireFirstOptions(in)
+    if StreamOptionsUtil.isRowLayout(inOpt) then
+      throw CriticalException(
+        "The input is a Jelly-RDF 1.1 stream, but rdf transcode only supports Jelly-RDF 1.2. " +
+          "To turn it into Jelly-RDF 1.2, use rdf to-jelly with Jelly input instead, " +
+          "for example: rdf to-jelly --in-format jelly",
+      )
 
     val transcoder = JellyTranscoderFactory.fastMergingTranscoder(
       JellyOptions.DEFAULT_SUPPORTED_OPTIONS,
       outOpt.clone()
-        // There is no way to specify the physical type with options currently.
-        // Just use the one from the input.
+        // The physical type and the stream type must be the same as in the input
         .setPhysicalType(inOpt.getPhysicalType)
-        .setLogicalType(
-          if outOpt.getLogicalType == LogicalStreamType.UNSPECIFIED then inOpt.getLogicalType
-          else outOpt.getLogicalType,
-        ),
+        .setStreamType(inOpt.getStreamType),
     )
 
     in.map(transcoder.ingestFrame)

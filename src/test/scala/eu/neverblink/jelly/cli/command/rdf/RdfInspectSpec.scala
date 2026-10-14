@@ -2,16 +2,19 @@ package eu.neverblink.jelly.cli.command.rdf
 
 import com.google.protobuf.ByteString
 import eu.neverblink.jelly.cli.{ExitException, InvalidJellyFile}
-import eu.neverblink.jelly.cli.command.helpers.TestFixtureHelper
-import eu.neverblink.jelly.core.JellyOptions
-import eu.neverblink.jelly.core.proto.v1.{RdfStreamFrame, RdfStreamRow}
+import eu.neverblink.jelly.cli.command.helpers.{RdfSparqlTestData, TestFixtureHelper}
+import eu.neverblink.jelly.cli.command.sparql.SparqlSerDesSpec
+import eu.neverblink.jelly.core.{JellyConstants, JellyOptions}
+import eu.neverblink.jelly.cli.util.jena.riot.JellyWriterUtil
+import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamFrame, RdfStreamRow}
+import org.apache.jena.graph.{NodeFactory, Triple}
 
 import scala.jdk.CollectionConverters.*
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.yaml.snakeyaml.Yaml
 
-import java.io.ByteArrayInputStream
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.util
 
 class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
@@ -19,8 +22,158 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
   protected val tripleTerms: Seq[String] = Seq("subject", "predicate", "object")
   protected val tripleNodes: Seq[String] = Seq("iri", "bnode", "literal", "triple")
 
+  /** Most tests here are about Jelly-RDF 1.1 streams, see "for Jelly-RDF 1.2 streams" below. */
+  private def withRowLayoutJellyFile(testCode: String => Any, frameSize: Int = 256): Unit =
+    withFullJellyFile(testCode, frameSize, rowLayout = true)
+
+  private def inspect(args: String*): util.Map[String, Any] =
+    val (out, _) = RdfInspect.runTestCommand(List("rdf", "inspect") ++ args)
+    new Yaml().load(out).asInstanceOf[util.Map[String, Any]]
+
+  private def aggregate(parsed: util.Map[String, Any]): util.Map[String, Any] =
+    parsed.get("frames").asInstanceOf[util.Map[String, Any]]
+
+  private def perFrame(parsed: util.Map[String, Any]): Seq[util.Map[String, Any]] =
+    parsed.get("frames").asInstanceOf[util.List[util.Map[String, Any]]].asScala.toSeq
+
+  private def map(m: util.Map[String, Any], key: String): util.Map[String, Any] =
+    m.get(key).asInstanceOf[util.Map[String, Any]]
+
+  "rdf inspect command, for Jelly-RDF 1.2 streams" should {
+    "print the stream options of Jelly-RDF 1.2" in withFullJellyFile { j =>
+      val options = map(inspect(j), "stream_options")
+      options.get("max_name_table_size") should be(128)
+      options.get("physical_type") should be("TRIPLES (1)")
+      options.get("stream_type") should be("FLAT (0)")
+      options.get("rdf_version") should be("RDF_VERSION_UNSPECIFIED (0)")
+      options.get("version") should be(JellyConstants.PROTO_VERSION_1_2_X)
+      options.containsKey("logical_type") should be(false)
+      options.containsKey("generalized_statements") should be(false)
+    }
+
+    "count statements, lookup entries, and column values" in withFullJellyFile(
+      j => {
+        val frames = aggregate(inspect(j))
+        frames.get("frame_count") should be(3)
+        frames.get("statement_count") should be(testCardinality)
+        frames.get("option_count") should be(1)
+        frames.get("name_count").asInstanceOf[Int] should be > 0
+        // Subject, predicate, and object are all IRIs
+        frames.get("iri_value_count") should be(3 * testCardinality)
+        frames.get("literal_value_count") should be(0)
+        frames.containsKey("triple_count") should be(false)
+        frames.containsKey("message_end_count") should be(false)
+      },
+      frameSize = 15,
+    )
+
+    "count statements per frame" in withFullJellyFile(
+      j => {
+        val frames = perFrame(inspect("--per-frame", j))
+        frames.map(_.get("statement_count")) should be(Seq(15, 15, 3))
+        frames.map(_.get("frame_index")) should be(Seq(0, 1, 2))
+      },
+      frameSize = 15,
+    )
+
+    "print the values of each column with --detail all" in withFullJellyFile(
+      j => {
+        val frames = aggregate(inspect("--detail", "all", j))
+        for column <- tripleTerms do
+          map(frames, column).get("iri_value_count") should be(testCardinality)
+          map(frames, column).containsKey("bnode_value_count") should be(false)
+        frames.containsKey("graph") should be(false)
+        val first = perFrame(inspect("--per-frame", "--detail", "all", j)).head
+        map(first, "subject").get("iri_value_count") should be(15)
+      },
+      frameSize = 15,
+    )
+
+    "print the values by kind with --detail node" in withFullJellyFile { j =>
+      val details = map(aggregate(inspect("--detail", "node", j)), "node_details")
+      details.get("iri_value_count") should be(3 * testCardinality)
+    }
+
+    "print the values by column with --detail term" in withFullJellyFile { j =>
+      val details = map(aggregate(inspect("--detail", "term", j)), "term_details")
+      details.get("subject_count") should be(testCardinality)
+      details.get("graph_count") should be(0)
+    }
+
+    "print size statistics" in withFullJellyFile { j =>
+      val frames = aggregate(inspect("--size", "--detail", "all", j))
+      // The number of statements is not a size
+      frames.get("statement_count") should be(testCardinality)
+      frames.get("frame_size").asInstanceOf[Int] should be > testCardinality
+      frames.get("iri_value_size").asInstanceOf[Int] should be > 0
+      map(frames, "subject").get("iri_value_size").asInstanceOf[Int] should be > 0
+    }
+
+    "print the values of the graph column of a QUADS stream" in {
+      import RdfSparqlTestData.*
+      RdfInspect.setStdIn(ByteArrayInputStream(writeRdf(PhysicalStreamType.QUADS, quads = quads)))
+      val parsed = inspect("--detail", "all")
+      map(parsed, "stream_options").get("physical_type") should be("QUADS (2)")
+      val frames = aggregate(parsed)
+      frames.get("statement_count") should be(quads.size)
+      // Two named graphs, and one quad in the default graph, which has no value
+      map(frames, "graph").get("iri_value_count") should be(2)
+      RdfInspect.setStdIn(ByteArrayInputStream(writeRdf(PhysicalStreamType.QUADS, quads = quads)))
+      map(aggregate(inspect("--detail", "term")), "term_details").get("graph_count") should be(2)
+    }
+
+    "measure the size of triple terms" in {
+      import RdfSparqlTestData.*
+      val withTripleTerm = Triple.create(
+        iri("a"),
+        iri("says"),
+        NodeFactory.createTripleTerm(triples.head),
+      )
+      val rdf = writeRdf(PhysicalStreamType.TRIPLES, Seq(withTripleTerm))
+      RdfInspect.setStdIn(ByteArrayInputStream(rdf))
+      aggregate(inspect()).get("triple_term_value_count") should be(1)
+      RdfInspect.setStdIn(ByteArrayInputStream(rdf))
+      val frames = aggregate(inspect("--size", "--detail", "all"))
+      frames.get("triple_term_value_size").asInstanceOf[Int] should be > 0
+      map(frames, "object").get("triple_term_value_size") should be(
+        frames.get("triple_term_value_size"),
+      )
+    }
+
+    "count namespace declarations" in {
+      val out = ByteArrayOutputStream()
+      val writer = JellyWriterUtil.createWriter(
+        JellyOptions.SMALL_STRICT.clone().setPhysicalType(PhysicalStreamType.TRIPLES),
+        256,
+        enableNamespaceDeclarations = true,
+        delimited = true,
+        out,
+      )
+      writer.prefix("ex", "http://example.org/")
+      writer.prefix("foaf", "http://xmlns.com/foaf/0.1/")
+      writer.triple(RdfSparqlTestData.triples.head)
+      writer.finish()
+      RdfInspect.setStdIn(ByteArrayInputStream(out.toByteArray))
+      aggregate(inspect()).get("namespace_count") should be(2)
+      RdfInspect.setStdIn(ByteArrayInputStream(out.toByteArray))
+      aggregate(inspect("--size")).get("namespace_size").asInstanceOf[Int] should be > 0
+    }
+
+    "count the message ends of a stream of RDF Messages" in {
+      import RdfSparqlTestData.*
+      val result = sparqlJson(Seq("s", "p", "o"), Seq(statementRow("a", "p", "1")))
+      val sparql = SparqlSerDesSpec.writePunctuated(Seq(result, result, result))
+      RdfInspect.setStdIn(ByteArrayInputStream(sparqlToRdfMessages(sparql)))
+      val parsed = inspect()
+      map(parsed, "stream_options").get("stream_type") should be("MESSAGES (1)")
+      // The end of the stream ends the last message
+      aggregate(parsed).get("message_end_count") should be(2)
+      aggregate(parsed).get("statement_count") should be(3)
+    }
+  }
+
   "rdf inspect command" should {
-    "be able to return aggregate of all frames as a valid Yaml" in withFullJellyFile { j =>
+    "be able to return aggregate of all frames as a valid Yaml" in withRowLayoutJellyFile { j =>
       val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", j))
       val yaml = new Yaml()
       val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
@@ -32,7 +185,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       frames.get("triple_count") should be(testCardinality)
     }
 
-    "be able to return all frames separately as a valid Yaml" in withFullJellyFile(
+    "be able to return all frames separately as a valid Yaml" in withRowLayoutJellyFile(
       testCode = { j =>
         val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", j))
         val yaml = new Yaml()
@@ -47,7 +200,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       frameSize = 15,
     )
 
-    "handle properly separate frame metrics for a singular frame" in withFullJellyFile { j =>
+    "handle properly separate frame metrics for a singular frame" in withRowLayoutJellyFile { j =>
       val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", j))
       val yaml = new Yaml()
       val parsed = yaml.load(out).asInstanceOf[java.util.Map[String, Any]]
@@ -59,7 +212,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
       frames.map(_.get("triple_count")).sum should be(testCardinality)
     }
 
-    "handle properly frame count when aggregating multiple frames" in withFullJellyFile(
+    "handle properly frame count when aggregating multiple frames" in withRowLayoutJellyFile(
       testCode = { j =>
         val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", j))
         val yaml = new Yaml()
@@ -108,7 +261,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
     }
 
     "print detailed metrics" when {
-      "aggregating and flat" in withFullJellyFile(
+      "aggregating and flat" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "all", j))
           val yaml = new Yaml()
@@ -123,7 +276,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      "per frame and flat" in withFullJellyFile(
+      "per frame and flat" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) =
             RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "all", j))
@@ -140,7 +293,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      "aggregating and grouping by node" in withFullJellyFile(
+      "aggregating and grouping by node" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "node", j))
           val yaml = new Yaml()
@@ -155,7 +308,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      "per frame and grouping by node" in withFullJellyFile(
+      "per frame and grouping by node" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) =
             RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "node", j))
@@ -172,7 +325,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      "aggregating and grouping by term" in withFullJellyFile(
+      "aggregating and grouping by term" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--detail", "term", j))
           val yaml = new Yaml()
@@ -186,7 +339,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      "per frame and grouping by term" in withFullJellyFile(
+      "per frame and grouping by term" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) =
             RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--detail", "term", j))
@@ -255,7 +408,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
     }
 
     "print size statistics" when {
-      "aggregating multiple frames" in withFullJellyFile(
+      "aggregating multiple frames" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) = RdfInspect.runTestCommand(List("rdf", "inspect", "--size", j))
           val yaml = new Yaml()
@@ -271,7 +424,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      "per frame" in withFullJellyFile(
+      "per frame" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) =
             RdfInspect.runTestCommand(List("rdf", "inspect", "--per-frame", "--size", j))
@@ -290,7 +443,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
     }
 
     "print detailed size statistics" when {
-      "aggregating multiple frames" in withFullJellyFile(
+      "aggregating multiple frames" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) =
             RdfInspect.runTestCommand(List("rdf", "inspect", "--size", "--detail", "all", j))
@@ -306,7 +459,7 @@ class RdfInspectSpec extends AnyWordSpec with Matchers with TestFixtureHelper:
         frameSize = 15,
       )
 
-      "per frame" in withFullJellyFile(
+      "per frame" in withRowLayoutJellyFile(
         testCode = { j =>
           val (out, err) =
             RdfInspect.runTestCommand(

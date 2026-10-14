@@ -3,7 +3,7 @@ package eu.neverblink.jelly.cli.command.helpers
 import eu.neverblink.jelly.cli.util.jena.JenaSystemOptions
 import eu.neverblink.jelly.cli.util.jena.riot.CliRiot
 import eu.neverblink.jelly.convert.jena.riot.{JellyFormatVariant, JellyLanguage}
-import eu.neverblink.jelly.core.JellyOptions
+import eu.neverblink.jelly.core.{JellyConstants, JellyOptions}
 import org.apache.jena.graph.Triple
 import org.apache.jena.riot.{Lang, RDFDataMgr, RDFFormat, RDFLanguages, RDFWriter, RIOT}
 import org.apache.jena.shared.impl.JenaParameters
@@ -62,7 +62,7 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     val graph = GraphFactory.createGraphMem()
     content.foreach(graph.add)
-    Using(new FileOutputStream(tempFile.toFile)) { fileOutputStream =>
+    Using.resource(new FileOutputStream(tempFile.toFile)) { fileOutputStream =>
       RDFDataMgr.write(fileOutputStream, graph, jenaLang)
     }
     try {
@@ -75,9 +75,9 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
       testCode(tempFile.toString)
     } finally { tempFile.toFile.delete() }
 
-  def withFullJellyTextFile(testCode: (String) => Any): Unit =
+  def withFullJellyTextFile(testCode: (String) => Any, rowLayout: Boolean = false): Unit =
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, ".jelly.txt")
-    val text = DataGenHelper.generateJellyText(testCardinality)
+    val text = DataGenHelper.generateJellyText(testCardinality, rowLayout)
     Files.write(tempFile, text.getBytes)
     try {
       testCode(tempFile.toString)
@@ -99,7 +99,14 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
     else testCode(filePath.toString)
   }
 
-  def withFullJellyFile(testCode: (String) => Any, frameSize: Int = 256): Unit =
+  /** @param rowLayout
+    *   whether to write Jelly-RDF 1.1, rather than 1.2
+    */
+  def withFullJellyFile(
+      testCode: (String) => Any,
+      frameSize: Int = 256,
+      rowLayout: Boolean = false,
+  ): Unit =
     val extension = getFileExtension(JellyLanguage.JELLY)
     val tempFile = Files.createTempFile(tmpDir, randomUUID.toString, f".${extension}")
     val customFormat = new RDFFormat(
@@ -109,7 +116,8 @@ trait TestFixtureHelper extends BeforeAndAfterAll:
 
     val writerContext = RIOT.getContext.copy.set(
       JellyLanguage.SYMBOL_STREAM_OPTIONS,
-      JellyOptions.SMALL_ALL_FEATURES.clone().setStreamName("Stream"),
+      JellyOptions.SMALL_ALL_FEATURES.clone().setStreamName("Stream")
+        .setVersion(if rowLayout then JellyConstants.PROTO_VERSION_1_1_X else 0),
     )
     val model = DataGenHelper.generateTripleModel(testCardinality)
 

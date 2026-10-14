@@ -6,7 +6,7 @@ import eu.neverblink.jelly.cli.command.rdf.util.*
 import eu.neverblink.jelly.cli.command.rdf.util.RdfFormat.*
 import eu.neverblink.jelly.cli.util.args.IndexRange
 import eu.neverblink.jelly.cli.util.io.ProtoText
-import eu.neverblink.jelly.cli.util.jena.riot.JellyWriterUtil
+import eu.neverblink.jelly.cli.util.jena.riot.{JellyMessageWriter, JellyWriterUtil}
 import eu.neverblink.jelly.cli.util.jena.{
   JenaSystemOptions,
   RdfSparqlConverter,
@@ -16,7 +16,7 @@ import eu.neverblink.jelly.cli.util.jena.{
 import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.core.JellyOptions
 import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
-import eu.neverblink.jelly.core.proto.v1.RdfStreamFrame
+import eu.neverblink.jelly.core.proto.v1.{RdfStreamFrame, RdfStreamType}
 import eu.neverblink.jelly.core.sparql.JellySparqlConstants
 import org.apache.jena.graph.{Node, Triple}
 import org.apache.jena.riot.system.StreamRDF
@@ -25,7 +25,6 @@ import org.apache.jena.sparql.core.Quad
 
 import java.io.{InputStream, OutputStream}
 import java.nio.charset.StandardCharsets.UTF_8
-import scala.jdk.CollectionConverters.*
 
 object RdfFromJellyPrint extends RdfCommandPrintUtil[RdfFormat.Writeable]:
   override val defaultFormat: RdfFormat = RdfFormat.NQuads
@@ -87,7 +86,7 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
   val defaultAction: WriteAction =
     (in, out, opt) =>
       jellyToLang(
-        in,
+        JellyUtil.iterateRdfStream(in),
         StreamRDFWriter.getWriterStream(out, RdfFormat.NQuads.jenaLang),
         RdfFormat.NQuads,
         opt,
@@ -111,16 +110,23 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       case (RdfFormat.JellyBinary, _) => Some(jellyToJelly)
       case (j: RdfFormat.Jena.StreamWriteable, _) =>
         Some((in, out, opt) =>
-          jellyToLang(in, StreamRDFWriter.getWriterStream(out, j.jenaLang), j, opt),
+          jellyToLang(
+            JellyUtil.iterateRdfStream(in),
+            StreamRDFWriter.getWriterStream(out, j.jenaLang),
+            j,
+            opt,
+          ),
         )
       case (j: RdfFormat.Jena.BatchWriteable, true) =>
         Some((in, out, opt) =>
           StreamRdfCombiningBatchWriter(out, j.jenaLang).runAndOutput(x =>
-            jellyToLang(in, x, j, opt),
+            jellyToLang(JellyUtil.iterateRdfStream(in), x, j, opt),
           ),
         )
       case (j: RdfFormat.Jena.BatchWriteable, false) =>
-        Some((in, out, opt) => jellyToLang(in, StreamRdfBatchWriter(out, j.jenaLang), j, opt))
+        Some((in, out, opt) =>
+          jellyToLang(JellyUtil.iterateRdfStream(in), StreamRdfBatchWriter(out, j.jenaLang), j, opt),
+        )
       case (RdfFormat.JellyText, _) => Some(jellyBinaryToText)
       case (RdfFormat.JellySparql, _) => Some(jellyToSparql)
 
@@ -132,15 +138,30 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       outputStream: OutputStream,
       opt: RdfFromJellyOptions,
   ): Unit =
-    val writer = JellyWriterUtil.createWriter(
-      RdfJellySerializationOptions.defaultFor(RdfFormat.JellyBinary),
-      RdfJellySerializationOptions.defaultRowsPerFrame,
-      enableNamespaceDeclarations = false,
-      delimited = true,
-      outputStream,
-    )
-    writer.start()
-    jellyToLang(inputStream, writer, RdfFormat.JellyBinary, opt)
+    val frames = JellyUtil.iterateRdfStream(inputStream).buffered
+    val options = RdfJellySerializationOptions.defaultOptions
+    val frameSize = RdfJellySerializationOptions.defaultRowsPerFrame(rowLayout = false)
+    JellyUtil.firstOptions(frames).filter(_.getStreamType == RdfStreamType.MESSAGES) match
+      case Some(inputOptions) =>
+        val writer = JellyMessageWriter(
+          options.clone()
+            .setPhysicalType(inputOptions.getPhysicalType)
+            .setStreamType(RdfStreamType.MESSAGES),
+          frameSize,
+          delimited = true,
+          outputStream,
+        )
+        jellyToLang(frames, writer, RdfFormat.JellyBinary, opt, writer.endMessage)
+      case None =>
+        val writer = JellyWriterUtil.createWriter(
+          options,
+          frameSize,
+          enableNamespaceDeclarations = false,
+          delimited = true,
+          outputStream,
+        )
+        writer.start()
+        jellyToLang(frames, writer, RdfFormat.JellyBinary, opt)
 
   /** Converts the Jelly-RDF stream to a Jelly-SPARQL result set of ?s ?p ?o (?g), with the default
     * options. To set them, use sparql to-jelly --in-format jelly-rdf.
@@ -162,10 +183,11 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     * stream
     */
   private def jellyToLang(
-      inputStream: InputStream,
+      frames: Iterator[RdfStreamFrame],
       writer: StreamRDF,
       format: RdfFormat,
       options: RdfFromJellyOptions,
+      onMessageEnd: () => Unit = () => (),
   ): Unit =
     // Whether the output is active at this moment
     var outputEnabled = false
@@ -173,6 +195,8 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
       override def handleNamespace(prefix: String, namespace: Node): Unit = {
         if outputEnabled then writer.prefix(prefix, namespace.getURI)
       }
+
+      override def handleMessageEnd(): Unit = if outputEnabled then onMessageEnd()
 
       override def handleTriple(subject: Node, predicate: Node, `object`: Node): Unit = {
         if outputEnabled then writer.triple(Triple.create(subject, predicate, `object`))
@@ -201,19 +225,19 @@ object RdfFromJelly extends RdfSerDesCommand[RdfFromJellyOptions, RdfFormat.Writ
     )
 
     val inputFrames = takeFrames.end match
-      case Some(end) => JellyUtil.iterateRdfStream(inputStream).take(end)
-      case None => JellyUtil.iterateRdfStream(inputStream)
+      case Some(end) => frames.take(end)
+      case None => frames
     val startFrom = takeFrames.start.getOrElse(0)
     for (frame, i) <- inputFrames.zipWithIndex do
       // If we are not yet in the output range, still fully parse the frame and update the decoder
       // state. We need this to decode the later frames correctly.
-      if i < startFrom then for row <- frame.getRows.asScala do decoder.ingestRow(row)
+      if i < startFrom then decoder.ingestFrame(frame)
       else
         // TODO: write frame index as a comment here
         //   https://github.com/Jelly-RDF/cli/issues/4
         outputEnabled = true
         // We are in the output range, so we can start writing the output
-        for row <- frame.getRows.asScala do decoder.ingestRow(row)
+        decoder.ingestFrame(frame)
         writer.finish()
 
   /** This method reads the Jelly file, rewrites it to Jelly text and writes it to some output

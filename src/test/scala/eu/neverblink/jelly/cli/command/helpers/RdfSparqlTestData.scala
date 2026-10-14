@@ -1,18 +1,22 @@
 package eu.neverblink.jelly.cli.command.helpers
 
-import eu.neverblink.jelly.cli.command.rdf.util.JellyUtil
+import eu.neverblink.jelly.cli.command.rdf.util.{JellyUtil, RdfJellySerializationOptions}
 import eu.neverblink.jelly.cli.command.sparql.SparqlSerDesSpec
+import eu.neverblink.jelly.cli.util.jena.RdfSparqlConverter
 import eu.neverblink.jelly.cli.util.jena.riot.JellyWriterUtil
+import eu.neverblink.jelly.convert.jena.JenaConverterFactory
 import eu.neverblink.jelly.convert.jena.riot.JellyLanguage
+import eu.neverblink.jelly.core.RdfHandler.AnyStatementHandler
 import eu.neverblink.jelly.convert.jena.sparql.JellySparqlLanguage
-import eu.neverblink.jelly.core.JellyOptions
-import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamOptions}
+import eu.neverblink.jelly.core.{JellyConstants, JellyOptions}
+import eu.neverblink.jelly.core.proto.v1.{PhysicalStreamType, RdfStreamOptions, RdfVersion}
 import org.apache.jena.graph.{Node, NodeFactory, Triple}
 import org.apache.jena.query.ResultSetFactory
 import org.apache.jena.riot.RDFParser
 import org.apache.jena.sparql.core.{DatasetGraphFactory, Quad}
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.*
 
 /** Test data and helpers for converting between Jelly-RDF and Jelly-SPARQL. */
@@ -36,17 +40,32 @@ object RdfSparqlTestData:
   /** The triples as quads in the default graph. */
   val triplesAsQuads: Set[Quad] = triples.map(Quad.create(Quad.defaultGraphIRI, _)).toSet
 
-  /** Writes the statements as Jelly-RDF with the given physical type. */
+  /** Writes the statements as Jelly-RDF with the given physical type.
+    *
+    * @param rowLayout
+    *   whether to write Jelly-RDF 1.1, rather than 1.2. GRAPHS streams are always Jelly-RDF 1.1.
+    * @param rdfStar
+    *   whether triple terms are allowed, in Jelly-RDF 1.1
+    * @param rdfVersion
+    *   the RDF version, in Jelly-RDF 1.2
+    */
   def writeRdf(
       physicalType: PhysicalStreamType,
       triples: Seq[Triple] = Nil,
       quads: Seq[Quad] = Nil,
       rdfStar: Boolean = true,
+      rdfVersion: RdfVersion = RdfVersion.RDF_VERSION_UNSPECIFIED,
       rowsPerFrame: Int = 256,
+      rowLayout: Boolean = false,
   ): Array[Byte] =
     val out = ByteArrayOutputStream()
+    val options =
+      if rowLayout || physicalType == PhysicalStreamType.GRAPHS then
+        JellyOptions.SMALL_ALL_FEATURES.clone().setRdfStar(rdfStar)
+          .setVersion(JellyConstants.PROTO_VERSION_1_1_X)
+      else JellyOptions.SMALL_STRICT.clone().setRdfVersion(rdfVersion)
     val writer = JellyWriterUtil.createWriter(
-      JellyOptions.SMALL_ALL_FEATURES.clone().setPhysicalType(physicalType).setRdfStar(rdfStar),
+      options.setPhysicalType(physicalType),
       rowsPerFrame,
       false,
       true,
@@ -68,8 +87,38 @@ object RdfSparqlTestData:
 
   /** The stream options of a Jelly-RDF stream. */
   def rdfStreamOptions(jelly: Array[Byte]): RdfStreamOptions =
-    JellyUtil.iterateRdfStream(ByteArrayInputStream(jelly)).next().getRows.iterator().next()
-      .getOptions
+    JellyUtil.requireFirstOptions(JellyUtil.iterateRdfStream(ByteArrayInputStream(jelly)).buffered)
+
+  /** Converts Jelly-SPARQL to Jelly-RDF, just like rdf to-jelly does with no options. */
+  def sparqlToRdfMessages(sparql: Array[Byte]): Array[Byte] =
+    val out = ByteArrayOutputStream()
+    RdfSparqlConverter.sparqlToRdf(
+      ByteArrayInputStream(sparql),
+      out,
+      RdfJellySerializationOptions.defaultOptions,
+      streamTypeSet = false,
+      256,
+      delimited = true,
+    )
+    out.toByteArray
+
+  /** Reads a Jelly-RDF stream of RDF Messages into one set of quads per message. */
+  def readRdfMessages(jelly: Array[Byte]): Seq[Set[Quad]] =
+    val messages = ArrayBuffer[Set[Quad]]()
+    var current = Set[Quad]()
+    val handler = new AnyStatementHandler[Node]:
+      override def handleTriple(s: Node, p: Node, o: Node): Unit =
+        current += Quad.create(Quad.defaultGraphIRI, s, p, o)
+      override def handleQuad(s: Node, p: Node, o: Node, g: Node): Unit =
+        current += Quad.create(if Quad.isDefaultGraph(g) then Quad.defaultGraphIRI else g, s, p, o)
+      override def handleMessageEnd(): Unit =
+        messages += current
+        current = Set()
+    val decoder = JenaConverterFactory.getInstance()
+      .anyStatementDecoder(handler, JellyOptions.DEFAULT_SUPPORTED_OPTIONS)
+    JellyUtil.iterateRdfStream(ByteArrayInputStream(jelly)).foreach(decoder.ingestFrame)
+    // The end of the stream ends the last message
+    (messages :+ current).toSeq
 
   /** Reads Jelly-SPARQL into the variables and rows, with each row as a map of the bound values. */
   def readSparql(jelly: Array[Byte]): (Seq[String], Seq[Map[String, Node]]) =

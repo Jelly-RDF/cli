@@ -116,14 +116,12 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
         throw CriticalException("Expected undelimited input, but the file was delimited")
 
   private def validateOptions(frames: Seq[RdfStreamFrame]): RdfStreamOptions =
-    if !frames.head.getRows.asScala.head.hasOptions then
-      throw CriticalException("First row in the input stream does not contain stream options")
-    val streamOptions = frames.head.getRows.asScala.head.getOptions
+    val streamOptions = JellyUtil.firstOptions(frames.iterator.buffered).getOrElse(
+      throw CriticalException("First row in the input stream does not contain stream options"),
+    )
     // If we have expected options, we need to read and validate them
     val expectedOptions = getOptions.optionsFile.map { optionsFileName =>
-      val o = Using.resource(IoUtil.inputStream(optionsFileName)) { is =>
-        JellyUtil.iterateRdfStream(is).next().getRows.asScala.head.getOptions
-      }
+      val o = JellyUtil.loadOptionsFromFile(optionsFileName)
       if streamOptions != o then
         throw CriticalException(
           s"Stream options do not match the expected options in $optionsFileName\n" +
@@ -162,9 +160,9 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
 
       override def handleTriple(subject: Node, predicate: Node, `object`: Node): Unit = {
         val t = Triple.create(subject, predicate, `object`)
-        if !opt.getGeneralizedStatements && StatementUtils.isGeneralized(t) then
+        if !StreamOptionsUtil.allowsGeneralized(opt) && StatementUtils.isGeneralized(t) then
           throw CriticalException(s"Unexpected generalized triple in frame $currentPosition: $t")
-        if !opt.getRdfStar && StatementUtils.hasTripleTerms(t) then
+        if !StreamOptionsUtil.allowsTripleTerms(opt) && StatementUtils.hasTripleTerms(t) then
           throw CriticalException(
             s"Unexpected triple term in triple in frame $currentPosition: $t",
           )
@@ -174,9 +172,9 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
 
       override def handleQuad(subject: Node, predicate: Node, `object`: Node, graph: Node): Unit = {
         val q = Quad.create(graph, subject, predicate, `object`)
-        if !opt.getGeneralizedStatements && StatementUtils.isGeneralized(q) then
+        if !StreamOptionsUtil.allowsGeneralized(opt) && StatementUtils.isGeneralized(q) then
           throw CriticalException(s"Unexpected generalized quad in frame $currentPosition: $q")
-        if !opt.getRdfStar && StatementUtils.hasTripleTerms(q) then
+        if !StreamOptionsUtil.allowsTripleTerms(opt) && StatementUtils.hasTripleTerms(q) then
           throw CriticalException(s"Unexpected triple term in quad in frame $currentPosition: $q")
         // Add the quad to the comparison set, if we are in the compare range
         if currentPosition >= startFrom then jellyStreamConsumer.quad(q)
@@ -190,16 +188,20 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       case Some(end) => frames.take(end)
       case None => frames
 
+    val rowLayout = StreamOptionsUtil.isRowLayout(opt)
     for (frame, i) <- frames2.zipWithIndex do
-      for row <- frame.getRows.asScala do
-        if row.hasOptions && row.getOptions != opt then
-          throw CriticalException(
-            s"Later occurrence of stream options in frame $i does not match the first",
-          )
-        // Push the stream frames through the decoder
-        // This will catch most of the errors
-        currentPosition = i
-        dec.ingestRow(row)
+      // In Jelly-RDF 1.2, the options may be restated with other values, and the decoder checks
+      // that they are valid
+      if rowLayout then
+        for row <- frame.getRows.asScala do
+          if row.hasOptions && row.getOptions != opt then
+            throw CriticalException(
+              s"Later occurrence of stream options in frame $i does not match the first",
+            )
+      // Push the stream frames through the decoder
+      // This will catch most of the errors
+      currentPosition = i
+      dec.ingestFrame(frame)
     // Compare the Jelly data with the reference RDF data, if specified
     maybeRdfComparison.foreach { rdfComparison =>
       val actual = jellyStreamConsumer.asInstanceOf[StreamRdfCollector]
@@ -221,7 +223,7 @@ object RdfValidate extends JellyCommand[RdfValidateOptions]:
       frames: Seq[RdfStreamFrame],
   ): Seq[RdfStreamFrame] =
     if frames.isEmpty then throw CriticalException("Empty input stream")
-    else if frames.head.getRows.isEmpty then
+    else if frames.head.getRows.isEmpty && frames.head.getColumns == null then
       // We want to accept empty frames in the stream, but not empty streams
       if frames.tail.isEmpty then throw CriticalException("All frames are empty")
       skipEmptyFrames(frames.tail)

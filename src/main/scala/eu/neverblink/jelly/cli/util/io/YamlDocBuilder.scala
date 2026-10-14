@@ -56,6 +56,11 @@ object YamlDocBuilder:
   sealed trait YamlScalar extends YamlValue
   case class YamlBlank() extends YamlScalar
   case class YamlEnum(v: String, i: Int) extends YamlScalar
+
+  object YamlEnum:
+    /** A protobuf enum value. */
+    def apply(value: AnyRef, number: Int): YamlEnum =
+      YamlEnum(Option(value).map(_.toString).getOrElse("UNKNOWN"), number)
   case class YamlInt(v: Int) extends YamlScalar
   case class YamlLong(v: Long) extends YamlScalar
   case class YamlBool(v: Boolean) extends YamlScalar

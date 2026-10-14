@@ -1,20 +1,18 @@
 package eu.neverblink.jelly.cli.command.sparql.util
 
 import com.google.protobuf.ByteString
-import eu.neverblink.jelly.cli.command.rdf.util.FrameInfo
+import eu.neverblink.jelly.cli.command.rdf.util.{ColumnInfo, FrameInfo}
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder
 import eu.neverblink.jelly.cli.util.io.YamlDocBuilder.*
-import eu.neverblink.jelly.core.proto.v1.{RdfColumn, RdfLookupEntryPacked}
 import eu.neverblink.jelly.core.proto.v1.sparql.*
-import eu.neverblink.protoc.java.runtime.ProtoMessage
 
 import java.io.OutputStream
 import scala.jdk.CollectionConverters.*
 
 /** Statistics of a single frame of a Jelly-SPARQL stream, or of several frames added together.
   *
-  * With the count statistic, lookup entries and column values are counted one by one (a packed
-  * lookup entry holds many values). With the size statistic, their serialized size is summed.
+  * See [[eu.neverblink.jelly.cli.command.rdf.util.ColumnInfo]] for how the lookup entries and
+  * column values are measured.
   */
 final class SparqlFrameInfo(
     val frameIndex: Long,
@@ -40,11 +38,7 @@ final class SparqlFrameInfo(
     var name: Long = 0
     var prefix: Long = 0
     var datatype: Long = 0
-    var iri: Long = 0
-    var bnode: Long = 0
-    var literal: Long = 0
-    var tripleTerm: Long = 0
-    var layout: Long = 0
+    val columns: ColumnInfo = ColumnInfo()
     var askResult: Long = 0
     var trailer: Long = 0
 
@@ -59,27 +53,10 @@ final class SparqlFrameInfo(
     this.stat.name += other.stat.name
     this.stat.prefix += other.stat.prefix
     this.stat.datatype += other.stat.datatype
-    this.stat.iri += other.stat.iri
-    this.stat.bnode += other.stat.bnode
-    this.stat.literal += other.stat.literal
-    this.stat.tripleTerm += other.stat.tripleTerm
-    this.stat.layout += other.stat.layout
+    this.stat.columns += other.stat.columns
     this.stat.askResult += other.stat.askResult
     this.stat.trailer += other.stat.trailer
     this
-
-  private def isCount: Boolean = statCollector == FrameInfo.CountStatistic
-
-  private def measureAll(messages: Iterable[ProtoMessage[?]]): Long =
-    messages.iterator.map(statCollector.measure).sum
-
-  private def measureLookup(entries: Iterable[RdfLookupEntryPacked]): Long =
-    if isCount then entries.iterator.map(_.getValues.size.toLong).sum
-    else measureAll(entries)
-
-  /** The number of values of one kind in a column, or the size of the fields holding them. */
-  private def measureValues(count: Int, size: => Long): Long =
-    if isCount then count else size
 
   /** @param resultSetStart
     *   whether this is the first frame of a result set
@@ -92,32 +69,15 @@ final class SparqlFrameInfo(
     stat.row += frame.getRowCount
     Option(frame.getOptions).foreach(o => stat.option += statCollector.measure(o))
     stat.variable += frame.getVariables.asScala.iterator.map(statCollector.measure).sum
-    stat.name += measureLookup(frame.getNames.asScala)
-    stat.prefix += measureLookup(frame.getPrefixes.asScala)
-    stat.datatype += measureLookup(frame.getDatatypes.asScala)
-    frame.getColumns.asScala.foreach(processColumn)
+    stat.name += FrameInfo.measureLookup(frame.getNames)
+    stat.prefix += FrameInfo.measureLookup(frame.getPrefixes)
+    stat.datatype += FrameInfo.measureLookup(frame.getDatatypes)
+    frame.getColumns.asScala.foreach(stat.columns.process)
     Option(frame.getAskResult).foreach(r => stat.askResult += statCollector.measure(r))
     Option(frame.getTrailer).foreach { t =>
       stat.trailer += statCollector.measure(t)
       if t.getError.nonEmpty then trailerError = Some(t.getError)
     }
-
-  private def processColumn(c: RdfColumn): Unit =
-    stat.iri += measureValues(
-      c.getNameIds.size,
-      c.getNameIds.computeUInt32SizeNoTag + c.getPrefixIds.computeUInt32SizeNoTag,
-    )
-    stat.literal += measureValues(
-      c.getLexValues.size,
-      c.getLexValues.computeStringSizeNoTag + c.getLiteralKinds.computeUInt32SizeNoTag +
-        c.getLangtags.computeStringSizeNoTag + c.getLangtagDirections.computeUInt32SizeNoTag,
-    )
-    stat.bnode += measureValues(c.getBnodes.size, c.getBnodes.computeStringSizeNoTag)
-    stat.tripleTerm += measureValues(c.getTripleTerms.size, measureAll(c.getTripleTerms.asScala))
-    stat.layout += measureValues(
-      c.getLayouts.size,
-      c.getLayouts.computeUInt32SizeNoTag + c.getKinds.size,
-    )
 
   def format(): Seq[(String, YamlValue)] =
     val name = statCollector.name()
@@ -130,11 +90,7 @@ final class SparqlFrameInfo(
       "name_" + name -> YamlLong(stat.name),
       "prefix_" + name -> YamlLong(stat.prefix),
       "datatype_" + name -> YamlLong(stat.datatype),
-      "iri_value_" + name -> YamlLong(stat.iri),
-      "bnode_value_" + name -> YamlLong(stat.bnode),
-      "literal_value_" + name -> YamlLong(stat.literal),
-      "triple_term_value_" + name -> YamlLong(stat.tripleTerm),
-      "layout_" + name -> YamlLong(stat.layout),
+    ) ++ stat.columns.format().map(_ -> YamlLong(_)) ++ Seq(
       "ask_result_" + name -> YamlLong(stat.askResult),
       "trailer_" + name -> YamlLong(stat.trailer),
     ) ++ trailerError.map(e => "trailer_error" -> YamlString(e))
@@ -168,14 +124,8 @@ object SparqlMetricsPrinter:
     val header = Seq(
       "stream_options" -> YamlMap(
         "stream_name" -> YamlString(options.getStreamName),
-        "stream_type" -> YamlEnum(
-          Option(options.getStreamType).map(_.toString).getOrElse("UNKNOWN"),
-          options.getStreamTypeValue,
-        ),
-        "rdf_version" -> YamlEnum(
-          Option(options.getRdfVersion).map(_.toString).getOrElse("UNKNOWN"),
-          options.getRdfVersionValue,
-        ),
+        "stream_type" -> YamlEnum(options.getStreamType, options.getStreamTypeValue),
+        "rdf_version" -> YamlEnum(options.getRdfVersion, options.getRdfVersionValue),
         "max_name_table_size" -> YamlInt(options.getMaxNameTableSize),
         "max_prefix_table_size" -> YamlInt(options.getMaxPrefixTableSize),
         "max_datatype_table_size" -> YamlInt(options.getMaxDatatypeTableSize),

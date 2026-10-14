@@ -70,15 +70,31 @@ jelly-cli rdf from-jelly input.jelly --out-format=ttl > output.ttl
 You can specify most well-known formats supported by Apache Jena, but also the custom `jelly-text` format. 
 `jelly-text` is a human-readable translation of Jelly binary. It's not meant for machine consumption. It is useful for debugging and inspecting Jelly files.
 
+### Jelly-RDF versions
+
+`jelly-cli` writes Jelly-RDF 1.2 by default, and reads all versions of Jelly-RDF. Jelly-RDF 1.2 is much faster and better compressed than 1.1, so you are encouraged to upgrade your files to the new version.
+
+To upgrade your old Jelly-RDF 1.1 file to 1.2, run:
+
+```shell
+jelly-cli rdf to-jelly input.jelly > output.jelly
+```
+
+If you need files for a reader that only supports Jelly-RDF 1.1, use `--opt.jelly-version=1.1`:
+
+```shell
+jelly-cli rdf to-jelly input.ttl --opt.jelly-version=1.1 > output.jelly
+```
+
 ### Transcode Jelly files
 
-The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm. This algorithm has a limitation: the lookup sizes of the output stream must be greater than or equal to the lookup sizes of the input streams.
+The `rdf transcode` command turns one or more input Jelly streams into a single output stream. It's extremely fast, using a dedicated transcoding algorithm. This algorithm has a limitation: the lookup sizes of the output stream must be greater than or equal to the lookup sizes of the input streams. It only works with Jelly-RDF 1.2 streams.
 
 ```shell
 jelly-cli rdf transcode input.jelly > output.jelly
 ```
 
-If you need other options than that, use `rdf to-jelly` with Jelly input instead. It fully decodes and re-encodes the stream, so it's slower, but you can set any `--opt.*` options. The same works for Jelly-SPARQL with `sparql to-jelly --in-format jelly-sparql`.
+If you need other options than that, or want to turn a Jelly-RDF 1.1 file into 1.2, use `rdf to-jelly` with Jelly input instead. It fully decodes and re-encodes the stream, so it's slower, but you can set any `--opt.*` options. The same works for Jelly-SPARQL with `sparql to-jelly --in-format jelly-sparql`.
 
 ```shell
 jelly-cli rdf to-jelly input.jelly --opt.max-name-table-size=256 > output.jelly
