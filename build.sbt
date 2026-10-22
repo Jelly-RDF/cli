@@ -7,11 +7,8 @@ ThisBuild / scalaVersion := scalaV
 // keys on every startup, so turn the lint off.
 Global / lintUnusedKeysOnLoad := false
 
-resolvers +=
-  "Sonatype OSS Snapshots" at "https://central.sonatype.com/repository/maven-snapshots"
-
 lazy val jenaV = "6.2.0"
-lazy val jellyV = "3.7.3+94-706512c7-SNAPSHOT"
+lazy val jellyV = "4.0.0"
 lazy val graalvmV = "25.4.4.1.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
@@ -67,10 +64,8 @@ lazy val root = (project in file("."))
       "org.slf4j" % "slf4j-simple" % "2.0.20",
       "org.apache.jena" % "jena-core" % jenaV,
       "org.apache.jena" % "jena-arq" % jenaV,
-      // Jelly-JVM 3.7.x pins Jena 5.6.x as a dependency, we must exclude it, because we use Jena 6.x.
-      ("eu.neverblink.jelly" % "jelly-jena" % jellyV).excludeAll(ExclusionRule("org.apache.jena")),
-      ("eu.neverblink.jelly" % "jelly-jena-sparql" % jellyV)
-        .excludeAll(ExclusionRule("org.apache.jena")),
+      "eu.neverblink.jelly" % "jelly-jena" % jellyV,
+      "eu.neverblink.jelly" % "jelly-jena-sparql" % jellyV,
       "com.github.alexarchambault" %% "case-app" % "2.1.1",
       "org.scalatest" %% "scalatest" % "3.2.20" % "test,test-serial",
       "org.yaml" % "snakeyaml" % "2.7" % Test,
