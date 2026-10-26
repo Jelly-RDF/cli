@@ -8,7 +8,7 @@ ThisBuild / scalaVersion := scalaV
 Global / lintUnusedKeysOnLoad := false
 
 lazy val jenaV = "6.2.0"
-lazy val jellyV = "4.0.0"
+lazy val jellyV = "4.0.1"
 lazy val graalvmV = "25.4.4.1.1"
 
 addCommandAlias("fixAll", "scalafixAll; scalafmtAll")
