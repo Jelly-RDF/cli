@@ -66,7 +66,7 @@ lazy val root = (project in file("."))
       "org.apache.jena" % "jena-arq" % jenaV,
       "eu.neverblink.jelly" % "jelly-jena" % jellyV,
       "eu.neverblink.jelly" % "jelly-jena-sparql" % jellyV,
-      "com.github.alexarchambault" %% "case-app" % "2.1.1",
+      "com.github.alexarchambault" %% "case-app" % "2.2.0",
       "org.scalatest" %% "scalatest" % "3.2.20" % "test,test-serial",
       "org.yaml" % "snakeyaml" % "2.7" % Test,
       // For native-image reflection compatibility
