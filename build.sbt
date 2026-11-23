@@ -7,7 +7,7 @@ ThisBuild / scalaVersion := scalaV
 // keys on every startup, so turn the lint off.
 Global / lintUnusedKeysOnLoad := false
 
-lazy val jenaV = "6.2.0"
+lazy val jenaV = "6.3.0"
 lazy val jellyV = "4.0.2"
 lazy val graalvmV = "25.5.5.0.3"
 
