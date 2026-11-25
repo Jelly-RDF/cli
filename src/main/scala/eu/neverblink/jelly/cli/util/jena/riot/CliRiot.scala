@@ -67,11 +67,11 @@ object CliRiot:
         tokenizer: Tokenizer,
         output: StreamRDF,
         context: Context,
-    ): LangRIOT = new LangNTriplesGeneralized(tokenizer, parserProfile, output)
+    ): LangRIOT = new LangNTriplesGeneralized(tokenizer, parserProfile, output, context)
 
   private final class NQuadsReader(parserProfile: ParserProfile) extends BaseReader(parserProfile):
     override def create(
         tokenizer: Tokenizer,
         output: StreamRDF,
         context: Context,
-    ): LangRIOT = new LangNQuadsGeneralized(tokenizer, parserProfile, output)
+    ): LangRIOT = new LangNQuadsGeneralized(tokenizer, parserProfile, output, context)
