@@ -5,12 +5,17 @@ import org.apache.jena.riot.system.{ParserProfile, StreamRDF}
 import org.apache.jena.riot.tokens.{Token, TokenType, Tokenizer}
 import org.apache.jena.riot.{Lang, RDFLanguages}
 import org.apache.jena.sparql.core.Quad
+import org.apache.jena.sparql.util.Context
 
 /** Parser for generalized N-Quads. Heavily inspired by the Jena Riot code:
   * https://github.com/apache/jena/blob/bd97ad4cf731ade857926787dd2df735644a354b/jena-arq/src/main/java/org/apache/jena/riot/lang/LangNQuads.java
   */
-final class LangNQuadsGeneralized(tokens: Tokenizer, profile: ParserProfile, dest: StreamRDF)
-    extends LangNTupleGeneralized[Quad](tokens, profile, dest):
+final class LangNQuadsGeneralized(
+    tokens: Tokenizer,
+    profile: ParserProfile,
+    dest: StreamRDF,
+    context: Context,
+) extends LangNTupleGeneralized[Quad](tokens, profile, dest, context):
 
   // Null for no graph.
   private var currentGraph: Node = null
@@ -20,11 +25,12 @@ final class LangNQuadsGeneralized(tokens: Tokenizer, profile: ParserProfile, des
   /** Method to parse the whole stream of triples, sending each to the sink */
   override protected def runParser(): Unit =
     while (hasNext) {
-      val x = parseOne
+      val x = parseOneStatement
       if (x != null) dest.quad(x)
     }
 
-  override protected def parseOne: Quad =
+  override protected def parseOneStatement: Quad =
+    if (parsePossibleVersion) return null
     val sToken = nextToken
     val s = parseNode("subject", sToken)
     val p = parseNode("predicate", nextToken)

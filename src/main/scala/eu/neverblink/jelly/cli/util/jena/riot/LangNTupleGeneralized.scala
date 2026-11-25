@@ -4,12 +4,17 @@ import org.apache.jena.graph.{Node, NodeFactory, Triple}
 import org.apache.jena.riot.lang.LangNTuple
 import org.apache.jena.riot.system.{ParserProfile, StreamRDF}
 import org.apache.jena.riot.tokens.{Token, TokenType, Tokenizer}
+import org.apache.jena.sparql.util.Context
 
 /** Base class for parsing N-Triples and N-Quads. Heavily inspired by the Jena Riot code:
   * https://github.com/apache/jena/blob/bd97ad4cf731ade857926787dd2df735644a354b/jena-arq/src/main/java/org/apache/jena/riot/lang/LangNTuple.java
   */
-abstract class LangNTupleGeneralized[T](tokens: Tokenizer, profile: ParserProfile, dest: StreamRDF)
-    extends LangNTuple[T](tokens, profile, dest):
+abstract class LangNTupleGeneralized[T](
+    tokens: Tokenizer,
+    profile: ParserProfile,
+    dest: StreamRDF,
+    context: Context,
+) extends LangNTuple[T](tokens, profile, dest, context):
 
   protected final def parseNode(posn: String, token: Token): Node =
     if (token.isEOF) exception(token, "Premature end of file: %s", token)
